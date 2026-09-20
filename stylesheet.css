@@ -23,12 +23,6 @@
     spacing: 6px;
 }
 
-.dynamic-island-eye {
-    background-color: #eaf6ff;
-    border-radius: 999px;
-    box-shadow: 0 0 6px rgba(140, 205, 255, 0.85);
-}
-
 .dynamic-island-icon {
     color: #ffffff;
 }

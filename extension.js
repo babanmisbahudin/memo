@@ -9,6 +9,8 @@ import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import Gvc from 'gi://Gvc';
 
+import { RobotFace } from './robotFace.js';
+
 const ANIM_MS = 300;
 const MPRIS_PREFIX = 'org.mpris.MediaPlayer2.';
 
@@ -17,12 +19,6 @@ const POLL_NEAR_MS = 100;
 const POLL_FAR_MS = 400;
 const POINTER_NEAR_Y = 220;
 const HOVER_PAD = 8;
-
-const EYE_SIZE = 7;
-const EYE_MAX_X = 2.5;
-const EYE_MAX_Y = 1.5;
-const BLINK_MIN_MS = 2500;
-const BLINK_SPREAD_MS = 3500;
 
 class Island {
     constructor() {
@@ -38,8 +34,6 @@ class Island {
         this._recheckId = null;
         this._pollId = null;
         this._pollActive = false;
-        this._blinkId = null;
-        this._blinkActive = false;
 
         this._pill = new St.BoxLayout({
             style_class: 'dynamic-island-pill',
@@ -65,18 +59,8 @@ class Island {
             height: 24,
             visible: false,
         });
-        this._eyes = [];
-        for (let i = 0; i < 2; i++) {
-            const eye = new St.Widget({
-                style_class: 'dynamic-island-eye',
-                width: EYE_SIZE,
-                height: EYE_SIZE,
-                y_align: Clutter.ActorAlign.CENTER,
-            });
-            eye.set_pivot_point(0.5, 0.5);
-            this._dot.add_child(eye);
-            this._eyes.push(eye);
-        }
+        this._face = new RobotFace();
+        this._dot.add_child(this._face.actor);
 
         this._normal = new St.BoxLayout({
             style_class: 'dynamic-island-normal',
@@ -314,72 +298,20 @@ class Island {
         const [dotX, dotY] = this._dot.get_transformed_position();
         const centerX = dotX + this._dot.width / 2;
         const centerY = dotY + this._dot.height / 2;
-        const dx = Math.max(-1, Math.min(1, (pointerX - centerX) / 500));
-        const dy = Math.max(-1, Math.min(1, (pointerY - centerY) / 350));
-
-        for (const eye of this._eyes) {
-            eye.ease({
-                translation_x: dx * EYE_MAX_X,
-                translation_y: dy * EYE_MAX_Y,
-                duration: 180,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            });
-        }
+        this._face.setGaze((pointerX - centerX) / 500, (pointerY - centerY) / 350);
     }
 
     _syncBlink() {
-        const want = this._current === this._dot;
-        if (want === this._blinkActive)
-            return;
-        this._blinkActive = want;
-
-        if (want) {
-            this._scheduleBlink();
-            return;
-        }
-
-        if (this._blinkId) {
-            GLib.source_remove(this._blinkId);
-            this._blinkId = null;
-        }
-        for (const eye of this._eyes) {
-            eye.remove_all_transitions();
-            eye.scale_y = 1;
-            eye.translation_x = 0;
-            eye.translation_y = 0;
-        }
-    }
-
-    _scheduleBlink() {
-        const delay = BLINK_MIN_MS + Math.floor(Math.random() * BLINK_SPREAD_MS);
-        this._blinkId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
-            this._blinkId = null;
-            for (const eye of this._eyes) {
-                eye.ease({
-                    scale_y: 0.15,
-                    duration: 90,
-                    mode: Clutter.AnimationMode.EASE_IN_QUAD,
-                    onComplete: () => eye.ease({
-                        scale_y: 1,
-                        duration: 120,
-                        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                    }),
-                });
-            }
-            if (this._blinkActive)
-                this._scheduleBlink();
-            return GLib.SOURCE_REMOVE;
-        });
+        this._face.setBlinkingEnabled(this._current === this._dot);
     }
 
     destroy() {
         this._pollActive = false;
-        this._blinkActive = false;
-        for (const id of [this._holdId, this._recheckId, this._pollId, this._blinkId]) {
+        for (const id of [this._holdId, this._recheckId, this._pollId]) {
             if (id)
                 GLib.source_remove(id);
         }
-        this._holdId = this._recheckId = this._pollId = this._blinkId = null;
+        this._holdId = this._recheckId = this._pollId = null;
 
         for (const [obj, id] of this._signals)
             obj.disconnect(id);
@@ -387,6 +319,7 @@ class Island {
 
         Main.panel.remove_style_class_name('dynamic-island-panel');
         this._restoreAdopted();
+        this._face.destroy();
         this._pill.destroy();
     }
 }
