@@ -10,6 +10,7 @@ import Shell from 'gi://Shell';
 import Gvc from 'gi://Gvc';
 
 import { RobotFace } from './robotFace.js';
+import { RobotService } from './robotService.js';
 
 const ANIM_MS = 300;
 const MPRIS_PREFIX = 'org.mpris.MediaPlayer2.';
@@ -34,6 +35,8 @@ class Island {
         this._recheckId = null;
         this._pollId = null;
         this._pollActive = false;
+        this._expressionHoldId = null;
+        this._service = null;
 
         this._pill = new St.BoxLayout({
             style_class: 'dynamic-island-pill',
@@ -184,6 +187,39 @@ class Island {
         });
     }
 
+    setService(service) {
+        this._service = service;
+    }
+
+    setExpression(name, durationMs = 0) {
+        if (!this._face.setExpression(name))
+            return;
+
+        if (this._expressionHoldId) {
+            GLib.source_remove(this._expressionHoldId);
+            this._expressionHoldId = null;
+        }
+
+        this._service?.notifyExpressionChanged(name);
+
+        if (durationMs > 0) {
+            this._expressionHoldId = GLib.timeout_add(
+                GLib.PRIORITY_DEFAULT, durationMs, () => {
+                    this._expressionHoldId = null;
+                    this.setExpression('netral');
+                    return GLib.SOURCE_REMOVE;
+                });
+        }
+    }
+
+    resetExpression() {
+        this.setExpression('netral');
+    }
+
+    get expression() {
+        return this._face.expression;
+    }
+
     _resolveTarget() {
         if (this._eventActive)
             return this._event;
@@ -307,11 +343,13 @@ class Island {
 
     destroy() {
         this._pollActive = false;
-        for (const id of [this._holdId, this._recheckId, this._pollId]) {
+        for (const id of [this._holdId, this._recheckId, this._pollId,
+                          this._expressionHoldId]) {
             if (id)
                 GLib.source_remove(id);
         }
         this._holdId = this._recheckId = this._pollId = null;
+        this._expressionHoldId = null;
 
         for (const [obj, id] of this._signals)
             obj.disconnect(id);
@@ -601,6 +639,8 @@ class WifiSource {
 export default class DynamicIslandExtension extends Extension {
     enable() {
         this._island = new Island();
+        this._service = new RobotService(this._island);
+        this._island.setService(this._service);
         this._sources = [];
 
         const trySource = (Cls) => {
@@ -623,6 +663,8 @@ export default class DynamicIslandExtension extends Extension {
     disable() {
         this._sources?.forEach(s => s.destroy());
         this._sources = null;
+        this._service?.destroy();
+        this._service = null;
         this._island?.destroy();
         this._island = null;
     }
