@@ -147,15 +147,23 @@ class Island {
         add(Main.overview, 'hidden');
     }
 
+    // "Sedang dipakai" = ada jendela yang fokus, bukan sekadar yang maximize.
+    // Pemicu maximize saja terlalu sempit: jendela biasa dan jendela setengah
+    // layar tidak pernah memicunya, jadi pill-nya nyaris tidak pernah mengecil.
+    _isWindowInUse(w) {
+        return w && !w.minimized && !w.skip_taskbar && w.is_on_primary_monitor();
+    }
+
     _computeCovered() {
         if (Main.overview.visible)
             return false;
+
+        if (this._isWindowInUse(global.display.focus_window))
+            return true;
+
         const workspace = global.workspace_manager.get_active_workspace();
         return workspace.list_windows().some(w =>
-            !w.minimized &&
-            !w.skip_taskbar &&
-            w.is_on_primary_monitor() &&
-            (w.fullscreen || w.is_maximized()));
+            this._isWindowInUse(w) && (w.fullscreen || w.is_maximized()));
     }
 
     _scheduleRecheck() {
