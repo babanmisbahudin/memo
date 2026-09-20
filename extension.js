@@ -61,14 +61,16 @@ class Island {
             return Clutter.EVENT_STOP;
         });
 
+        // Mata robot adalah anak tetap pill: selalu terlihat, tidak pernah
+        // ditukar. Yang bergantian di sebelahnya hanya isinya.
+        this._face = new RobotFace();
+
+        // Mode "ringkas": kotak kosong, jadi yang tersisa di pill hanya mata.
         this._dot = new St.BoxLayout({
             style_class: 'dynamic-island-dot',
             y_align: Clutter.ActorAlign.CENTER,
-            height: 24,
             visible: false,
         });
-        this._face = new RobotFace();
-        this._dot.add_child(this._face.actor);
 
         this._normal = new St.BoxLayout({
             style_class: 'dynamic-island-normal',
@@ -93,9 +95,12 @@ class Island {
         this._event.add_child(this._icon);
         this._event.add_child(this._label);
 
+        this._pill.add_child(this._face.actor);
         this._pill.add_child(this._dot);
         this._pill.add_child(this._normal);
         this._pill.add_child(this._event);
+
+        this._face.setBlinkingEnabled(true);
 
         this._adopt(Main.panel.statusArea.dateMenu);
         this._adopt(Main.panel.statusArea.quickSettings);
@@ -242,7 +247,6 @@ class Island {
     _update() {
         this._show(this._resolveTarget());
         this._syncPolling();
-        this._syncBlink();
     }
 
     // Clutter does not tween size changes caused by swapping children, so both
@@ -297,8 +301,11 @@ class Island {
         });
     }
 
+    // Mata selalu terlihat sekarang, jadi pelacakan kursor juga selalu jalan.
+    // Ongkosnya ditekan lewat laju adaptif di _pollTick: 100ms saat kursor di
+    // dekat atas layar, 400ms saat jauh.
     _syncPolling() {
-        const want = this._covered && !this._pinned;
+        const want = true;
         if (want === this._pollActive)
             return;
         this._pollActive = want;
@@ -327,8 +334,7 @@ class Island {
             this._update();
         }
 
-        if (this._current === this._dot)
-            this._aimEyes(pointerX, pointerY);
+        this._aimEyes(pointerX, pointerY);
 
         if (!this._pollActive)
             return;
@@ -342,14 +348,10 @@ class Island {
     }
 
     _aimEyes(pointerX, pointerY) {
-        const [dotX, dotY] = this._dot.get_transformed_position();
-        const centerX = dotX + this._dot.width / 2;
-        const centerY = dotY + this._dot.height / 2;
+        const [faceX, faceY] = this._face.actor.get_transformed_position();
+        const centerX = faceX + this._face.actor.width / 2;
+        const centerY = faceY + this._face.actor.height / 2;
         this._face.setGaze((pointerX - centerX) / 500, (pointerY - centerY) / 350);
-    }
-
-    _syncBlink() {
-        this._face.setBlinkingEnabled(this._current === this._dot);
     }
 
     destroy() {

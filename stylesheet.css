@@ -16,11 +16,7 @@
 .dynamic-island-normal,
 .dynamic-island-event {
     spacing: 8px;
-    padding: 0 4px;
-}
-
-.dynamic-island-dot {
-    spacing: 6px;
+    padding: 0 4px 0 8px;
 }
 
 .dynamic-island-icon {
