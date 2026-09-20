@@ -1,0 +1,40 @@
+#panel.dynamic-island-panel {
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+.dynamic-island-pill {
+    background-color: rgba(18, 18, 20, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 999px;
+    box-shadow: 0 3px 14px rgba(0, 0, 0, 0.4);
+    padding: 0 10px;
+    margin: 3px 0;
+}
+
+.dynamic-island-normal,
+.dynamic-island-event {
+    spacing: 8px;
+    padding: 0 4px;
+}
+
+.dynamic-island-dot {
+    spacing: 6px;
+}
+
+.dynamic-island-eye {
+    background-color: #eaf6ff;
+    border-radius: 999px;
+    box-shadow: 0 0 6px rgba(140, 205, 255, 0.85);
+}
+
+.dynamic-island-icon {
+    color: #ffffff;
+}
+
+.dynamic-island-label {
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 13px;
+}
