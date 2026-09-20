@@ -21,6 +21,10 @@ const POLL_FAR_MS = 400;
 const POINTER_NEAR_Y = 220;
 const HOVER_PAD = 8;
 
+// Ekspresi yang menandakan asisten sedang bekerja: wajahnya harus terlihat,
+// jadi island dipaksa ke mode titik selama ekspresi ini aktif.
+const BUSY_EXPRESSIONS = ['mendengar', 'berpikir', 'bicara'];
+
 class Island {
     constructor() {
         this._queue = [];
@@ -37,6 +41,7 @@ class Island {
         this._pollActive = false;
         this._expressionHoldId = null;
         this._service = null;
+        this._faceBusy = false;
 
         this._pill = new St.BoxLayout({
             style_class: 'dynamic-island-pill',
@@ -200,6 +205,8 @@ class Island {
             this._expressionHoldId = null;
         }
 
+        this._faceBusy = BUSY_EXPRESSIONS.includes(name);
+        this._update();
         this._service?.notifyExpressionChanged(name);
 
         if (durationMs > 0) {
@@ -220,9 +227,13 @@ class Island {
         return this._face.expression;
     }
 
+    // Urutan menentukan prioritas: notifikasi dan media menang atas ekspresi
+    // maskot, karena informasinya lebih mendesak daripada wajahnya.
     _resolveTarget() {
         if (this._eventActive)
             return this._event;
+        if (this._faceBusy)
+            return this._dot;
         if (this._pinned || !this._covered || this._pointerNear)
             return this._normal;
         return this._dot;
