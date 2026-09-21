@@ -11,8 +11,25 @@ import Gvc from 'gi://Gvc';
 
 import { RobotFace } from './robotFace.js';
 
+// MediaSource (pemberitahuan ganti lagu lewat MPRIS) DIBUANG, jangan
+// dihidupkan lagi tanpa memahami ini:
+//
+// Penangan 'g-properties-changed' pada proxy MPRIS membuat gnome-shell abort
+// dengan "uncatchable exception" — empat kali, dan tiap kali penggunanya
+// ter-logout. Membungkusnya dengan try/catch TIDAK menolong: crash-nya
+// terjadi di mesin pemanggilan GJS sebelum badan fungsi dijalankan, jadi
+// tidak ada blok catch yang bisa menangkapnya.
+//
+// Dugaan penyebabnya: proxy dibuang dari daftar saat nama D-Bus berganti
+// pemilik tanpa memutus sinyalnya lebih dulu, sehingga sinyal berikutnya
+// memanggil objek yang sudah dilepas. Chrome berganti nama MPRIS tiap kali
+// video dibuka, jadi pemicunya sesering itu.
+//
+// Kalau suatu saat mau dihidupkan lagi: putus sinyal SEBELUM melepas proxy,
+// dan buktikan dengan membuka-tutup video puluhan kali di sesi sungguhan —
+// bukan di sesi headless, karena uji headless gagal menangkap bug ini.
+
 const ANIM_MS = 300;
-const MPRIS_PREFIX = 'org.mpris.MediaPlayer2.';
 
 const RECHECK_MS = 250;
 const POLL_NEAR_MS = 100;
@@ -366,99 +383,6 @@ class NotificationSource {
     }
 }
 
-class MediaSource {
-    constructor(island) {
-        this._island = island;
-        this._players = new Map();
-        this._bus = Gio.DBus.session;
-
-        this._watcherId = this._bus.signal_subscribe(
-            'org.freedesktop.DBus', 'org.freedesktop.DBus', 'NameOwnerChanged',
-            '/org/freedesktop/DBus', null, Gio.DBusSignalFlags.NONE,
-            (conn, sender, path, iface, signal, params) => {
-                try {
-                    const [name, oldOwner, newOwner] = params.deep_unpack();
-                    if (!name?.startsWith(MPRIS_PREFIX))
-                        return;
-                    if (newOwner && !oldOwner)
-                        this._addPlayer(name);
-                    else if (!newOwner)
-                        this._players.delete(name);
-                } catch (e) {
-                    console.error(`[dynamic-island] NameOwnerChanged: ${e}`);
-                }
-            });
-
-        this._bus.call(
-            'org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus', 'ListNames',
-            null, null, Gio.DBusCallFlags.NONE, -1, null,
-            (conn, res) => {
-                try {
-                    const [names] = conn.call_finish(res).deep_unpack();
-                    names.filter(n => n.startsWith(MPRIS_PREFIX)).forEach(n => this._addPlayer(n));
-                } catch (e) {
-                    console.error(`[dynamic-island] mpris list failed: ${e}`);
-                }
-            });
-    }
-
-    _addPlayer(busName) {
-        if (this._players.has(busName))
-            return;
-        Gio.DBusProxy.new(
-            Gio.DBus.session, Gio.DBusProxyFlags.NONE, null,
-            busName, '/org/mpris/MediaPlayer2', 'org.mpris.MediaPlayer2.Player', null,
-            (source, res) => {
-                try {
-                    const proxy = Gio.DBusProxy.new_finish(res);
-                    this._players.set(busName, proxy);
-                    // Seluruh isi callback sinyal WAJIB dibungkus try/catch.
-                    // Exception yang lolos dari callback GObject di GJS tidak
-                    // bisa ditangkap siapa pun dan langsung mematikan seluruh
-                    // gnome-shell — di Wayland itu berarti pengguna ter-logout.
-                    // Inilah yang membuat sesi mati tiap membuka video YouTube:
-                    // Chrome mendaftar sebagai pemutar MPRIS, sinyal ini
-                    // terpanggil dengan muatan yang tak terduga, lalu abort.
-                    proxy.connect('g-properties-changed', (p, changed) => {
-                        try {
-                            const dict = changed?.deep_unpack?.();
-                            if (dict && typeof dict === 'object' &&
-                                ('Metadata' in dict || 'PlaybackStatus' in dict))
-                                this._notify(proxy);
-                        } catch (e) {
-                            console.error(`[dynamic-island] mpris properties: ${e}`);
-                        }
-                    });
-                } catch (e) {
-                    console.error(`[dynamic-island] mpris proxy failed: ${e}`);
-                }
-            });
-    }
-
-    _notify(proxy) {
-        try {
-            const status = proxy.get_cached_property('PlaybackStatus')?.deep_unpack();
-            if (status !== 'Playing')
-                return;
-            const metadata = proxy.get_cached_property('Metadata')?.deep_unpack();
-            if (!metadata)
-                return;
-            const title = metadata['xesam:title'] || 'Playing';
-            const artist = metadata['xesam:artist'];
-            const artistStr = Array.isArray(artist) ? artist.join(', ') : '';
-            const text = artistStr ? `${title} — ${artistStr}` : title;
-            this._island.trigger('audio-x-generic-symbolic', text, 4000);
-        } catch (e) {
-            console.error(`[dynamic-island] mpris notify failed: ${e}`);
-        }
-    }
-
-    destroy() {
-        this._bus.signal_unsubscribe(this._watcherId);
-        this._players.clear();
-    }
-}
-
 class BatterySource {
     constructor(island) {
         this._island = island;
@@ -641,12 +565,11 @@ export default class DynamicIslandExtension extends Extension {
         };
 
         trySource(NotificationSource);
-        trySource(MediaSource);
         trySource(BatterySource);
         trySource(VolumeSource);
         trySource(WifiSource);
 
-        console.log(`[dynamic-island] enabled, ${this._sources.length}/5 sources, adopted ${this._island._adopted.length} panel items`);
+        console.log(`[dynamic-island] enabled, ${this._sources.length}/4 sources, adopted ${this._island._adopted.length} panel items`);
     }
 
     disable() {
