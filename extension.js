@@ -11,6 +11,7 @@ import Gvc from 'gi://Gvc';
 
 import { RobotFace } from './robotFace.js';
 import { RobotService } from './robotService.js';
+import { MemoMenu } from './popup.js';
 
 const ANIM_MS = 300;
 const MPRIS_PREFIX = 'org.mpris.MediaPlayer2.';
@@ -25,11 +26,17 @@ const HOVER_PAD = 8;
 // jadi island dipaksa ke mode titik selama ekspresi ini aktif.
 const BUSY_EXPRESSIONS = ['mendengar', 'berpikir', 'bicara'];
 
+// Denyut mendengar. Berkasnya ditulis layanan suara tiap 100 ms; dibaca di
+// sini hanya selagi ekspresinya 'mendengar', jadi tidak ada polling saat Memo
+// tidak sedang menyimak.
+const LEVEL_BERKAS = '/dev/shm/memo-ngobrol.level';
+const LEVEL_JEDA_MS = 80;
+
 class Island {
     constructor() {
         this._queue = [];
         this._eventActive = false;
-        this._pinned = false;
+        this._menu = null;
         this._covered = false;
         this._pointerNear = false;
         this._current = null;
@@ -42,6 +49,7 @@ class Island {
         this._expressionHoldId = null;
         this._service = null;
         this._faceBusy = false;
+        this._levelId = null;
 
         this._pill = new St.BoxLayout({
             style_class: 'dynamic-island-pill',
@@ -55,9 +63,11 @@ class Island {
             radius: 20,
             mode: Shell.BlurMode.BACKGROUND,
         }));
+        // Klik membuka menu Memo. Sebelumnya klik dipakai untuk mengunci
+        // tampilan penuh; itu dibuang karena menu jauh lebih berguna, dan
+        // hover sudah cukup untuk sekadar mengintip tanggal dan status.
         this._pill.connect('button-press-event', () => {
-            this._pinned = !this._pinned;
-            this._update();
+            this._menu?.toggle();
             return Clutter.EVENT_STOP;
         });
 
@@ -209,6 +219,19 @@ class Island {
         this._service = service;
     }
 
+    setMenu(menu) {
+        this._menu = menu;
+    }
+
+    bukaMenu() {
+        if (this._menu && !this._menu.menu.isOpen)
+            this._menu.toggle();
+    }
+
+    get pillActor() {
+        return this._pill;
+    }
+
     setExpression(name, durationMs = 0) {
         if (!this._face.setExpression(name))
             return;
@@ -219,6 +242,7 @@ class Island {
         }
 
         this._faceBusy = BUSY_EXPRESSIONS.includes(name);
+        this._syncLevel(name === 'mendengar');
         this._update();
         this._service?.notifyExpressionChanged(name);
 
@@ -236,6 +260,31 @@ class Island {
         this.setExpression('netral');
     }
 
+    _syncLevel(want) {
+        if (want === !!this._levelId)
+            return;
+
+        if (!want) {
+            GLib.source_remove(this._levelId);
+            this._levelId = null;
+            this._face.setLevel(0);
+            return;
+        }
+
+        this._levelId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, LEVEL_JEDA_MS, () => {
+            let nilai = 0;
+            try {
+                const [ok, isi] = GLib.file_get_contents(LEVEL_BERKAS);
+                if (ok)
+                    nilai = parseFloat(new TextDecoder().decode(isi)) || 0;
+            } catch (e) {
+                nilai = 0;
+            }
+            this._face.setLevel(nilai);
+            return GLib.SOURCE_CONTINUE;
+        });
+    }
+
     get expression() {
         return this._face.expression;
     }
@@ -247,7 +296,7 @@ class Island {
             return this._event;
         if (this._faceBusy)
             return this._dot;
-        if (this._pinned || !this._covered || this._pointerNear)
+        if (this._menu?.menu.isOpen || !this._covered || this._pointerNear)
             return this._normal;
         return this._dot;
     }
@@ -364,6 +413,7 @@ class Island {
 
     destroy() {
         this._pollActive = false;
+        this._syncLevel(false);
         for (const id of [this._holdId, this._recheckId, this._pollId,
                           this._expressionHoldId]) {
             if (id)
@@ -432,13 +482,17 @@ class MediaSource {
             'org.freedesktop.DBus', 'org.freedesktop.DBus', 'NameOwnerChanged',
             '/org/freedesktop/DBus', null, Gio.DBusSignalFlags.NONE,
             (conn, sender, path, iface, signal, params) => {
-                const [name, oldOwner, newOwner] = params.deep_unpack();
-                if (!name.startsWith(MPRIS_PREFIX))
-                    return;
-                if (newOwner && !oldOwner)
-                    this._addPlayer(name);
-                else if (!newOwner)
-                    this._players.delete(name);
+                try {
+                    const [name, oldOwner, newOwner] = params.deep_unpack();
+                    if (!name?.startsWith(MPRIS_PREFIX))
+                        return;
+                    if (newOwner && !oldOwner)
+                        this._addPlayer(name);
+                    else if (!newOwner)
+                        this._players.delete(name);
+                } catch (e) {
+                    console.error(`[dynamic-island] NameOwnerChanged: ${e}`);
+                }
             });
 
         this._bus.call(
@@ -464,10 +518,22 @@ class MediaSource {
                 try {
                     const proxy = Gio.DBusProxy.new_finish(res);
                     this._players.set(busName, proxy);
+                    // Seluruh isi callback sinyal WAJIB dibungkus try/catch.
+                    // Exception yang lolos dari callback GObject di GJS tidak
+                    // bisa ditangkap siapa pun dan langsung mematikan seluruh
+                    // gnome-shell — di Wayland itu berarti pengguna ter-logout.
+                    // Inilah yang membuat sesi mati tiap membuka video YouTube:
+                    // Chrome mendaftar sebagai pemutar MPRIS, sinyal ini
+                    // terpanggil dengan muatan yang tak terduga, lalu abort.
                     proxy.connect('g-properties-changed', (p, changed) => {
-                        const dict = changed.deep_unpack();
-                        if ('Metadata' in dict || 'PlaybackStatus' in dict)
-                            this._notify(proxy);
+                        try {
+                            const dict = changed?.deep_unpack?.();
+                            if (dict && typeof dict === 'object' &&
+                                ('Metadata' in dict || 'PlaybackStatus' in dict))
+                                this._notify(proxy);
+                        } catch (e) {
+                            console.error(`[dynamic-island] mpris properties: ${e}`);
+                        }
                     });
                 } catch (e) {
                     console.error(`[dynamic-island] mpris proxy failed: ${e}`);
@@ -512,7 +578,13 @@ class BatterySource {
             (source, res) => {
                 try {
                     this._proxy = Gio.DBusProxy.new_finish(res);
-                    this._proxy.connect('g-properties-changed', () => this._check());
+                    this._proxy.connect('g-properties-changed', () => {
+                        try {
+                            this._check();
+                        } catch (e) {
+                            console.error(`[dynamic-island] upower properties: ${e}`);
+                        }
+                    });
                     this._check(true);
                 } catch (e) {
                     console.error(`[dynamic-island] upower proxy failed: ${e}`);
@@ -627,9 +699,13 @@ class WifiSource {
                 try {
                     this._proxy = Gio.DBusProxy.new_finish(res);
                     this._proxy.connect('g-properties-changed', (p, changed) => {
-                        const dict = changed.deep_unpack();
-                        if ('State' in dict)
-                            this._check(dict['State']);
+                        try {
+                            const dict = changed?.deep_unpack?.();
+                            if (dict && typeof dict === 'object' && 'State' in dict)
+                                this._check(dict['State']);
+                        } catch (e) {
+                            console.error(`[dynamic-island] nm properties: ${e}`);
+                        }
                     });
                     const state = this._proxy.get_cached_property('State')?.deep_unpack();
                     if (state !== undefined)
@@ -662,6 +738,15 @@ export default class DynamicIslandExtension extends Extension {
         this._island = new Island();
         this._service = new RobotService(this._island);
         this._island.setService(this._service);
+
+        try {
+            this._menu = new MemoMenu(this._island.pillActor, this._island);
+            this._island.setMenu(this._menu);
+        } catch (e) {
+            // Menu gagal bukan alasan seluruh maskot ikut mati.
+            console.error(`[dynamic-island] menu gagal dibuat: ${e}`);
+            this._menu = null;
+        }
         this._sources = [];
 
         const trySource = (Cls) => {
@@ -684,6 +769,8 @@ export default class DynamicIslandExtension extends Extension {
     disable() {
         this._sources?.forEach(s => s.destroy());
         this._sources = null;
+        this._menu?.destroy();
+        this._menu = null;
         this._service?.destroy();
         this._service = null;
         this._island?.destroy();

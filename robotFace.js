@@ -8,6 +8,13 @@ export const FACE_WIDTH = 44;
 export const FACE_HEIGHT = 26;
 
 const TRANSITION_MS = 260;
+// Denyut mendengar: mata membesar dan menyala mengikuti kekerasan suara yang
+// benar-benar masuk mikrofon. Angkanya datang dari layanan suara, yang memang
+// sudah menghitung RMS tiap 100 ms untuk mendeteksi hening — jadi denyutnya
+// menunjukkan Memo sungguh mendengarmu, bukan animasi yang berputar sendiri.
+const LEVEL_KE_GLOW = 0.55;
+const LEVEL_KE_BUKA = 0.30;
+const LEVEL_REDAM = 0.35;      // perataan, supaya tidak menyentak tiap sampel
 const BLINK_MIN_MS = 2500;
 const BLINK_SPREAD_MS = 3500;
 const BLINK_MS = 220;
@@ -28,6 +35,8 @@ export class RobotFace {
         this._gazeX = 0;
         this._gazeY = 0;
         this._blinkAmount = 0;
+        this._level = 0;
+        this._levelHalus = 0;
         this._repaintCount = 0;
 
         this._blinkEnabled = false;
@@ -86,6 +95,17 @@ export class RobotFace {
         return true;
     }
 
+    // Tingkat suara 0..1 dari layanan suara. Diratakan di sini, bukan di
+    // pengirimnya, supaya sumbernya tetap melaporkan angka apa adanya.
+    setLevel(nilai) {
+        const bersih = Math.max(0, Math.min(1, nilai));
+        if (bersih === this._level && this._levelHalus === bersih)
+            return;
+        this._level = bersih;
+        this._levelHalus += (bersih - this._levelHalus) * LEVEL_REDAM;
+        this.actor.queue_repaint();
+    }
+
     setGaze(x, y) {
         const clampedX = Math.max(-1, Math.min(1, x));
         const clampedY = Math.max(-1, Math.min(1, y));
@@ -132,6 +152,12 @@ export class RobotFace {
         params.gazeX += this._gazeX;
         params.gazeY += this._gazeY;
         params.open *= 1 - this._blinkAmount;
+
+        if (this._levelHalus > 0.01) {
+            params.glow = Math.min(1, params.glow + this._levelHalus * LEVEL_KE_GLOW);
+            params.open *= 1 + this._levelHalus * LEVEL_KE_BUKA;
+        }
+
         return params;
     }
 

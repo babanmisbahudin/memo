@@ -28,3 +28,52 @@
     font-weight: 600;
     font-size: 13px;
 }
+
+.memo-menu .popup-menu-content {
+    min-width: 300px;
+}
+
+.memo-entri {
+    margin: 4px 0;
+}
+
+.memo-judul {
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 12px;
+}
+
+.memo-kosong {
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+}
+
+.memo-tugas-selesai {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.memo-isyarat-pose {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 13px;
+}
+
+.memo-isyarat-aksi {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13px;
+}
+
+.memo-pratinjau {
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.memo-status {
+    color: rgba(150, 210, 255, 0.9);
+    font-size: 12px;
+    font-style: italic;
+}
+
+.memo-sekunder {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 12px;
+}
