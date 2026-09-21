@@ -10,8 +10,6 @@ import Shell from 'gi://Shell';
 import Gvc from 'gi://Gvc';
 
 import { RobotFace } from './robotFace.js';
-import { RobotService } from './robotService.js';
-import { MemoMenu } from './popup.js';
 
 const ANIM_MS = 300;
 const MPRIS_PREFIX = 'org.mpris.MediaPlayer2.';
@@ -22,21 +20,10 @@ const POLL_FAR_MS = 400;
 const POINTER_NEAR_Y = 220;
 const HOVER_PAD = 8;
 
-// Ekspresi yang menandakan asisten sedang bekerja: wajahnya harus terlihat,
-// jadi island dipaksa ke mode titik selama ekspresi ini aktif.
-const BUSY_EXPRESSIONS = ['mendengar', 'berpikir', 'bicara'];
-
-// Denyut mendengar. Berkasnya ditulis layanan suara tiap 100 ms; dibaca di
-// sini hanya selagi ekspresinya 'mendengar', jadi tidak ada polling saat Memo
-// tidak sedang menyimak.
-const LEVEL_BERKAS = '/dev/shm/memo-ngobrol.level';
-const LEVEL_JEDA_MS = 80;
-
 class Island {
     constructor() {
         this._queue = [];
         this._eventActive = false;
-        this._menu = null;
         this._covered = false;
         this._pointerNear = false;
         this._current = null;
@@ -46,10 +33,6 @@ class Island {
         this._recheckId = null;
         this._pollId = null;
         this._pollActive = false;
-        this._expressionHoldId = null;
-        this._service = null;
-        this._faceBusy = false;
-        this._levelId = null;
 
         this._pill = new St.BoxLayout({
             style_class: 'dynamic-island-pill',
@@ -63,14 +46,6 @@ class Island {
             radius: 20,
             mode: Shell.BlurMode.BACKGROUND,
         }));
-        // Klik membuka menu Memo. Sebelumnya klik dipakai untuk mengunci
-        // tampilan penuh; itu dibuang karena menu jauh lebih berguna, dan
-        // hover sudah cukup untuk sekadar mengintip tanggal dan status.
-        this._pill.connect('button-press-event', () => {
-            this._menu?.toggle();
-            return Clutter.EVENT_STOP;
-        });
-
         // Mata robot adalah anak tetap pill: selalu terlihat, tidak pernah
         // ditukar. Yang bergantian di sebelahnya hanya isinya.
         this._face = new RobotFace();
@@ -215,88 +190,10 @@ class Island {
         });
     }
 
-    setService(service) {
-        this._service = service;
-    }
-
-    setMenu(menu) {
-        this._menu = menu;
-    }
-
-    bukaMenu() {
-        if (this._menu && !this._menu.menu.isOpen)
-            this._menu.toggle();
-    }
-
-    get pillActor() {
-        return this._pill;
-    }
-
-    setExpression(name, durationMs = 0) {
-        if (!this._face.setExpression(name))
-            return;
-
-        if (this._expressionHoldId) {
-            GLib.source_remove(this._expressionHoldId);
-            this._expressionHoldId = null;
-        }
-
-        this._faceBusy = BUSY_EXPRESSIONS.includes(name);
-        this._syncLevel(name === 'mendengar');
-        this._update();
-        this._service?.notifyExpressionChanged(name);
-
-        if (durationMs > 0) {
-            this._expressionHoldId = GLib.timeout_add(
-                GLib.PRIORITY_DEFAULT, durationMs, () => {
-                    this._expressionHoldId = null;
-                    this.setExpression('netral');
-                    return GLib.SOURCE_REMOVE;
-                });
-        }
-    }
-
-    resetExpression() {
-        this.setExpression('netral');
-    }
-
-    _syncLevel(want) {
-        if (want === !!this._levelId)
-            return;
-
-        if (!want) {
-            GLib.source_remove(this._levelId);
-            this._levelId = null;
-            this._face.setLevel(0);
-            return;
-        }
-
-        this._levelId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, LEVEL_JEDA_MS, () => {
-            let nilai = 0;
-            try {
-                const [ok, isi] = GLib.file_get_contents(LEVEL_BERKAS);
-                if (ok)
-                    nilai = parseFloat(new TextDecoder().decode(isi)) || 0;
-            } catch (e) {
-                nilai = 0;
-            }
-            this._face.setLevel(nilai);
-            return GLib.SOURCE_CONTINUE;
-        });
-    }
-
-    get expression() {
-        return this._face.expression;
-    }
-
-    // Urutan menentukan prioritas: notifikasi dan media menang atas ekspresi
-    // maskot, karena informasinya lebih mendesak daripada wajahnya.
     _resolveTarget() {
         if (this._eventActive)
             return this._event;
-        if (this._faceBusy)
-            return this._dot;
-        if (this._menu?.menu.isOpen || !this._covered || this._pointerNear)
+        if (!this._covered || this._pointerNear)
             return this._normal;
         return this._dot;
     }
@@ -413,14 +310,11 @@ class Island {
 
     destroy() {
         this._pollActive = false;
-        this._syncLevel(false);
-        for (const id of [this._holdId, this._recheckId, this._pollId,
-                          this._expressionHoldId]) {
+        for (const id of [this._holdId, this._recheckId, this._pollId]) {
             if (id)
                 GLib.source_remove(id);
         }
         this._holdId = this._recheckId = this._pollId = null;
-        this._expressionHoldId = null;
 
         for (const [obj, id] of this._signals)
             obj.disconnect(id);
@@ -736,17 +630,6 @@ class WifiSource {
 export default class DynamicIslandExtension extends Extension {
     enable() {
         this._island = new Island();
-        this._service = new RobotService(this._island);
-        this._island.setService(this._service);
-
-        try {
-            this._menu = new MemoMenu(this._island.pillActor, this._island);
-            this._island.setMenu(this._menu);
-        } catch (e) {
-            // Menu gagal bukan alasan seluruh maskot ikut mati.
-            console.error(`[dynamic-island] menu gagal dibuat: ${e}`);
-            this._menu = null;
-        }
         this._sources = [];
 
         const trySource = (Cls) => {
@@ -769,10 +652,6 @@ export default class DynamicIslandExtension extends Extension {
     disable() {
         this._sources?.forEach(s => s.destroy());
         this._sources = null;
-        this._menu?.destroy();
-        this._menu = null;
-        this._service?.destroy();
-        this._service = null;
         this._island?.destroy();
         this._island = null;
     }
