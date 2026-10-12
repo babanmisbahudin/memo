@@ -138,6 +138,9 @@ class Island {
 
         this.menu.connect('open-state-changed', (_m, open) => {
             if (open) {
+                // Seperti Coucou: panel naik menutupi strip island, jadi
+                // baris teratas langsung tab + kontrol, bukan jam/notifikasi.
+                this.menu.actor.set_style(`-boxpointer-gap: ${-Math.round(this._pill.height)}px;`);
                 this._pill.add_style_class_name('memo-terbuka');
                 this._panel.segarkan(this._agen);
                 this._panel.pilihTab(this._agen.izin.length ? 'beranda' : this._panel._tab === 'atur' ? 'beranda' : this._panel._tab);
