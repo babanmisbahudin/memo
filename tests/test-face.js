@@ -23,9 +23,9 @@ const KEYS = ['open', 'curve', 'width', 'gazeX', 'gazeY', 'tilt', 'glow', 'hue',
 check('NEUTRAL punya semua kunci',
     KEYS.every(k => typeof NEUTRAL[k] === 'number'));
 
-check('ada 8 ekspresi', Object.keys(EXPRESSIONS).length === 8);
+check('ada 11 ekspresi', Object.keys(EXPRESSIONS).length === 11);
 
-for (const name of ['netral', 'mendengar', 'berpikir', 'bicara', 'senang', 'bingung', 'error', 'tidur'])
+for (const name of ['netral', 'mendengar', 'berpikir', 'bicara', 'senang', 'bingung', 'error', 'tidur', 'shutdown', 'restart', 'logout'])
     check(`ekspresi "${name}" terdaftar`, name in EXPRESSIONS);
 
 for (const name of Object.keys(EXPRESSIONS)) {

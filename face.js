@@ -10,9 +10,11 @@ export const NEUTRAL = {
     gazeX: 0,     // -1 kiri, 1 kanan
     gazeY: 0,     // -1 atas, 1 bawah
     tilt: 0,      // satu mata naik, satu turun
-    glow: 0.55,   // kuat cahaya sekeliling mata
-    hue: 205,     // 205 biru-putih, 0 merah
+    glow: 0.55,   // kuat cahaya LED sekeliling wajah
+    hue: 120,     // 120 hijau (LED khas robot), 0 merah
     cross: 0,     // kadar bentuk silang
+    iconAlpha: 0, // 0 = wajah normal, 1 = tampilkan ikon sistem
+    iconKind: 'none', // 'none' | 'shutdown' | 'restart' | 'logout'
 };
 
 export const EXPRESSIONS = {
@@ -24,6 +26,9 @@ export const EXPRESSIONS = {
     bingung: { open: 1.1, width: 1.15, tilt: 0.8 },
     error: { open: 1, glow: 1, hue: 0, cross: 1 },
     tidur: { open: 0.06, curve: 0, glow: 0.2 },
+    shutdown: { iconAlpha: 1, iconKind: 'shutdown', hue: 0, glow: 0.9 },
+    restart: { iconAlpha: 1, iconKind: 'restart', hue: 45, glow: 0.9 },
+    logout: { iconAlpha: 1, iconKind: 'logout', hue: 210, glow: 0.9 },
 };
 
 export function resolveExpression(name) {
@@ -38,110 +43,130 @@ export function resolveExpression(name) {
 export function lerpParams(from, to, t) {
     const k = Math.max(0, Math.min(1, t));
     const out = {};
-    for (const key of Object.keys(NEUTRAL))
-        out[key] = from[key] + (to[key] - from[key]) * k;
+    for (const key of Object.keys(NEUTRAL)) {
+        if (typeof NEUTRAL[key] === 'number')
+            out[key] = from[key] + (to[key] - from[key]) * k;
+        else
+            out[key] = to[key];
+    }
     return out;
 }
 
-const EYE_RADIUS = 3.4;
-const EYE_SPREAD = 7;
-const GAZE_RANGE = 3.2;
-const TILT_RANGE = 2.2;
-
-function hueToRgb(hue) {
-    const saturation = 0.8;
-    const lightness = 0.88;
-    const c = (1 - Math.abs(2 * lightness - 1)) * saturation;
-    const sector = ((hue % 360) + 360) % 360 / 60;
+function pixColor(hue, alpha) {
+    const h = ((hue % 360) + 360) % 360;
+    const s = 0.85;
+    const l = 0.55;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const sector = h / 60;
     const x = c * (1 - Math.abs((sector % 2) - 1));
-
-    let base;
-    if (sector < 1) base = [c, x, 0];
-    else if (sector < 2) base = [x, c, 0];
-    else if (sector < 3) base = [0, c, x];
-    else if (sector < 4) base = [0, x, c];
-    else if (sector < 5) base = [x, 0, c];
-    else base = [c, 0, x];
-
-    const m = lightness - c / 2;
-    return base.map(v => v + m);
+    let r, g, b;
+    if (sector < 1) [r, g, b] = [c, x, 0];
+    else if (sector < 2) [r, g, b] = [x, c, 0];
+    else if (sector < 3) [r, g, b] = [0, c, x];
+    else if (sector < 4) [r, g, b] = [0, x, c];
+    else if (sector < 5) [r, g, b] = [x, 0, c];
+    else [r, g, b] = [c, 0, x];
+    const m = l - c / 2;
+    return [r + m, g + m, b + m, alpha];
 }
+
+
+const ICONS = {
+    shutdown: [
+        '..X..',
+        '..X..',
+        '.X.X.',
+        'X...X',
+        '.XXX.',
+    ],
+    restart: [
+        '.XXX.',
+        'X..X.',
+        'X...',
+        'X...',
+        '.XXX',
+    ],
+    logout: [
+        '...X.',
+        '....X',
+        'XXXXX',
+        '....X',
+        '...X.',
+    ],
+};
+
 
 function smoothstep(edge0, edge1, value) {
     const t = Math.max(0, Math.min(1, (value - edge0) / (edge1 - edge0)));
     return t * t * (3 - 2 * t);
 }
 
-function roundedRect(cr, x, y, width, height, radius) {
-    const r = Math.min(radius, width / 2, height / 2);
-    cr.newSubPath();
-    cr.arc(x + width - r, y + r, r, -Math.PI / 2, 0);
-    cr.arc(x + width - r, y + height - r, r, 0, Math.PI / 2);
-    cr.arc(x + r, y + height - r, r, Math.PI / 2, Math.PI);
-    cr.arc(x + r, y + r, r, Math.PI, 1.5 * Math.PI);
-    cr.closePath();
-}
-
-// Bentuk mata digambar bertumpuk dengan alpha masing-masing, bukan dipilih
-// dengan percabangan — percabangan keras membuat bentuk meloncat di tengah
-// transisi antar ekspresi.
+// Hanya dua mata LED, tanpa kepala/layar/mulut. Tiap ekspresi adalah bentuk
+// piksel mata yang berbeda; semua diblend dengan alpha supaya transisi mulus.
 export function drawFace(cr, width, height, params) {
     const centerX = width / 2;
     const centerY = height / 2;
-    const [r, g, b] = hueToRgb(params.hue);
+
+    const cell = 2.1;
+    const alpha = 0.72 + 0.28 * params.glow;
+    const color = [0.95, 0.97, 1, alpha]; // mata putih
+    const iconColor = pixColor(params.hue, alpha);
+    const iconWeight = Math.max(0, Math.min(1, params.iconAlpha));
 
     const crossWeight = Math.max(0, Math.min(1, params.cross));
-    // Peralihan bulat->busur dibuat tegas. Kalau dicampur rata, nilai tengah
-    // menghasilkan gumpalan yang tidak terbaca sebagai bulat maupun busur;
-    // dengan smoothstep zona campur itu sempit dan cepat terlewati.
     const arcWeight = smoothstep(0.35, 0.8, params.curve) * (1 - crossWeight);
     const plainWeight = Math.max(0, 1 - crossWeight - arcWeight);
 
-    for (const side of [-1, 1]) {
-        const x = centerX + side * EYE_SPREAD * params.width + params.gazeX * GAZE_RANGE;
-        const y = centerY + params.gazeY * GAZE_RANGE + side * params.tilt * TILT_RANGE;
+    function led(cx, cy, c) {
+        cr.setSourceRGBA(...c);
+        cr.rectangle(cx - cell * 0.375, cy - cell * 0.375, cell * 0.75, cell * 0.75);
+        cr.fill();
+    }
 
-        // Cahaya harus gradien yang memudar habis. Lingkaran beralpha rata
-        // terbaca sebagai cakram abu-abu, dan dua cakram bersebelahan mulai
-        // terlihat seperti kepala — bukan mata bercahaya.
-        if (params.glow > 0.01) {
-            const glowRadius = EYE_RADIUS + 4.5 * params.glow;
-            const glow = new cairo.RadialGradient(x, y, EYE_RADIUS * 0.5, x, y, glowRadius);
-            glow.addColorStopRGBA(0, r, g, b, 0.45 * params.glow);
-            glow.addColorStopRGBA(0.55, r, g, b, 0.16 * params.glow);
-            glow.addColorStopRGBA(1, r, g, b, 0);
-            cr.setSource(glow);
-            cr.arc(x, y, glowRadius, 0, 2 * Math.PI);
-            cr.fill();
+    if (iconWeight > 0.01) {
+        const rows = ICONS[params.iconKind];
+        if (rows) {
+            const w = rows[0].length * cell;
+            const h = rows.length * cell;
+            const sx = centerX - w / 2;
+            const sy = centerY - h / 2;
+            const a = [iconColor[0], iconColor[1], iconColor[2], iconColor[3] * iconWeight];
+            for (let r = 0; r < rows.length; r++)
+                for (let c = 0; c < rows[r].length; c++)
+                    if (rows[r][c] === 'X')
+                        led(sx + c * cell + cell / 2, sy + r * cell + cell / 2, a);
         }
+        return;
+    }
+
+    for (const side of [-1, 1]) {
+        const ex = centerX + side * 7.5 * params.width + params.gazeX * 4;
+        const ey = centerY + params.gazeY * 3 + side * params.tilt * 2.5;
 
         if (plainWeight > 0.01) {
-            const eyeHeight = Math.max(0.7, EYE_RADIUS * 2 * params.open);
-            cr.setSourceRGBA(r, g, b, plainWeight);
-            roundedRect(cr, x - EYE_RADIUS, y - eyeHeight / 2,
-                EYE_RADIUS * 2, eyeHeight, EYE_RADIUS);
-            cr.fill();
+            // Mata blok 3 kolom; tinggi menyusut saat berkedip.
+            const lit = Math.max(1, Math.round(params.open * 3));
+            const dy0 = ey - ((lit - 1) * cell) / 2;
+            for (let dc = -1; dc <= 1; dc++)
+                for (let dr = 0; dr < lit; dr++)
+                    led(ex + dc * cell, dy0 + dr * cell,
+                        [color[0], color[1], color[2], color[3] * plainWeight]);
         }
 
         if (arcWeight > 0.01) {
-            cr.setSourceRGBA(r, g, b, arcWeight);
-            cr.setLineWidth(2.1);
-            cr.setLineCap(cairo.LineCap.ROUND);
-            cr.newSubPath();
-            cr.arc(x, y + EYE_RADIUS * 0.45, EYE_RADIUS + 0.7, Math.PI, 2 * Math.PI);
-            cr.stroke();
+            const a = [color[0], color[1], color[2], color[3] * arcWeight];
+            led(ex - cell, ey + cell * 0.5, a);
+            led(ex, ey - cell * 0.5, a);
+            led(ex + cell, ey + cell * 0.5, a);
         }
 
         if (crossWeight > 0.01) {
-            const arm = EYE_RADIUS + 0.4;
-            cr.setSourceRGBA(r, g, b, crossWeight);
-            cr.setLineWidth(1.9);
-            cr.setLineCap(cairo.LineCap.ROUND);
-            cr.moveTo(x - arm, y - arm);
-            cr.lineTo(x + arm, y + arm);
-            cr.moveTo(x + arm, y - arm);
-            cr.lineTo(x - arm, y + arm);
-            cr.stroke();
+            const a = [color[0], color[1], color[2], color[3] * crossWeight];
+            led(ex - cell, ey - cell, a);
+            led(ex + cell, ey - cell, a);
+            led(ex, ey, a);
+            led(ex - cell, ey + cell, a);
+            led(ex + cell, ey + cell, a);
         }
     }
 }

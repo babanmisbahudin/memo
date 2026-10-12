@@ -27,6 +27,7 @@
     color: #ffffff;
     font-weight: 600;
     font-size: 13px;
+    max-width: 460px;
 }
 
 .memo-menu .popup-menu-content {
@@ -77,3 +78,82 @@
     color: rgba(255, 255, 255, 0.55);
     font-size: 12px;
 }
+
+.memo-companion {
+    padding: 14px 18px;
+}
+
+/* Kartu izin ala Coucou */
+.memo-izin {
+    spacing: 6px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background-color: rgba(255, 170, 0, 0.10);
+    border: 1px solid rgba(255, 170, 0, 0.35);
+}
+
+.memo-izin-judul {
+    font-weight: 700;
+    font-size: 12px;
+    color: #ffcc66;
+}
+
+.memo-izin-perintah {
+    font-family: monospace;
+    font-size: 12px;
+    color: #ffffff;
+    background-color: rgba(0, 0, 0, 0.35);
+    padding: 6px 8px;
+    border-radius: 8px;
+    max-width: 380px;
+}
+
+.memo-izin-tombol {
+    spacing: 6px;
+}
+
+.memo-tombol {
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+.memo-tombol:hover,
+.memo-tombol:focus {
+    background-color: rgba(255, 255, 255, 0.22);
+}
+
+.memo-tombol-ya {
+    background-color: rgba(46, 160, 67, 0.85);
+}
+
+.memo-tombol-ya:hover,
+.memo-tombol-ya:focus {
+    background-color: rgba(46, 160, 67, 1);
+}
+
+.memo-tombol-tidak {
+    background-color: rgba(218, 54, 51, 0.85);
+}
+
+.memo-tombol-tidak:hover,
+.memo-tombol-tidak:focus {
+    background-color: rgba(218, 54, 51, 1);
+}
+
+/* Daftar sesi per status */
+.memo-sesi-butuh_izin { color: #ffcc66; font-size: 12px; max-width: 380px; }
+.memo-sesi-tanya { color: #ffcc66; font-size: 12px; max-width: 380px; }
+.memo-sesi-kerja { color: #8fd18f; font-size: 12px; max-width: 380px; }
+.memo-sesi-berpikir { color: #96d2ff; font-size: 12px; max-width: 380px; }
+.memo-sesi-selesai { color: #b4f0b4; font-size: 12px; max-width: 380px; }
+.memo-sesi-galat { color: #ff8a80; font-size: 12px; max-width: 380px; }
+.memo-sesi-idle { color: rgba(255, 255, 255, 0.55); font-size: 12px; max-width: 380px; }
+
+.memo-pill-aktif { color: rgba(255, 255, 255, 0.9); font-size: 12px; max-width: 380px; }
+.memo-pill-mati { color: rgba(255, 255, 255, 0.45); font-size: 12px; max-width: 380px; }
+.memo-kabar { color: rgba(150, 210, 255, 0.9); font-size: 12px; max-width: 380px; }
+.memo-kosong { max-width: 380px; }

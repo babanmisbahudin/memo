@@ -8,8 +8,14 @@ import Gio from 'gi://Gio';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import Gvc from 'gi://Gvc';
+import Pango from 'gi://Pango';
 
 import { RobotFace } from './robotFace.js';
+import { RobotService } from './robotService.js';
+import { AgenStore, tickerSesi } from './agenStore.js';
+import { MemoShortcuts } from './shortcut.js';
+import { MemoCompanion } from './companion.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 // MediaSource (pemberitahuan ganti lagu lewat MPRIS) DIBUANG, jangan
 // dihidupkan lagi tanpa memahami ini:
@@ -30,6 +36,18 @@ import { RobotFace } from './robotFace.js';
 // bukan di sesi headless, karena uji headless gagal menangkap bug ini.
 
 const ANIM_MS = 300;
+const SHM = GLib.getenv('MEMO_SHM') || '/dev/shm';
+
+// Menulis berkas /dev/shm untuk berkomunikasi dengan daemon Memo. Memakai
+// GLib.file_set_contents, bukan `echo "..." > berkas` lewat shell — teks
+// ketikan pengguna bisa memuat tanda kutip yang merusak perintah shell.
+function tulisBerkas(path, isi) {
+    try {
+        GLib.file_set_contents(path, isi);
+    } catch (e) {
+        console.error(`[dynamic-island] gagal menulis ${path}: ${e}`);
+    }
+}
 
 const RECHECK_MS = 250;
 const POLL_NEAR_MS = 100;
@@ -50,6 +68,14 @@ class Island {
         this._recheckId = null;
         this._pollId = null;
         this._pollActive = false;
+        this._expressionHoldId = null;
+        this._service = null;
+        this._companion = null;
+        this._tintHue = 120;
+        this._tintGlow = 0;
+        this._eventIsi = null;
+        this._izinTampil = null;
+        this._aktivitas = null;
 
         this._pill = new St.BoxLayout({
             style_class: 'dynamic-island-pill',
@@ -65,7 +91,330 @@ class Island {
         }));
         // Mata robot adalah anak tetap pill: selalu terlihat, tidak pernah
         // ditukar. Yang bergantian di sebelahnya hanya isinya.
+        
+        
         this._face = new RobotFace();
+        
+        // --- Memo Menu ---
+        this.menu = new PopupMenu.PopupMenu(this._pill, 0.5, St.Side.TOP);
+        this.menu.actor.add_style_class_name('memo-menu');
+        Main.uiGroup.add_child(this.menu.actor);
+        this.menuManager = new PopupMenu.PopupMenuManager({ actor: this._pill });
+        this.menuManager.addMenu(this.menu);
+        
+        // Header
+        const headerItem = new PopupMenu.PopupMenuItem('🤖 Memo', { reactive: false });
+        headerItem.label.add_style_class_name('memo-judul');
+        this.menu.addMenuItem(headerItem);
+        
+        // Status Label (Memantau file)
+        const statusItem = new PopupMenu.PopupMenuItem('Status: Menunggu instruksi...', { reactive: false });
+        statusItem.label.add_style_class_name('memo-status');
+        this.menu.addMenuItem(statusItem);
+        
+        this._statusPollId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
+            if (!this.menu.isOpen) return GLib.SOURCE_CONTINUE;
+            try {
+                let [ok, contents] = GLib.file_get_contents(`${SHM}/memo-ngobrol.status`);
+                if (ok) {
+                    let text = new TextDecoder().decode(contents).trim();
+                    statusItem.label.text = text ? `Status: ${text}` : 'Status: Menunggu instruksi...';
+                } else {
+                    statusItem.label.text = 'Status: Siap mendengarkan';
+                }
+            } catch (e) {
+                statusItem.label.text = 'Status: Menunggu instruksi...';
+            }
+            return GLib.SOURCE_CONTINUE;
+        });
+
+        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        // --- Sesi agen live ala Coucou ---
+        const agenHeader = new PopupMenu.PopupMenuItem('Sesi Agen', { reactive: false });
+        agenHeader.label.add_style_class_name('memo-sekunder');
+        this.menu.addMenuItem(agenHeader);
+
+        // Kartu izin: perintah PERSIS yang akan dijalankan + tiga tombol.
+        this._kartuIzin = new PopupMenu.PopupBaseMenuItem({ reactive: false, can_focus: false });
+        const kartu = new St.BoxLayout({ vertical: true, x_expand: true, style_class: 'memo-izin' });
+        this._izinJudul = new St.Label({ style_class: 'memo-izin-judul' });
+        this._izinPerintah = new St.Label({ style_class: 'memo-izin-perintah' });
+        this._izinPerintah.clutter_text.line_wrap = true;
+        this._izinPerintah.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+        this._izinSisa = new St.Label({ style_class: 'memo-sekunder' });
+        this._tombolIzin = {};
+        const barisTombol = new St.BoxLayout({ style_class: 'memo-izin-tombol', x_expand: true });
+        for (const [label, keputusan, kelas] of [
+            ['Izinkan', 'allow', 'memo-tombol-ya'],
+            ['Tolak', 'deny', 'memo-tombol-tidak'],
+            ['Selalu', 'always', 'memo-tombol-selalu'],
+        ]) {
+            const b = new St.Button({ label, style_class: `memo-tombol ${kelas}`, x_expand: true, can_focus: true });
+            b.connect('clicked', () => this.jawabIzin(keputusan));
+            this._tombolIzin[keputusan] = b;
+            barisTombol.add_child(b);
+        }
+        kartu.add_child(this._izinJudul);
+        kartu.add_child(this._izinPerintah);
+        kartu.add_child(barisTombol);
+        kartu.add_child(this._izinSisa);
+        this._kartuIzin.add_child(kartu);
+        this._kartuIzin.visible = false;
+        this.menu.addMenuItem(this._kartuIzin);
+
+        this._seksiSesi = new PopupMenu.PopupMenuSection();
+        this.menu.addMenuItem(this._seksiSesi);
+
+        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
+        // Input Teks
+        const entryItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
+        const entry = new St.Entry({
+            style_class: 'memo-entri',
+            can_focus: true,
+            hint_text: 'Ketik perintah... (Enter)',
+            x_expand: true,
+        });
+        entryItem.actor.add_child(entry);
+        this.menu.addMenuItem(entryItem);
+        
+        // Tombol Suara
+        const voiceItem = new PopupMenu.PopupImageMenuItem('Bicara / Rekam Suara', 'audio-input-microphone-symbolic');
+        voiceItem.connect('activate', () => {
+            tulisBerkas(`${SHM}/memo-ngobrol.minta`, '');
+            this.menu.close();
+        });
+        this.menu.addMenuItem(voiceItem);
+
+        const aksiSub = new PopupMenu.PopupSubMenuMenuItem('Tindakan cepat');
+        const addAksi = (label, icon, cmd) => {
+            const item = new PopupMenu.PopupImageMenuItem(label, icon);
+            item.connect('activate', () => {
+                tulisBerkas(`${SHM}/memo-ngobrol.teks`, cmd);
+                this.menu.close();
+            });
+            aksiSub.menu.addMenuItem(item);
+        };
+        addAksi('Deploy ke Vercel', 'network-server-symbolic', 'Tolong deploy proyek ini ke vercel');
+        addAksi('Cek GitHub PR', 'emblem-shared-symbolic', 'Cek status PR di GitHub');
+        addAksi('Status Render', 'applications-internet-symbolic', 'Bagaimana status server di Render?');
+
+        const otakSub = new PopupMenu.PopupSubMenuMenuItem('Otak AI');
+        const OTAK = [['opencode', 'OpenCode'], ['claude', 'Claude (CLI)'], ['gemini', 'Gemini API'], ['ollama', 'Ollama (lokal)']];
+        const itemOtak = [];
+        this._segarkanOtak = () => {
+            let aktif = 'otomatis';
+            try {
+                const [ok, isi] = GLib.file_get_contents(`${SHM}/memo-ngobrol.backend`);
+                if (ok)
+                    aktif = new TextDecoder().decode(isi).trim() || 'otomatis';
+            } catch (e) { /* belum pernah dipilih */ }
+            const nama = OTAK.find(([id]) => id === aktif)?.[1] ?? 'otomatis';
+            otakSub.label.text = `Otak AI: ${nama}`;
+            for (const [item, id, label] of itemOtak)
+                item.label.text = `${id === aktif ? '● ' : '○ '}${label}`;
+        };
+        for (const [id, label] of OTAK) {
+            const item = new PopupMenu.PopupMenuItem(label);
+            item.connect('activate', () => {
+                tulisBerkas(`${SHM}/memo-ngobrol.backend`, id);
+                this.menu.close();
+            });
+            itemOtak.push([item, id, label]);
+            otakSub.menu.addMenuItem(item);
+        }
+
+        // --- Pills integrasi + kabar LebihTeratur ---
+        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        const pillHeader = new PopupMenu.PopupMenuItem('Pills', { reactive: false });
+        pillHeader.label.add_style_class_name('memo-sekunder');
+        this.menu.addMenuItem(pillHeader);
+        this._seksiPills = new PopupMenu.PopupMenuSection();
+        this.menu.addMenuItem(this._seksiPills);
+
+        // --- Lampiran berkas (drop-file ala Coucou) ---
+        const lampiranItem = new PopupMenu.PopupMenuItem('', { reactive: false });
+        lampiranItem.label.add_style_class_name('memo-status');
+        lampiranItem.visible = false;
+        this.menu.addMenuItem(lampiranItem);
+        const lepasItem = new PopupMenu.PopupMenuItem('Lepas lampiran');
+        lepasItem.visible = false;
+        lepasItem.connect('activate', () => {
+            try {
+                GLib.unlink(`${SHM}/memo-lampiran.json`);
+            } catch (e) { /* tidak ada lampiran, tidak apa-apa */ }
+            this.menu.close();
+        });
+        this.menu.addMenuItem(lepasItem);
+        this._segarkanLampiran = () => {
+            try {
+                const [lok, lampiran] = GLib.file_get_contents(`${SHM}/memo-lampiran.json`);
+                const lamp = lok ? JSON.parse(new TextDecoder().decode(lampiran)) : null;
+                lampiranItem.label.text = lamp ? `📎 ${lamp.nama ?? lamp.path} — akan ikut ditanya` : '';
+                lampiranItem.visible = lepasItem.visible = !!lamp;
+            } catch (e) {
+                lampiranItem.visible = lepasItem.visible = false;
+            }
+        };
+
+        // --- Submenu: tindakan cepat, otak AI, wardrobe, lainnya ---
+        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        this.menu.addMenuItem(aksiSub);
+        this.menu.addMenuItem(otakSub);
+        const wardrobeSub = new PopupMenu.PopupSubMenuMenuItem('Wardrobe');
+        this.menu.addMenuItem(wardrobeSub);
+        const lainnyaSub = new PopupMenu.PopupSubMenuMenuItem('Lainnya');
+        this.menu.addMenuItem(lainnyaSub);
+
+        // --- Rekap mingguan + demo mode ---
+        const rekapItem = new PopupMenu.PopupImageMenuItem('Rekap mingguan', 'x-office-calendar-symbolic');
+        rekapItem.connect('activate', () => {
+            tulisBerkas(`${SHM}/memo-ngobrol.teks`, 'Tulis rekap mingguan: sesi, berkas, perintah tersering, hari tersibuk');
+            this.menu.close();
+        });
+        lainnyaSub.menu.addMenuItem(rekapItem);
+        const demoItem = new PopupMenu.PopupMenuItem('Coba demo sesi agen (60 detik)');
+        demoItem.connect('activate', () => {
+            this._agen.mulaiDemo();
+            this.menu.close();
+        });
+        lainnyaSub.menu.addMenuItem(demoItem);
+
+        this._agen = new AgenStore();
+        this._tandaAgen = '';
+        this._izinTerakhir = null;
+        this._agen.onChange(store => this._segarkanAgen(store));
+
+        // --- Wardrobe ala Coucou ---
+        // Cermin wardrobe_pola.py OUTFITS: [id, nama, hue, glow].
+        const OUTFITS = [
+            ['musiman', 'Musiman (otomatis)', null, 0],
+            ['klasik', 'Klasik', 120, 0],
+            ['laut', 'Laut', 205, 0.1],
+            ['senja', 'Senja', 30, 0.1],
+            ['anggur', 'Anggur', 280, 0.15],
+            ['sakura', 'Sakura', 330, 0.1],
+            ['emas', 'Emas', 45, 0.25],
+            ['natal', 'Natal', 0, 0.2],
+        ];
+        const MUSIMAN = { 1: 'emas', 2: 'sakura', 3: 'klasik', 4: 'klasik', 5: 'klasik', 6: 'laut', 7: 'laut', 8: 'laut', 9: 'senja', 10: 'senja', 11: 'senja', 12: 'natal' };
+        const bacaWardrobe = () => {
+            try {
+                const [ok, c] = GLib.file_get_contents(GLib.get_home_dir() + '/.config/memo/wardrobe.json');
+                if (ok) {
+                    const d = JSON.parse(new TextDecoder().decode(c));
+                    if (typeof d?.outfit === 'string')
+                        return d.outfit;
+                }
+            } catch (e) { /* bawaan */ }
+            return 'musiman';
+        };
+        const terapkanWardrobe = (pilihan) => {
+            let id = pilihan;
+            if (id === 'musiman') {
+                const bulan = new Date().getMonth() + 1;
+                id = MUSIMAN[bulan] ?? 'klasik';
+            }
+            const o = OUTFITS.find(x => x[0] === id) ?? OUTFITS[1];
+            this.setTint(o[2] === null ? 120 : o[2], o[3]);
+            segarkanTanda();
+        };
+        const itemWardrobe = [];
+        const segarkanTanda = () => {
+            const aktif = bacaWardrobe();
+            for (const [item, id] of itemWardrobe)
+                item.label.text = `${id === aktif ? '● ' : '○ '}${OUTFITS.find(x => x[0] === id)[1]}`;
+            wardrobeSub.label.text = `Wardrobe: ${OUTFITS.find(x => x[0] === aktif)?.[1] ?? 'Klasik'}`;
+        };
+        for (const [id] of OUTFITS) {
+            const item = new PopupMenu.PopupMenuItem('');
+            item.connect('activate', () => {
+                try {
+                    GLib.mkdir_with_parents(GLib.get_home_dir() + '/.config/memo', 0o700);
+                    tulisBerkas(GLib.get_home_dir() + '/.config/memo/wardrobe.json',
+                        JSON.stringify({ outfit: id }));
+                } catch (e) {
+                    console.error(`[dynamic-island] simpan wardrobe: ${e}`);
+                }
+                terapkanWardrobe(id);
+                this.menu.close();
+            });
+            itemWardrobe.push([item, id]);
+            wardrobeSub.menu.addMenuItem(item);
+        }
+        terapkanWardrobe(bacaWardrobe());
+
+        // --- Suara kustom + companion desktop ---
+        const suaraItem = new PopupMenu.PopupImageMenuItem('Buka folder suara kustom', 'audio-x-generic-symbolic');
+        suaraItem.connect('activate', () => {
+            try {
+                const dir = GLib.get_home_dir() + '/.config/memo/suara';
+                GLib.mkdir_with_parents(dir, 0o700);
+                Gio.AppInfo.launch_default_for_uri(`file://${dir}`, null);
+            } catch (e) {
+                console.error(`[dynamic-island] buka folder suara: ${e}`);
+            }
+            this.menu.close();
+        });
+        lainnyaSub.menu.addMenuItem(suaraItem);
+        const companionItem = new PopupMenu.PopupMenuItem('Lepas Memo ke desktop');
+        const segarkanCompanion = () => {
+            companionItem.label.text = this._companion?.visible
+                ? 'Kembalikan Memo ke island' : 'Lepas Memo ke desktop';
+        };
+        companionItem.connect('activate', () => {
+            try {
+                if (this._companion?.visible) {
+                    this._companion.sembunyikan();
+                } else {
+                    if (!this._companion)
+                        this._companion = new MemoCompanion(this);
+                    this._companion.tampilkan();
+                    // Sinkronkan ekspresi + tint yang sedang aktif.
+                    this._companion.sync(this.expression);
+                    this._companion.setTint(this._tintHue ?? 120, this._tintGlow ?? 0);
+                }
+            } catch (e) {
+                console.error(`[dynamic-island] companion: ${e}`);
+            }
+            segarkanCompanion();
+            this.menu.close();
+        });
+        lainnyaSub.menu.addMenuItem(companionItem);
+        // Pulihkan companion bila sebelum restart dalam keadaan terbuka.
+        try {
+            const [cok, cc] = GLib.file_get_contents(GLib.get_home_dir() + '/.config/memo/companion.json');
+            if (cok && JSON.parse(new TextDecoder().decode(cc)).terbuka) {
+                this._companion = new MemoCompanion(this);
+                this._companion.sync('netral');
+                this._companion.setTint(this._tintHue ?? 120, this._tintGlow ?? 0);
+            }
+        } catch (e) { /* mulai tanpa companion */ }
+
+        
+        entry.clutter_text.connect('activate', () => {
+            const text = entry.get_text();
+            if (text) {
+                tulisBerkas(`${SHM}/memo-ngobrol.teks`, text);
+                entry.set_text('');
+                this.menu.close();
+            }
+        });
+        
+        this.menu.connect('open-state-changed', (menu, open) => {
+            if (open) {
+                this._segarkanLampiran();
+                this._segarkanOtak();
+                global.stage.set_key_focus(entry.clutter_text);
+            }
+        });
+
+        this._face.onClick = () => {
+            this.menu.toggle();
+        };
+        // -----------------
+
+
 
         // Mode "ringkas": kotak kosong, jadi yang tersisa di pill hanya mata.
         this._dot = new St.BoxLayout({
@@ -94,8 +443,14 @@ class Island {
             style_class: 'dynamic-island-label',
             y_align: Clutter.ActorAlign.CENTER,
         });
+        this._label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
         this._event.add_child(this._icon);
         this._event.add_child(this._label);
+        this._event.reactive = true;
+        this._event.connect('button-release-event', () => {
+            this.menu.toggle();
+            return Clutter.EVENT_STOP;
+        });
 
         this._pill.add_child(this._face.actor);
         this._pill.add_child(this._dot);
@@ -113,6 +468,119 @@ class Island {
         this._connectWindowSignals();
         this._covered = this._computeCovered();
         this._update();
+        this._agen.start();
+    }
+
+    // Isi kotak event menurut prioritas: kejadian sesaat (volume, notifikasi)
+    // > kartu izin yang menunggu > ticker aktivitas agen.
+    _isiEvent() {
+        if (this._eventActive)
+            return this._eventIsi;
+        if (this._izinTampil)
+            return this._izinTampil;
+        if (this._aktivitas)
+            return { iconName: 'system-run-symbolic', text: this._aktivitas };
+        return null;
+    }
+
+    _renderEvent() {
+        const isi = this._isiEvent();
+        if (!isi)
+            return;
+        this._icon.icon_name = isi.iconName ?? 'dialog-information-symbolic';
+        this._label.text = isi.text;
+    }
+
+    _segarkanAgen(store) {
+        const izin = store.izin[0] ?? null;
+        const aktif = store.sesiAktif;
+        const tanda = JSON.stringify([store.hidup, store.izin, store.sesi.slice(0, 5).map(s => [s.status, tickerSesi(s)]),
+            store.pills]);
+        if (tanda === this._tandaAgen)
+            return;
+        this._tandaAgen = tanda;
+
+        // Kartu izin di menu
+        this._kartuIzin.visible = !!izin;
+        if (izin) {
+            const proyek = izin.proyek ? ` · ${izin.proyek}` : '';
+            this._izinJudul.text = `🔐 ${izin.agen}${proyek} minta izin ${izin.alat || ''}`.trim();
+            this._izinPerintah.text = izin.perintah || izin.aksi;
+            const sisa = store.izin.length - 1;
+            this._izinSisa.text = sisa > 0 ? `+${sisa} izin lain menunggu` : 'Super+Y izinkan · Super+Shift+Y tolak · terminal tetap bisa menjawab';
+        }
+
+        // Island: izin menempel sampai dijawab; aktivitas agen jadi ticker.
+        this._izinTampil = izin
+            ? { iconName: 'dialog-password-symbolic', text: `${izin.agen}: izin? ${izin.aksi}` }
+            : null;
+        this._aktivitas = aktif ? tickerSesi(aktif) : null;
+        this._renderEvent();
+        this._update();
+
+        // Daftar sesi
+        this._seksiSesi.removeAll();
+        const tambah = (teks, kelas) => {
+            const item = new PopupMenu.PopupMenuItem(teks, { reactive: false });
+            item.label.add_style_class_name(kelas);
+            item.label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+            this._seksiSesi.addMenuItem(item);
+        };
+        if (!store.hidup) {
+            tambah('memo-agen tidak jalan — systemctl --user start memo-agen', 'memo-kosong');
+        } else if (store.sesi.length === 0) {
+            tambah('Tidak ada sesi agen berjalan', 'memo-kosong');
+        } else {
+            for (const s of store.sesi.slice(0, 5))
+                tambah(`● ${tickerSesi(s)}`, `memo-sesi-${s.status}`);
+            if (store.demo)
+                tambah('(mode demo — data contoh)', 'memo-kosong');
+        }
+
+        // Pills + kabar LebihTeratur yang bisa diklik
+        this._seksiPills.removeAll();
+        if (store.pills.length === 0) {
+            const item = new PopupMenu.PopupMenuItem('memo-integrasi tidak jalan', { reactive: false });
+            item.label.add_style_class_name('memo-kosong');
+            this._seksiPills.addMenuItem(item);
+        }
+        for (const p of store.pills) {
+            const item = new PopupMenu.PopupMenuItem(`${p.aktif ? '●' : '○'} ${p.judul}: ${p.sub}`, { reactive: false });
+            item.label.add_style_class_name(p.aktif ? 'memo-pill-aktif' : 'memo-pill-mati');
+            item.label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+            this._seksiPills.addMenuItem(item);
+            for (const k of p.kabar ?? []) {
+                const sah = typeof k.url === 'string' && /^https?:\/\//.test(k.url);
+                const sub = new PopupMenu.PopupMenuItem(`   ${sah ? '↗' : '·'} ${k.judul} — ${k.pesan ?? ''}`, { reactive: sah });
+                sub.label.add_style_class_name('memo-kabar');
+                sub.label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+                if (sah) {
+                    sub.connect('activate', () => {
+                        try {
+                            Gio.AppInfo.launch_default_for_uri(k.url, null);
+                        } catch (e) {
+                            console.error(`[dynamic-island] buka kabar: ${e}`);
+                        }
+                    });
+                }
+                this._seksiPills.addMenuItem(sub);
+            }
+        }
+    }
+
+    jawabIzin(keputusan) {
+        const izin = this._agen?.izin[0];
+        if (!izin) {
+            this.trigger('dialog-information-symbolic', 'Tidak ada izin menunggu', 2000);
+            return;
+        }
+        if (!this._agen.jawab(izin.id, keputusan))
+            return;
+        const kata = { allow: 'Diizinkan', deny: 'Ditolak', always: 'Selalu diizinkan' }[keputusan];
+        this.trigger(keputusan === 'deny' ? 'action-unavailable-symbolic' : 'emblem-ok-symbolic',
+            `${kata}: ${izin.aksi}`, 2000);
+        if (this._agen.izin.length <= 1)
+            this.menu.close();
     }
 
     _adopt(indicator) {
@@ -156,6 +624,54 @@ class Island {
         return w && !w.minimized && !w.skip_taskbar && w.is_on_primary_monitor();
     }
 
+    setService(service) {
+        this._service = service;
+    }
+
+    bukaMenu() {
+        if (this.menu && !this.menu.isOpen)
+            this.menu.open();
+    }
+
+    setExpression(name, durationMs = 0) {
+        if (!this._face.setExpression(name))
+            return;
+
+        this._companion?.sync(name);
+
+        if (this._expressionHoldId) {
+            GLib.source_remove(this._expressionHoldId);
+            this._expressionHoldId = null;
+        }
+
+        this._service?.notifyExpressionChanged(name);
+
+        if (durationMs > 0) {
+            this._expressionHoldId = GLib.timeout_add(
+                GLib.PRIORITY_DEFAULT, durationMs, () => {
+                    this._expressionHoldId = null;
+                    this.setExpression('netral');
+                    return GLib.SOURCE_REMOVE;
+                });
+        }
+    }
+
+    resetExpression() {
+        this.setExpression('netral');
+    }
+
+    setTint(hue, glowBoost = 0) {
+        const h = hue < 0 ? null : hue;
+        this._tintHue = h;
+        this._tintGlow = glowBoost;
+        this._face.setTint(h, glowBoost);
+        this._companion?.setTint(h, glowBoost);
+    }
+
+    get expression() {
+        return this._face.expression;
+    }
+
     _computeCovered() {
         if (Main.overview.visible)
             return false;
@@ -188,14 +704,15 @@ class Island {
     _nextEvent() {
         if (this._queue.length === 0) {
             this._eventActive = false;
+            this._renderEvent();
             this._update();
             return;
         }
 
         const { iconName, text, holdMs } = this._queue.shift();
         this._eventActive = true;
-        this._icon.icon_name = iconName ?? 'dialog-information-symbolic';
-        this._label.text = text;
+        this._eventIsi = { iconName, text };
+        this._renderEvent();
         this._update();
 
         if (this._holdId)
@@ -208,10 +725,10 @@ class Island {
     }
 
     _resolveTarget() {
-        if (this._eventActive)
+        if (this._eventActive || this._izinTampil)
             return this._event;
         if (!this._covered || this._pointerNear)
-            return this._normal;
+            return this._aktivitas ? this._event : this._normal;
         return this._dot;
     }
 
@@ -325,13 +842,27 @@ class Island {
         this._face.setGaze((pointerX - centerX) / 500, (pointerY - centerY) / 350);
     }
 
-    destroy() {
+    
+        destroy() {
+        if (this._statusPollId) {
+            GLib.source_remove(this._statusPollId);
+            this._statusPollId = null;
+        }
+        this._agen?.stop();
+        this._agen = null;
+        if (this.menu) {
+            this.menu.destroy();
+            this.menuManager.removeMenu(this.menu);
+        }
+
         this._pollActive = false;
-        for (const id of [this._holdId, this._recheckId, this._pollId]) {
+        for (const id of [this._holdId, this._recheckId, this._pollId,
+                          this._expressionHoldId]) {
             if (id)
                 GLib.source_remove(id);
         }
         this._holdId = this._recheckId = this._pollId = null;
+        this._expressionHoldId = null;
 
         for (const [obj, id] of this._signals)
             obj.disconnect(id);
@@ -339,6 +870,8 @@ class Island {
 
         Main.panel.remove_style_class_name('dynamic-island-panel');
         this._restoreAdopted();
+        this._companion?.destroy();
+        this._companion = null;
         this._face.destroy();
         this._pill.destroy();
     }
@@ -551,9 +1084,79 @@ class WifiSource {
     destroy() {}
 }
 
+// Memantau sinyal logind dan SessionManager supaya wajah robot berubah saat
+// pengguna mulai mematikan/restart/logout — susah param perubahan mode sistem.
+class SessionWatcher {
+    constructor(island) {
+        this._island = island;
+        this._systemSubId = null;
+        this._sessionSubId = null;
+
+        try {
+            this._systemSubId = Gio.DBus.system.signal_subscribe(
+                'org.freedesktop.login1',
+                'org.freedesktop.login1.Manager',
+                'PrepareForShutdownWithMetadata',
+                '/org/freedesktop/login1',
+                null,
+                Gio.DBusSignalFlags.NONE,
+                (_conn, _sender, _path, _iface, _signal, params) => {
+                    try {
+                        const [start, metadata] = params.deep_unpack();
+                        if (!start)
+                            return;
+                        const type = metadata?.type;
+                        if (type === 'reboot' || type === 'soft-reboot')
+                            this._island.setExpression('restart');
+                        else
+                            this._island.setExpression('shutdown');
+                    } catch (e) {
+                        console.error(`[dynamic-island] logind signal: ${e}`);
+                    }
+                });
+        } catch (e) {
+            console.error(`[dynamic-island] logind subscribe failed: ${e}`);
+        }
+
+        try {
+            this._sessionSubId = Gio.DBus.session.signal_subscribe(
+                'org.gnome.SessionManager',
+                'org.freedesktop.DBus.Properties',
+                'PropertiesChanged',
+                '/org/gnome/SessionManager',
+                'org.gnome.SessionManager',
+                Gio.DBusSignalFlags.NONE,
+                (_conn, _sender, _path, _iface, _signal, params) => {
+                    try {
+                        const [, changed] = params.deep_unpack();
+                        if (changed?.SessionIsActive === false)
+                            this._island.setExpression('logout');
+                    } catch (e) {
+                        console.error(`[dynamic-island] session signal: ${e}`);
+                    }
+                });
+        } catch (e) {
+            console.error(`[dynamic-island] session subscribe failed: ${e}`);
+        }
+    }
+
+    destroy() {
+        if (this._systemSubId !== null) {
+            Gio.DBus.system.signal_unsubscribe(this._systemSubId);
+            this._systemSubId = null;
+        }
+        if (this._sessionSubId !== null) {
+            Gio.DBus.session.signal_unsubscribe(this._sessionSubId);
+            this._sessionSubId = null;
+        }
+    }
+}
+
 export default class DynamicIslandExtension extends Extension {
     enable() {
         this._island = new Island();
+        this._service = new RobotService(this._island);
+        this._island.setService(this._service);
         this._sources = [];
 
         const trySource = (Cls) => {
@@ -569,12 +1172,37 @@ export default class DynamicIslandExtension extends Extension {
         trySource(VolumeSource);
         trySource(WifiSource);
 
+        try {
+            this._sessionWatcher = new SessionWatcher(this._island);
+        } catch (e) {
+            console.error(`[dynamic-island] SessionWatcher failed: ${e}`);
+        }
+
+        try {
+            let settings = null;
+            try {
+                settings = this.getSettings();
+            } catch (e) {
+                console.error(`[dynamic-island] skema pengaturan: ${e}`);
+            }
+            this._shortcuts = new MemoShortcuts(this._island, settings);
+            this._shortcuts.enable();
+        } catch (e) {
+            console.error(`[dynamic-island] shortcuts failed: ${e}`);
+        }
+
         console.log(`[dynamic-island] enabled, ${this._sources.length}/4 sources, adopted ${this._island._adopted.length} panel items`);
     }
 
     disable() {
+        this._shortcuts?.disable();
+        this._shortcuts = null;
         this._sources?.forEach(s => s.destroy());
         this._sources = null;
+        this._service?.destroy();
+        this._service = null;
+        this._sessionWatcher?.destroy();
+        this._sessionWatcher = null;
         this._island?.destroy();
         this._island = null;
     }

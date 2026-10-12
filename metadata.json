@@ -2,6 +2,9 @@
   "uuid": "dynamic-island@local",
   "name": "Dynamic Island",
   "description": "Widget pill mengambang ala iPhone di bawah top bar GNOME. Menampilkan jam saat diam, otomatis membesar untuk notifikasi, media yang sedang diputar, baterai, volume, dan status WiFi, lalu mengecil kembali.",
-  "shell-version": ["50"],
-  "url": ""
+  "shell-version": [
+    "50"
+  ],
+  "url": "",
+  "settings-schema": "org.gnome.shell.extensions.dynamic-island"
 }

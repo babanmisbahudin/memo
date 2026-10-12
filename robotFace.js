@@ -25,12 +25,70 @@ export class RobotFace {
             width: FACE_WIDTH,
             height: FACE_HEIGHT,
             y_align: Clutter.ActorAlign.CENTER,
+            reactive: true,
         });
         this.actor.connect('repaint', () => this._onRepaint());
+
+        // Ekspresi reaktif: kursor hover membuat mata melebar, klik kiri
+        // memicu senyum spontan, klik kanan memicu miring bingung.
+        this._hover = 0;
+        this._happyPulse = 0;
+        this._tiltPulse = 0;
+
+        this._hoverTimeline = new Clutter.Timeline({ actor: this.actor, duration: 160 });
+        this._hoverTimeline.connect('new-frame', () => {
+            const t = this._hoverTimeline.get_progress();
+            this._hover = this._hoverTimeline._arah > 0 ? t : 1 - t;
+            this.actor.queue_repaint();
+        });
+        this._hoverTimeline.connect('completed', () => {
+            this._hover = this._hoverTimeline._arah > 0 ? 1 : 0;
+            this.actor.queue_repaint();
+        });
+        this._hoverTimeline._arah = 0;
+
+        this._pulseTimeline = new Clutter.Timeline({ actor: this.actor, duration: 520 });
+        this._pulseTimeline.connect('new-frame', () => {
+            const t = this._pulseTimeline.get_progress();
+            const wave = Math.sin(t * Math.PI);
+            if (this._pulseTimeline._mode === 'senang') {
+                this._happyPulse = wave;
+                this._tiltPulse = 0;
+            } else {
+                this._tiltPulse = wave * 0.8;
+                this._happyPulse = 0;
+            }
+            this.actor.queue_repaint();
+        });
+        this._pulseTimeline.connect('completed', () => {
+            this._happyPulse = 0;
+            this._tiltPulse = 0;
+            this.actor.queue_repaint();
+        });
+
+        this.actor.connect('enter-event', () => this._setHover(true));
+        this.actor.connect('leave-event', () => this._setHover(false));
+        this.actor.connect('button-press-event', (_a, ev) => {
+            const button = ev.get_button?.() ?? ev.button;
+            this._pulseTimeline.stop();
+            this._pulseTimeline._mode = button === 3 ? 'bingung' : 'senang';
+            this._pulseTimeline.start();
+            
+            // Saat diklik kiri, panggil onClick untuk membuka menu
+            if (button === 1 && this.onClick) {
+                this.onClick();
+            }
+            
+            return Clutter.EVENT_STOP;
+        });
 
         this._expression = 'netral';
         this._from = { ...NEUTRAL };
         this._target = { ...NEUTRAL };
+        // Wardrobe ala Coucou: rona + cahaya yang ditumpuk di atas ekspresi
+        // aktif. Logika animasi tidak berubah — hanya dua angka tambahan.
+        this._tintHue = null;
+        this._tintGlow = 0;
         this._progress = 1;
         this._gazeX = 0;
         this._gazeY = 0;
@@ -78,8 +136,13 @@ export class RobotFace {
         return this._repaintCount;
     }
 
-    setExpression(name) {
-        const target = resolveExpression(name);
+    _setHover(on) {
+        this._hoverTimeline.stop();
+        this._hoverTimeline._arah = on ? 1 : -1;
+        this._hoverTimeline.start();
+    }
+
+    setExpression(name) {        const target = resolveExpression(name);
         if (!target) {
             console.log(`[dynamic-island] ekspresi tidak dikenal: ${name}`);
             return false;
@@ -103,6 +166,14 @@ export class RobotFace {
             return;
         this._level = bersih;
         this._levelHalus += (bersih - this._levelHalus) * LEVEL_REDAM;
+        this.actor.queue_repaint();
+    }
+
+    // Wardrobe: hue 0-360 atau null (ikut ekspresi), glowBoost 0-1.
+    setTint(hue, glowBoost = 0) {
+        this._tintHue = hue === null || hue === undefined ? null
+            : Math.max(0, Math.min(360, hue));
+        this._tintGlow = Math.max(0, Math.min(1, glowBoost || 0));
         this.actor.queue_repaint();
     }
 
@@ -149,9 +220,20 @@ export class RobotFace {
 
     _currentParams() {
         const params = lerpParams(this._from, this._target, this._progress);
+        // Wardrobe ditumpuk paling akhir supaya menang atas ekspresi,
+        // tapi tidak menyentuh kurva/animasi apa pun.
+        if (this._tintHue !== null && this._tintHue !== undefined)
+            params.hue = this._tintHue;
+        if (this._tintGlow > 0)
+            params.glow = Math.min(1, params.glow + this._tintGlow);
         params.gazeX += this._gazeX;
         params.gazeY += this._gazeY;
         params.open *= 1 - this._blinkAmount;
+
+        // Respons interaktif: hover melebarkan mata, klik memicu senyum/miring.
+        params.open *= 1 + this._hover * 0.2;
+        params.curve += this._happyPulse;
+        params.tilt += this._tiltPulse;
 
         if (this._levelHalus > 0.01) {
             params.glow = Math.min(1, params.glow + this._levelHalus * LEVEL_KE_GLOW);
@@ -182,6 +264,8 @@ export class RobotFace {
         this._blinkEnabled = false;
         this._timeline.stop();
         this._blinkTimeline.stop();
+        this._hoverTimeline.stop();
+        this._pulseTimeline.stop();
         this.actor.destroy();
     }
 }
