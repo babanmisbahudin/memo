@@ -39,5 +39,13 @@ with tempfile.TemporaryDirectory() as d:
     cek("mp3 kustom ketemu", (cari_berkas("approval", d) or "").endswith("approval.mp3"))
     cek("event lain tetap None", cari_berkas("finish", d) is None)
 
+import tempfile as _tf
+from bunyi_pola import bisu
+with _tf.TemporaryDirectory() as _d:
+    cek("tidak bisu tanpa berkas", bisu(_d) is False)
+    os.makedirs(os.path.join(_d, "memo"))
+    open(os.path.join(_d, "memo", "bisu"), "w").close()
+    cek("bisu bila ~/.config/memo/bisu ada", bisu(_d) is True)
+
 print(f"\n{lolos} lolos, {gagal} gagal")
 sys.exit(1 if gagal else 0)

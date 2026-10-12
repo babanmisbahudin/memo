@@ -1,3 +1,6 @@
+/* Island Memo ala Coucou: hitam pekat, menempel di tepi atas layar,
+   sudut bawah membulat; membesar jadi panel 640 px saat dibuka. */
+
 #panel.dynamic-island-panel {
     background-color: transparent;
     border: none;
@@ -5,12 +8,19 @@
 }
 
 .dynamic-island-pill {
-    background-color: rgba(18, 18, 20, 0.55);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    border-radius: 999px;
-    box-shadow: 0 3px 14px rgba(0, 0, 0, 0.4);
-    padding: 0 10px;
-    margin: 3px 0;
+    background-color: #000000;
+    border: none;
+    border-radius: 0 0 14px 14px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+    padding: 0 14px;
+    margin: 0;
+    spacing: 4px;
+}
+
+.dynamic-island-pill.memo-terbuka {
+    min-width: 612px;
+    border-radius: 0;
+    box-shadow: none;
 }
 
 .dynamic-island-normal,
@@ -30,118 +40,403 @@
     max-width: 460px;
 }
 
-.memo-menu .popup-menu-content {
-    min-width: 300px;
-}
-
-.memo-entri {
-    margin: 4px 0;
-}
-
-.memo-judul {
-    font-weight: 700;
-    color: rgba(255, 255, 255, 0.55);
-    font-size: 12px;
-}
-
-.memo-kosong {
-    color: rgba(255, 255, 255, 0.5);
-    font-style: italic;
-}
-
-.memo-tugas-selesai {
-    color: rgba(255, 255, 255, 0.45);
-}
-
-
-
-
-.memo-status {
-    color: rgba(150, 210, 255, 0.9);
-    font-size: 12px;
-    font-style: italic;
-}
-
-.memo-sekunder {
-    color: rgba(255, 255, 255, 0.55);
-    font-size: 12px;
+.dynamic-island-mini {
+    spacing: 2px;
+    padding-left: 6px;
 }
 
 .memo-companion {
     padding: 14px 18px;
 }
 
-/* Kartu izin ala Coucou */
-.memo-izin {
-    spacing: 6px;
-    padding: 8px 10px;
-    border-radius: 12px;
-    background-color: rgba(255, 170, 0, 0.10);
-    border: 1px solid rgba(255, 170, 0, 0.35);
+/* --- Panel (PopupMenu tanpa panah, tanpa celah, menempel di island) ---
+   Lebar total 640 px = 612 isi + 2 x 14 padding. */
+
+.popup-menu-boxpointer.memo-menu {
+    -arrow-rise: 0;
+    -arrow-base: 0;
+    -arrow-border-radius: 0;
+    -arrow-border-width: 0;
+    -arrow-background-color: transparent;
+    -boxpointer-gap: 0;
 }
 
-.memo-izin-judul {
-    font-weight: 700;
-    font-size: 12px;
-    color: #ffcc66;
+.popup-menu-boxpointer.memo-menu .popup-menu-content {
+    background-color: #000000;
+    border: none;
+    border-radius: 0 0 30px 30px;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+    padding: 4px 14px 14px 14px;
+    min-width: 612px;
+    max-width: 612px;
 }
 
-.memo-izin-perintah {
-    font-family: monospace;
-    font-size: 12px;
+.memo-panel-item,
+.memo-panel-item:hover,
+.memo-panel-item:focus,
+.memo-panel-item:active {
+    padding: 0;
+    margin: 0;
+    background-color: transparent;
+    border: none;
+}
+
+.memo-panel {
+    spacing: 10px;
+}
+
+.memo-panel-atas {
+    spacing: 2px;
+    padding: 2px 2px 0 2px;
+}
+
+.memo-tab {
+    width: 34px;
+    height: 34px;
+    border-radius: 17px;
+    color: rgba(255, 255, 255, 0.55);
+    background-color: transparent;
+}
+
+.memo-tab:hover,
+.memo-tab:focus {
+    background-color: rgba(255, 255, 255, 0.08);
     color: #ffffff;
-    background-color: rgba(0, 0, 0, 0.35);
-    padding: 6px 8px;
-    border-radius: 8px;
+}
+
+.memo-tab:checked {
+    background-color: rgba(255, 255, 255, 0.13);
+    color: #ffffff;
+}
+
+.memo-panel-status {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 13px;
+    padding: 0 10px;
+}
+
+/* --- Kartu --- */
+
+.memo-baris-kartu {
+    spacing: 10px;
+}
+
+.memo-kartu {
+    background-color: #16171b;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 22px;
+    padding: 14px 18px 14px 10px;
+    spacing: 12px;
+    min-height: 112px;
+}
+
+.memo-kartu-izin {
+    background-gradient-direction: vertical;
+    background-gradient-start: #16171b;
+    background-gradient-end: #2b2214;
+}
+
+.memo-kartu-selesai {
+    background-gradient-direction: vertical;
+    background-gradient-start: #16171b;
+    background-gradient-end: #10281c;
+}
+
+.memo-kartu-chat {
+    background-gradient-direction: vertical;
+    background-gradient-start: #16171b;
+    background-gradient-end: #1d1a36;
+}
+
+.memo-kartu-pill {
+    padding: 12px;
+    min-width: 204px;
+}
+
+.memo-avatar {
+    width: 100px;
+    height: 80px;
+}
+
+.memo-lencana {
+    font-size: 11px;
+    font-weight: 800;
+    color: #000000;
+    background-color: #f0b429;
+    border: 2px solid #000000;
+    border-radius: 10px;
+    padding: 0 5px;
+    min-width: 10px;
+    margin: 6px 0 0 4px;
+}
+
+.memo-lencana-selesai { background-color: #3fb950; }
+.memo-lencana-kerja { background-color: #58a6ff; color: #ffffff; }
+
+.memo-info {
+    spacing: 7px;
+}
+
+.memo-judul-baris {
+    spacing: 8px;
+}
+
+.memo-titik {
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+}
+
+.memo-judul-nama {
+    font-weight: 700;
+    font-size: 15px;
+    color: #ffffff;
+    max-width: 200px;
+}
+
+.memo-judul-sekunder {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.5);
+    max-width: 200px;
+}
+
+.memo-baris-langkah {
+    spacing: 8px;
+}
+
+.memo-ikon-langkah {
+    color: rgba(255, 255, 255, 0.38);
+}
+
+.memo-langkah {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.42);
     max-width: 380px;
 }
 
-.memo-izin-tombol {
+.memo-langkah-kini,
+.memo-baris-langkah.memo-langkah-kini .memo-ikon-langkah {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.memo-perintah {
+    font-family: monospace;
+    font-size: 13px;
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    padding: 8px 12px;
+    max-width: 400px;
+}
+
+.memo-kalimat-besar {
+    font-size: 17px;
+    font-weight: 700;
+    color: #ffffff;
+    max-width: 400px;
+}
+
+.memo-baris-diff {
+    spacing: 10px;
+}
+
+.memo-tambah {
+    color: #3fb950;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.memo-kurang {
+    color: #f85149;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+/* --- Tombol --- */
+
+.memo-baris-tombol {
+    spacing: 8px;
+}
+
+.memo-btn {
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.memo-btn-gelap {
+    background-color: rgba(255, 255, 255, 0.09);
+    color: #ffffff;
+}
+
+.memo-btn-gelap:hover,
+.memo-btn-gelap:focus {
+    background-color: rgba(255, 255, 255, 0.16);
+}
+
+.memo-btn-terang {
+    background-color: #f4f4f5;
+    color: #111111;
+}
+
+.memo-btn-terang:hover,
+.memo-btn-terang:focus {
+    background-color: #ffffff;
+}
+
+.memo-tombol-isi {
     spacing: 6px;
 }
 
-.memo-tombol {
-    padding: 5px 10px;
-    border-radius: 8px;
-    font-size: 12px;
+.memo-kunci {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 0 5px;
+    border-radius: 5px;
+    background-color: rgba(128, 128, 128, 0.25);
+}
+
+/* --- Pill --- */
+
+.memo-pill {
+    border-radius: 999px;
+    border-width: 1px;
+    border-style: solid;
+    padding: 3px 12px 3px 3px;
+    min-width: 104px;
+}
+
+.memo-pill:hover,
+.memo-pill:focus {
+    border-width: 1px;
+}
+
+.memo-pill-isi {
+    spacing: 6px;
+}
+
+.memo-pill-teks {
+    font-size: 13px;
     font-weight: 600;
+    max-width: 96px;
+}
+
+.memo-kabar {
+    font-size: 12px;
+    color: rgba(150, 210, 255, 0.92);
+    max-width: 380px;
+}
+
+.memo-baris-tautan {
+    border-radius: 8px;
+    padding: 2px 6px;
+}
+
+.memo-baris-tautan:hover,
+.memo-baris-tautan:focus {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+/* --- Chat --- */
+
+.memo-riwayat {
+    spacing: 6px;
+}
+
+.memo-gelembung {
+    spacing: 8px;
+}
+
+.memo-gelembung-siapa {
+    font-size: 12px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.45);
+    min-width: 44px;
+}
+
+.memo-gelembung-memo .memo-gelembung-siapa { color: #3fb950; }
+.memo-gelembung-galat .memo-gelembung-siapa { color: #f85149; }
+
+.memo-gelembung-teks {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.86);
+    max-width: 400px;
+}
+
+.memo-chat-masuk {
+    spacing: 6px;
+    background-color: rgba(255, 255, 255, 0.07);
+    border-radius: 18px;
+    padding: 4px 4px 4px 14px;
+}
+
+.memo-chat-entri,
+.memo-chat-entri:focus,
+.memo-chat-entri:hover {
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
     color: #ffffff;
+    font-size: 14px;
+    padding: 6px 0;
+    caret-color: #ffffff;
+}
+
+.memo-bulat {
+    width: 32px;
+    height: 32px;
+    border-radius: 16px;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+.memo-bulat:hover,
+.memo-bulat:focus {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+.memo-bulat-terang {
+    background-color: #f4f4f5;
+    color: #111111;
+}
+
+.memo-bulat-terang:hover,
+.memo-bulat-terang:focus {
+    background-color: #ffffff;
+}
+
+/* --- Pengaturan --- */
+
+.memo-bagian {
+    spacing: 14px;
+    padding: 6px 8px;
+}
+
+.memo-bagian-judul {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.5);
+    min-width: 84px;
+}
+
+.memo-segmen {
+    spacing: 6px;
+}
+
+.memo-baju {
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    border: 2px solid transparent;
     background-color: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
 }
 
-.memo-tombol:hover,
-.memo-tombol:focus {
-    background-color: rgba(255, 255, 255, 0.22);
+.memo-baju:hover,
+.memo-baju:focus {
+    border-color: rgba(255, 255, 255, 0.5);
 }
 
-.memo-tombol-ya {
-    background-color: rgba(46, 160, 67, 0.85);
+.memo-baju:checked {
+    border-color: #ffffff;
 }
-
-.memo-tombol-ya:hover,
-.memo-tombol-ya:focus {
-    background-color: rgba(46, 160, 67, 1);
-}
-
-.memo-tombol-tidak {
-    background-color: rgba(218, 54, 51, 0.85);
-}
-
-.memo-tombol-tidak:hover,
-.memo-tombol-tidak:focus {
-    background-color: rgba(218, 54, 51, 1);
-}
-
-/* Daftar sesi per status */
-.memo-sesi-butuh_izin { color: #ffcc66; font-size: 12px; max-width: 380px; }
-.memo-sesi-tanya { color: #ffcc66; font-size: 12px; max-width: 380px; }
-.memo-sesi-kerja { color: #8fd18f; font-size: 12px; max-width: 380px; }
-.memo-sesi-berpikir { color: #96d2ff; font-size: 12px; max-width: 380px; }
-.memo-sesi-selesai { color: #b4f0b4; font-size: 12px; max-width: 380px; }
-.memo-sesi-galat { color: #ff8a80; font-size: 12px; max-width: 380px; }
-.memo-sesi-idle { color: rgba(255, 255, 255, 0.55); font-size: 12px; max-width: 380px; }
-
-.memo-pill-aktif { color: rgba(255, 255, 255, 0.9); font-size: 12px; max-width: 380px; }
-.memo-pill-mati { color: rgba(255, 255, 255, 0.45); font-size: 12px; max-width: 380px; }
-.memo-kabar { color: rgba(150, 210, 255, 0.9); font-size: 12px; max-width: 380px; }
-.memo-kosong { max-width: 380px; }

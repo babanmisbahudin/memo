@@ -71,7 +71,7 @@ def agen_valid(nama):
 
 def menerima_keputusan(agen):
     """Agen yang kartu izinnya bisa dijawab dari island."""
-    return agen in ("", "claude", "codex", "copilot")
+    return agen in ("", "claude", "codex", "copilot", "memo")
 
 
 def _ingin_json(agen):

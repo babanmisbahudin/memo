@@ -13,7 +13,7 @@ import os
 
 AGEN_DIDUKUNG = (
     "claude", "claude-desktop", "codex", "cursor", "gemini", "opencode",
-    "copilot", "amp", "antigravity", "muse", "hermes",
+    "copilot", "amp", "antigravity", "muse", "hermes", "memo",
 )
 
 STATUS_SAH = ("idle", "berpikir", "kerja", "butuh_izin", "tanya", "selesai", "galat")

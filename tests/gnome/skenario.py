@@ -32,7 +32,7 @@ def hook(p, latar=False):
         pr = subprocess.Popen(a, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE); pr.stdin.write(json.dumps(p).encode()); pr.stdin.close(); return pr
     return subprocess.run(a, env=env, input=json.dumps(p).encode(), capture_output=True)
 I = "const i = memoUji.island();"
-keadaan = lambda: ev(I + "return {label: i._label.text, kotak: i._current === i._event ? 'event' : i._current === i._dot ? 'dot' : 'normal', kartu: i._kartuIzin.visible, judul: i._izinJudul.text, perintah: i._izinPerintah.text, hidup: i._agen.hidup, eks: i.expression, sesi: i._seksiSesi._getMenuItems().map(m => m.label.text), pills: i._seksiPills._getMenuItems().map(m => m.label.text), pintasan: Main.extensionManager.lookup('dynamic-island@local').stateObj._shortcuts._terpasang};".replace("Main.", "memoUji.Main."))
+keadaan = lambda: ev(I + "return {label: i._label.text, kotak: i._current === i._event ? 'event' : i._current === i._dot ? 'dot' : 'normal', kartu: !!i._panel.kartuIzin, perintah: i._panel.izinPerintah?.text ?? '', hidup: i._agen.hidup, eks: i.expression, sesi: i._panel.teksKartu, pills: i._panel.teksPill, mini: i._mini.visible ? i._mini.get_n_children() : 0, pintasan: Main.extensionManager.lookup('dynamic-island@local').stateObj._shortcuts._terpasang};".replace("Main.", "memoUji.Main."))
 def tunggu(syarat, batas=6):
     akhir = time.time() + batas
     while time.time() < akhir:
@@ -44,7 +44,13 @@ def tunggu(syarat, batas=6):
     return keadaan()
 
 k = keadaan()
-cek("extension aktif tanpa galat", ev("return {s: memoUji.status(), g: memoUji.galat()}") == {"s": 1, "g": ""}, k)
+st = ev("return {s: memoUji.status(), g: memoUji.galat()}")
+cek("extension aktif tanpa galat", st == {"s": 1, "g": ""}, st)
+if st != {"s": 1, "g": ""}:
+    print("\n".join(b for b in open(f"{T}/shell.log", errors="ignore").read().splitlines()
+                    if "CRITICAL" in b or "JS ERROR" in b or "@file://" in b)[:3000])
+    sys.exit(1)
+cek("panel tertutup tidak tergambar", ev("return memoUji.island().menu.actor.visible;") is False)
 cek("pintasan terpasang lewat getSettings()", k.get("pintasan") == ["toggle-menu", "voice", "allow", "deny"], k.get("pintasan"))
 cek("daemon mati -> menu bilang tidak jalan", any("tidak jalan" in x for x in k.get("sesi", [])), k.get("sesi"))
 potret("0-diam")
@@ -52,7 +58,7 @@ potret("0-diam")
 daemon = subprocess.Popen([sys.executable, f"{R}/bin/memo-agen.py"], env=env)
 k = tunggu(lambda k: k["hidup"])
 cek("daemon hidup terdeteksi", k["hidup"], k)
-cek("tanpa sesi -> pesan kosong", any("Tidak ada sesi" in x for x in k["sesi"]), k["sesi"])
+cek("tanpa sesi -> kartu 'Belum ada agen bekerja'", any("Belum ada agen" in x for x in k["sesi"]), k["sesi"])
 base = {"session_id": "ses-uji-1", "cwd": "/home/himisbah/Projects/toko"}
 hook({**base, "hook_event_name": "UserPromptSubmit", "prompt": "rapikan checkout"})
 k = tunggu(lambda k: "berpikir" in k["label"])
@@ -62,7 +68,8 @@ hook({**base, "hook_event_name": "PreToolUse", "tool_name": "Edit", "tool_input"
 hook({**base, "hook_event_name": "PostToolUse", "tool_name": "Edit", "tool_input": {"file_path": "/x/checkout.js", "old_string": "a\nb", "new_string": "a\nc\nd"}})
 k = tunggu(lambda k: "checkout.js +2" in k["label"])
 cek("ticker edit +N −M di island", k["label"] == "claude · toko — checkout.js +2 −1", k["label"])
-cek("sesi tampil di menu", any("checkout.js" in x for x in k["sesi"]), k["sesi"])
+cek("kartu utama: proyek + langkah", "toko" in k["sesi"] and any("checkout.js" in x for x in k["sesi"]), k["sesi"])
+cek("island tertutup: avatar pill mini muncul", k["mini"] >= 1, k["mini"])
 potret("1-aktivitas")
 
 izin = {**base, "hook_event_name": "PermissionRequest", "tool_name": "Bash", "tool_input": {"command": "npm run migrate -- --env production"}}
@@ -73,8 +80,11 @@ cek("perintah persis di kartu", k["perintah"] == "npm run migrate -- --env produ
 cek("island menempel izin", k["label"].startswith("claude: izin? Bash: npm run migrate"), k["label"])
 cek("ekspresi bingung saat izin", k["eks"] == "bingung", k["eks"])
 ev("const i = memoUji.island(); i.menu.open(); return true;"); time.sleep(0.6)
-potret("2-kartu-izin")
-klik = ev("const i = memoUji.island(); const b = i._tombolIzin.allow; b.emit('clicked', 1); return b.label;")
+potret("2-kartu-izin", (300, 0, 1000, 420))
+u = ev("const i = memoUji.island(); return {lebar: Math.round(i.menu.box.width), pill: Math.round(i._pill.width), terbuka: i._pill.has_style_class_name('memo-terbuka'), tab: i._panel._tab};")
+cek("panel ala Coucou: lebar 640 px, island ikut melebar", u.get("lebar") == 640 and u.get("pill") >= 640 and u.get("terbuka"), u)
+cek("ada izin -> panel membuka Beranda", u.get("tab") == "beranda", u)
+klik = ev("const i = memoUji.island(); const b = i._panel.tombolIzin.allow; b.emit('clicked', 1); return b.get_child().get_children()[0].text;")
 cek("tombol pertama = Izinkan", klik == "Izinkan", klik)
 out = pr.stdout.read().decode(); pr.wait(5)
 cek("klik tombol -> agen menerima allow", out and json.loads(out)["hookSpecificOutput"]["decision"]["behavior"] == "allow", out)
@@ -90,6 +100,11 @@ cek("jalur pintasan Super+Shift+Y (jawabIzin deny) -> agen menerima deny", out a
 
 hook({**base, "hook_event_name": "Stop"})
 k = tunggu(lambda k: "selesai" in k["label"])
+ev("const i = memoUji.island(); i.menu.open(); return true;"); time.sleep(0.6)
+teks = ev("return memoUji.island()._panel.teksKartu;")
+cek("kartu selesai ala Coucou: '... selesai' + ringkasan +N −M", any("selesai" in x for x in teks) and any("+2 −1" in x for x in teks), teks)
+potret("10-selesai", (300, 0, 1000, 420))
+ev("const i = memoUji.island(); i.menu.close(); return true;")
 cek("Stop -> 'selesai +N −M'", k["label"] == "claude · toko — selesai +2 −1", k["label"])
 cek("ekspresi senang saat selesai", k["eks"] == "senang", k["eks"])
 k = tunggu(lambda k: k["kotak"] == "normal", 9)
@@ -101,11 +116,24 @@ pills = {"pills": [{"id": "github", "judul": "Git", "sub": "bersih", "aktif": Fa
                               {"judul": "Chat dari Dekor Indah", "pesan": "halo admin", "url": "javascript:alert(1)"}]}]}
 json.dump(pills, open(f"{T}/shm/memo-pills.json", "w"))
 k = tunggu(lambda k: any("LebihTeratur" in x for x in k["pills"]))
-cek("pill LebihTeratur tampil", any(x.startswith("● LebihTeratur") for x in k["pills"]), k["pills"])
-cek("kabar https bisa diklik, javascript: tidak", ev("const i = memoUji.island(); return i._seksiPills._getMenuItems().filter(m => m.label.text.includes('—')).map(m => m.reactive);") == [True, False])
-ev("const i = memoUji.island(); i.menu.open(); return true;"); time.sleep(0.6)
-potret("3-menu-pill")
-ev("const i = memoUji.island(); i.menu.close(); return true;")
+cek("pill LebihTeratur tampil di kisi", "LebihTeratur" in k["pills"], k["pills"])
+ev("const i = memoUji.island(); i.menu.open(); i._panel._kisi.get_children().find(b => b._memoId === 'lebihteratur').emit('clicked', 1); return true;"); time.sleep(0.6)
+kelas = ev("return memoUji.island()._panel._info.get_children().map(c => c.style_class);")
+cek("klik pill -> kartu detail layanan; kabar https jadi tautan, javascript: tidak", kelas.count("memo-baris-tautan") == 1 and "memo-kabar" in kelas, kelas)
+potret("3-menu-pill", (300, 0, 1000, 420))
+ev("const i = memoUji.island(); i._panel._kisi.get_children().find(b => b._memoId === 'lebihteratur').emit('clicked', 1); i._panel.pilihTab('chat'); return true;"); time.sleep(0.3)
+ev("const c = memoUji.island()._panel._chat; c.entri.set_text('halo memo'); c.entri.clutter_text.emit('activate'); return true;"); time.sleep(0.4)
+cek("tab Chat: ketikan terkirim ke memo-suara", open(f"{T}/shm/memo-ngobrol.teks").read() == "halo memo")
+cek("tab Chat: muncul di riwayat", any("halo memo" in x for x in ev("const c = memoUji.island()._panel._chat; return c.riwayat.get_children().map(b => b.get_children()[1].text);")))
+potret("8-chat", (300, 0, 1000, 420))
+ev("const p = memoUji.island()._panel; p.pilihTab('atur'); p._tombolOtak.find(b => b._memoId === 'claude').emit('clicked', 1); return true;"); time.sleep(0.3)
+cek("Pengaturan: pilih Otak AI tersimpan", open(f"{T}/shm/memo-ngobrol.backend").read() == "claude")
+ev("const p = memoUji.island()._panel; p._ikonSuara.get_parent().emit('clicked', 1); return true;"); time.sleep(0.2)
+cek("tombol suara: Memo dibisukan (config uji)", os.path.exists(f"{T}/config/memo/bisu"))
+potret("9-atur", (300, 0, 1000, 420))
+ev("const p = memoUji.island()._panel; p._ikonSuara.get_parent().emit('clicked', 1); return true;"); time.sleep(0.2)
+cek("tombol suara lagi: suara kembali", not os.path.exists(f"{T}/config/memo/bisu"))
+ev("const i = memoUji.island(); i._panel.pilihTab('beranda'); i.menu.close(); return true;")
 
 subprocess.run(["notify-send", "--app-name=LebihTeratur", "Vendor Baru Terdaftar", "Dekor Indah mendaftar"], env=env)
 k = tunggu(lambda k: k["label"] == "Vendor Baru Terdaftar", 4)
@@ -114,7 +142,7 @@ potret("4-notif")
 
 subprocess.run([sys.executable, f"{R}/bin/memo-agen.py", "--demo"], env=env, capture_output=True)
 k = tunggu(lambda k: k["kartu"] and "demo" in " ".join(k["sesi"]))
-cek("mode demo mengisi sesi + kartu", k["kartu"] and any("mode demo" in x for x in k["sesi"]), k["sesi"])
+cek("mode demo mengisi sesi + kartu", k["kartu"] and ev("return memoUji.island()._agen.demo;") is True, k["sesi"])
 ev("const i = memoUji.island(); i.jawabIzin('allow'); return true;")
 k = tunggu(lambda k: not k["kartu"])
 cek("menjawab kartu demo menutup demo", not k["kartu"], k)
@@ -166,9 +194,7 @@ s = sampel(POSE, 0.8)
 cek("ditolak -> Memo menggeleng (geser kiri-kanan)", any(x.get("e") == "geleng" for x in s) and min(x.get("tx", 0) for x in s) < -0.5 < 0.5 < max(x.get("tx", 0) for x in s))
 pr.stdout.read(); pr.wait(5)
 
-ev("""const i = memoUji.island();
-      const lain = i.menu._getMenuItems().find(m => m.label?.text?.startsWith('Lainnya'));
-      lain.menu._getMenuItems().find(m => m.label.text.startsWith('Lepas Memo')).activate(null); return true;""")
+ev("const p = memoUji.island()._panel; p.pilihTab('atur'); p._tombolDesktop.emit('clicked', 1); memoUji.island().menu.close(); return true;")
 k = ev("const c = memoUji.island()._companion; return {ada: !!c, tampil: c?.visible};")
 cek("Memo desktop bisa dilepas", k == {"ada": True, "tampil": True}, k)
 cek("posisi Memo desktop disimpan di config uji, bukan ~/.config asli", os.path.exists(f"{T}/config/memo/companion.json"))

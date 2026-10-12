@@ -6,7 +6,6 @@ import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import Meta from 'gi://Meta';
-import Shell from 'gi://Shell';
 import Gvc from 'gi://Gvc';
 import Pango from 'gi://Pango';
 
@@ -15,6 +14,7 @@ import { RobotService } from './robotService.js';
 import { AgenStore, tickerSesi } from './agenStore.js';
 import { MemoShortcuts } from './shortcut.js';
 import { MemoCompanion } from './companion.js';
+import { OUTFITS, PanelMemo, avatarPiksel } from './panel.js';
 import { Gerak } from './gerak.js';
 import { DETIK_TIDUR, ISENG, ISENG_MAKS_S, ISENG_MIN_S, JARAK_BANGUN, bolehTidur } from './gerakPola.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
@@ -88,18 +88,15 @@ class Island {
         this._detik = 0;
         this._isengBerikut = this._acakIseng();
 
+        // Hitam pekat dan mengisi tinggi top bar, supaya menempel di tepi
+        // atas layar seperti island Coucou.
         this._pill = new St.BoxLayout({
             style_class: 'dynamic-island-pill',
-            y_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.FILL,
             x_align: Clutter.ActorAlign.CENTER,
             reactive: true,
         });
         this._pill.set_pivot_point(0.5, 0.5);
-        this._pill.add_effect(new Shell.BlurEffect({
-            brightness: 0.75,
-            radius: 20,
-            mode: Shell.BlurMode.BACKGROUND,
-        }));
         // Mata robot adalah anak tetap pill: selalu terlihat, tidak pernah
         // ditukar. Yang bergantian di sebelahnya hanya isinya.
         
@@ -108,293 +105,58 @@ class Island {
         // Gerak tubuh ala Mochi; amplitudo kecil supaya tidak keluar top bar.
         this._gerak = new Gerak(this._face.actor, { amplitudo: 0.45, arahPartikel: 1, blokPartikel: 2 });
         
-        // --- Memo Menu ---
+        // --- Panel Memo ala Coucou (island membesar jadi panel hitam) ---
         this.menu = new PopupMenu.PopupMenu(this._pill, 0.5, St.Side.TOP);
         this.menu.actor.add_style_class_name('memo-menu');
         Main.uiGroup.add_child(this.menu.actor);
+        // Seperti PanelMenu.Button: menu yang baru ditambahkan harus
+        // disembunyikan sendiri, kalau tidak ia tergambar di pojok layar.
+        this.menu.actor.hide();
         this.menuManager = new PopupMenu.PopupMenuManager({ actor: this._pill });
         this.menuManager.addMenu(this.menu);
-        
-        // Header
-        const headerItem = new PopupMenu.PopupMenuItem('🤖 Memo', { reactive: false });
-        headerItem.label.add_style_class_name('memo-judul');
-        this.menu.addMenuItem(headerItem);
-        
-        // Status Label (Memantau file)
-        const statusItem = new PopupMenu.PopupMenuItem('Status: Menunggu instruksi...', { reactive: false });
-        statusItem.label.add_style_class_name('memo-status');
-        this.menu.addMenuItem(statusItem);
-        
-        this._statusPollId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1000, () => {
-            if (!this.menu.isOpen) return GLib.SOURCE_CONTINUE;
-            try {
-                let [ok, contents] = GLib.file_get_contents(`${SHM}/memo-ngobrol.status`);
-                if (ok) {
-                    let text = new TextDecoder().decode(contents).trim();
-                    statusItem.label.text = text ? `Status: ${text}` : 'Status: Menunggu instruksi...';
-                } else {
-                    statusItem.label.text = 'Status: Siap mendengarkan';
-                }
-            } catch (e) {
-                statusItem.label.text = 'Status: Menunggu instruksi...';
-            }
-            return GLib.SOURCE_CONTINUE;
-        });
-
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-        // --- Sesi agen live ala Coucou ---
-        const agenHeader = new PopupMenu.PopupMenuItem('Sesi Agen', { reactive: false });
-        agenHeader.label.add_style_class_name('memo-sekunder');
-        this.menu.addMenuItem(agenHeader);
-
-        // Kartu izin: perintah PERSIS yang akan dijalankan + tiga tombol.
-        this._kartuIzin = new PopupMenu.PopupBaseMenuItem({ reactive: false, can_focus: false });
-        const kartu = new St.BoxLayout({ vertical: true, x_expand: true, style_class: 'memo-izin' });
-        this._izinJudul = new St.Label({ style_class: 'memo-izin-judul' });
-        this._izinPerintah = new St.Label({ style_class: 'memo-izin-perintah' });
-        this._izinPerintah.clutter_text.line_wrap = true;
-        this._izinPerintah.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
-        this._izinSisa = new St.Label({ style_class: 'memo-sekunder' });
-        this._tombolIzin = {};
-        const barisTombol = new St.BoxLayout({ style_class: 'memo-izin-tombol', x_expand: true });
-        for (const [label, keputusan, kelas] of [
-            ['Izinkan', 'allow', 'memo-tombol-ya'],
-            ['Tolak', 'deny', 'memo-tombol-tidak'],
-            ['Selalu', 'always', 'memo-tombol-selalu'],
-        ]) {
-            const b = new St.Button({ label, style_class: `memo-tombol ${kelas}`, x_expand: true, can_focus: true });
-            b.connect('clicked', () => this.jawabIzin(keputusan));
-            this._tombolIzin[keputusan] = b;
-            barisTombol.add_child(b);
-        }
-        kartu.add_child(this._izinJudul);
-        kartu.add_child(this._izinPerintah);
-        kartu.add_child(barisTombol);
-        kartu.add_child(this._izinSisa);
-        this._kartuIzin.add_child(kartu);
-        this._kartuIzin.visible = false;
-        this.menu.addMenuItem(this._kartuIzin);
-
-        this._seksiSesi = new PopupMenu.PopupMenuSection();
-        this.menu.addMenuItem(this._seksiSesi);
-
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-
-        // Input Teks
-        const entryItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
-        const entry = new St.Entry({
-            style_class: 'memo-entri',
-            can_focus: true,
-            hint_text: 'Ketik perintah... (Enter)',
-            x_expand: true,
-        });
-        entryItem.actor.add_child(entry);
-        this.menu.addMenuItem(entryItem);
-        
-        // Tombol Suara
-        const voiceItem = new PopupMenu.PopupImageMenuItem('Bicara / Rekam Suara', 'audio-input-microphone-symbolic');
-        voiceItem.connect('activate', () => {
-            tulisBerkas(`${SHM}/memo-ngobrol.minta`, '');
-            this.menu.close();
-        });
-        this.menu.addMenuItem(voiceItem);
-
-        const aksiSub = new PopupMenu.PopupSubMenuMenuItem('Tindakan cepat');
-        const addAksi = (label, icon, cmd) => {
-            const item = new PopupMenu.PopupImageMenuItem(label, icon);
-            item.connect('activate', () => {
-                tulisBerkas(`${SHM}/memo-ngobrol.teks`, cmd);
-                this.menu.close();
-            });
-            aksiSub.menu.addMenuItem(item);
-        };
-        addAksi('Deploy ke Vercel', 'network-server-symbolic', 'Tolong deploy proyek ini ke vercel');
-        addAksi('Cek GitHub PR', 'emblem-shared-symbolic', 'Cek status PR di GitHub');
-        addAksi('Status Render', 'applications-internet-symbolic', 'Bagaimana status server di Render?');
-
-        const otakSub = new PopupMenu.PopupSubMenuMenuItem('Otak AI');
-        const OTAK = [['opencode', 'OpenCode'], ['claude', 'Claude (CLI)'], ['gemini', 'Gemini API'], ['ollama', 'Ollama (lokal)']];
-        const itemOtak = [];
-        this._segarkanOtak = () => {
-            let aktif = 'otomatis';
-            try {
-                const [ok, isi] = GLib.file_get_contents(`${SHM}/memo-ngobrol.backend`);
-                if (ok)
-                    aktif = new TextDecoder().decode(isi).trim() || 'otomatis';
-            } catch (e) { /* belum pernah dipilih */ }
-            const nama = OTAK.find(([id]) => id === aktif)?.[1] ?? 'otomatis';
-            otakSub.label.text = `Otak AI: ${nama}`;
-            for (const [item, id, label] of itemOtak)
-                item.label.text = `${id === aktif ? '● ' : '○ '}${label}`;
-        };
-        for (const [id, label] of OTAK) {
-            const item = new PopupMenu.PopupMenuItem(label);
-            item.connect('activate', () => {
-                tulisBerkas(`${SHM}/memo-ngobrol.backend`, id);
-                this.menu.close();
-            });
-            itemOtak.push([item, id, label]);
-            otakSub.menu.addMenuItem(item);
-        }
-
-        // --- Pills integrasi + kabar LebihTeratur ---
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-        const pillHeader = new PopupMenu.PopupMenuItem('Pills', { reactive: false });
-        pillHeader.label.add_style_class_name('memo-sekunder');
-        this.menu.addMenuItem(pillHeader);
-        this._seksiPills = new PopupMenu.PopupMenuSection();
-        this.menu.addMenuItem(this._seksiPills);
-
-        // --- Lampiran berkas (drop-file ala Coucou) ---
-        const lampiranItem = new PopupMenu.PopupMenuItem('', { reactive: false });
-        lampiranItem.label.add_style_class_name('memo-status');
-        lampiranItem.visible = false;
-        this.menu.addMenuItem(lampiranItem);
-        const lepasItem = new PopupMenu.PopupMenuItem('Lepas lampiran');
-        lepasItem.visible = false;
-        lepasItem.connect('activate', () => {
-            try {
-                GLib.unlink(`${SHM}/memo-lampiran.json`);
-            } catch (e) { /* tidak ada lampiran, tidak apa-apa */ }
-            this.menu.close();
-        });
-        this.menu.addMenuItem(lepasItem);
-        this._segarkanLampiran = () => {
-            try {
-                const [lok, lampiran] = GLib.file_get_contents(`${SHM}/memo-lampiran.json`);
-                const lamp = lok ? JSON.parse(new TextDecoder().decode(lampiran)) : null;
-                lampiranItem.label.text = lamp ? `📎 ${lamp.nama ?? lamp.path} — akan ikut ditanya` : '';
-                lampiranItem.visible = lepasItem.visible = !!lamp;
-            } catch (e) {
-                lampiranItem.visible = lepasItem.visible = false;
-            }
-        };
-
-        // --- Submenu: tindakan cepat, otak AI, wardrobe, lainnya ---
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-        this.menu.addMenuItem(aksiSub);
-        this.menu.addMenuItem(otakSub);
-        const wardrobeSub = new PopupMenu.PopupSubMenuMenuItem('Wardrobe');
-        this.menu.addMenuItem(wardrobeSub);
-        const lainnyaSub = new PopupMenu.PopupSubMenuMenuItem('Lainnya');
-        this.menu.addMenuItem(lainnyaSub);
-
-        // --- Rekap mingguan + demo mode ---
-        const rekapItem = new PopupMenu.PopupImageMenuItem('Rekap mingguan', 'x-office-calendar-symbolic');
-        rekapItem.connect('activate', () => {
-            tulisBerkas(`${SHM}/memo-ngobrol.teks`, 'Tulis rekap mingguan: sesi, berkas, perintah tersering, hari tersibuk');
-            this.menu.close();
-        });
-        lainnyaSub.menu.addMenuItem(rekapItem);
-        const demoItem = new PopupMenu.PopupMenuItem('Coba demo sesi agen (60 detik)');
-        demoItem.connect('activate', () => {
-            this._agen.mulaiDemo();
-            this.menu.close();
-        });
-        lainnyaSub.menu.addMenuItem(demoItem);
 
         this._agen = new AgenStore();
         this._tandaAgen = '';
-        this._izinTerakhir = null;
         this._agen.onChange(store => this._segarkanAgen(store));
 
-        // --- Wardrobe ala Coucou ---
-        // Cermin wardrobe_pola.py OUTFITS: [id, nama, hue, glow].
-        const OUTFITS = [
-            ['musiman', 'Musiman (otomatis)', null, 0],
-            ['klasik', 'Klasik', 120, 0],
-            ['laut', 'Laut', 205, 0.1],
-            ['senja', 'Senja', 30, 0.1],
-            ['anggur', 'Anggur', 280, 0.15],
-            ['sakura', 'Sakura', 330, 0.1],
-            ['emas', 'Emas', 45, 0.25],
-            ['natal', 'Natal', 0, 0.2],
-        ];
-        const MUSIMAN = { 1: 'emas', 2: 'sakura', 3: 'klasik', 4: 'klasik', 5: 'klasik', 6: 'laut', 7: 'laut', 8: 'laut', 9: 'senja', 10: 'senja', 11: 'senja', 12: 'natal' };
-        const bacaWardrobe = () => {
-            try {
-                const [ok, c] = GLib.file_get_contents(GLib.get_user_config_dir() + '/memo/wardrobe.json');
-                if (ok) {
-                    const d = JSON.parse(new TextDecoder().decode(c));
-                    if (typeof d?.outfit === 'string')
-                        return d.outfit;
-                }
-            } catch (e) { /* bawaan */ }
-            return 'musiman';
-        };
-        const terapkanWardrobe = (pilihan) => {
-            let id = pilihan;
-            if (id === 'musiman') {
-                const bulan = new Date().getMonth() + 1;
-                id = MUSIMAN[bulan] ?? 'klasik';
-            }
-            const o = OUTFITS.find(x => x[0] === id) ?? OUTFITS[1];
-            this.setTint(o[2] === null ? 120 : o[2], o[3]);
-            segarkanTanda();
-        };
-        const itemWardrobe = [];
-        const segarkanTanda = () => {
-            const aktif = bacaWardrobe();
-            for (const [item, id] of itemWardrobe)
-                item.label.text = `${id === aktif ? '● ' : '○ '}${OUTFITS.find(x => x[0] === id)[1]}`;
-            wardrobeSub.label.text = `Wardrobe: ${OUTFITS.find(x => x[0] === aktif)?.[1] ?? 'Klasik'}`;
-        };
-        for (const [id] of OUTFITS) {
-            const item = new PopupMenu.PopupMenuItem('');
-            item.connect('activate', () => {
-                try {
-                    GLib.mkdir_with_parents(GLib.get_user_config_dir() + '/memo', 0o700);
-                    tulisBerkas(GLib.get_user_config_dir() + '/memo/wardrobe.json',
-                        JSON.stringify({ outfit: id }));
-                } catch (e) {
-                    console.error(`[dynamic-island] simpan wardrobe: ${e}`);
-                }
-                terapkanWardrobe(id);
-                this.menu.close();
-            });
-            itemWardrobe.push([item, id]);
-            wardrobeSub.menu.addMenuItem(item);
-        }
-        terapkanWardrobe(bacaWardrobe());
+        this._panel = new PanelMemo(this);
+        const wadah = new PopupMenu.PopupBaseMenuItem({ reactive: false, can_focus: false, style_class: 'memo-panel-item' });
+        wadah.add_child(this._panel.actor);
+        this.menu.addMenuItem(wadah);
 
-        // --- Suara kustom + companion desktop ---
-        const suaraItem = new PopupMenu.PopupImageMenuItem('Buka folder suara kustom', 'audio-x-generic-symbolic');
-        suaraItem.connect('activate', () => {
-            try {
-                const dir = GLib.get_user_config_dir() + '/memo/suara';
-                GLib.mkdir_with_parents(dir, 0o700);
-                Gio.AppInfo.launch_default_for_uri(`file://${dir}`, null);
-            } catch (e) {
-                console.error(`[dynamic-island] buka folder suara: ${e}`);
-            }
-            this.menu.close();
+        // Mengetik saat panel terbuka langsung pindah ke tab Chat.
+        this.menu.actor.connect('key-press-event', (_a, ev) => {
+            const huruf = ev.get_key_unicode();
+            const pengubah = ev.get_state() & (Clutter.ModifierType.CONTROL_MASK |
+                Clutter.ModifierType.MOD1_MASK | Clutter.ModifierType.SUPER_MASK);
+            if (!huruf || !/\S/.test(huruf) || pengubah || this._panel._tab === 'chat')
+                return Clutter.EVENT_PROPAGATE;
+            this._panel.pilihTab('chat');
+            this._panel._chat.entri.clutter_text.insert_text(huruf, -1);
+            return Clutter.EVENT_STOP;
         });
-        lainnyaSub.menu.addMenuItem(suaraItem);
-        const companionItem = new PopupMenu.PopupMenuItem('Lepas Memo ke desktop');
-        const segarkanCompanion = () => {
-            companionItem.label.text = this._companion?.visible
-                ? 'Kembalikan Memo ke island' : 'Lepas Memo ke desktop';
-        };
-        companionItem.connect('activate', () => {
-            try {
-                if (this._companion?.visible) {
-                    this._companion.sembunyikan();
-                } else {
-                    if (!this._companion)
-                        this._companion = new MemoCompanion(this);
-                    this._companion.tampilkan();
-                    // Sinkronkan ekspresi + tint yang sedang aktif.
-                    this._companion.sync(this.expression);
-                    this._companion.setTint(this._tintHue ?? 120, this._tintGlow ?? 0);
+
+        this.menu.connect('open-state-changed', (_m, open) => {
+            if (open) {
+                this._pill.add_style_class_name('memo-terbuka');
+                this._panel.segarkan(this._agen);
+                this._panel.pilihTab(this._agen.izin.length ? 'beranda' : this._panel._tab === 'atur' ? 'beranda' : this._panel._tab);
+                this._chatId = GLib.timeout_add(GLib.PRIORITY_LOW, 1000, () => {
+                    if (this._panel._tab === 'chat')
+                        this._panel.segarkanChat();
+                    return GLib.SOURCE_CONTINUE;
+                });
+            } else {
+                this._pill.remove_style_class_name('memo-terbuka');
+                if (this._chatId) {
+                    GLib.source_remove(this._chatId);
+                    this._chatId = null;
                 }
-            } catch (e) {
-                console.error(`[dynamic-island] companion: ${e}`);
             }
-            segarkanCompanion();
-            this.menu.close();
         });
-        lainnyaSub.menu.addMenuItem(companionItem);
-        // Pulihkan companion bila sebelum restart dalam keadaan terbuka.
+
+        this.pilihWardrobe(this.wardrobeAktif(), false);
+        // Pulihkan Memo desktop bila sebelum restart dalam keadaan terbuka.
         try {
             const [cok, cc] = GLib.file_get_contents(GLib.get_user_config_dir() + '/memo/companion.json');
             if (cok && JSON.parse(new TextDecoder().decode(cc)).terbuka) {
@@ -403,24 +165,6 @@ class Island {
                 this._companion.setTint(this._tintHue ?? 120, this._tintGlow ?? 0);
             }
         } catch (e) { /* mulai tanpa companion */ }
-
-        
-        entry.clutter_text.connect('activate', () => {
-            const text = entry.get_text();
-            if (text) {
-                tulisBerkas(`${SHM}/memo-ngobrol.teks`, text);
-                entry.set_text('');
-                this.menu.close();
-            }
-        });
-        
-        this.menu.connect('open-state-changed', (menu, open) => {
-            if (open) {
-                this._segarkanLampiran();
-                this._segarkanOtak();
-                global.stage.set_key_focus(entry.clutter_text);
-            }
-        });
 
         this._face.onClick = () => {
             // Coucou: tiga tepukan cepat bikin Mochi pusing.
@@ -475,10 +219,13 @@ class Island {
             return Clutter.EVENT_STOP;
         });
 
+        this._mini = new St.BoxLayout({ style_class: 'dynamic-island-mini', y_align: Clutter.ActorAlign.CENTER });
+
         this._pill.add_child(this._face.actor);
         this._pill.add_child(this._dot);
         this._pill.add_child(this._normal);
         this._pill.add_child(this._event);
+        this._pill.add_child(this._mini);
 
         this._face.setBlinkingEnabled(true);
 
@@ -566,72 +313,24 @@ class Island {
             return;
         this._tandaAgen = tanda;
 
-        // Kartu izin di menu
-        this._kartuIzin.visible = !!izin;
-        if (izin) {
-            const proyek = izin.proyek ? ` · ${izin.proyek}` : '';
-            this._izinJudul.text = `🔐 ${izin.agen}${proyek} minta izin ${izin.alat || ''}`.trim();
-            this._izinPerintah.text = izin.perintah || izin.aksi;
-            const sisa = store.izin.length - 1;
-            this._izinSisa.text = sisa > 0 ? `+${sisa} izin lain menunggu` : 'Super+Y izinkan · Super+Shift+Y tolak · terminal tetap bisa menjawab';
-        }
-
         // Island: izin menempel sampai dijawab; aktivitas agen jadi ticker.
         this._izinTampil = izin
             ? { iconName: 'dialog-password-symbolic', text: `${izin.agen}: izin? ${izin.aksi}` }
             : null;
         this._aktivitas = aktif ? tickerSesi(aktif) : null;
         this._renderEvent();
+        this._segarkanMini(store);
         this._update();
+        this._panel.segarkan(store);
+    }
 
-        // Daftar sesi
-        this._seksiSesi.removeAll();
-        const tambah = (teks, kelas) => {
-            const item = new PopupMenu.PopupMenuItem(teks, { reactive: false });
-            item.label.add_style_class_name(kelas);
-            item.label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
-            this._seksiSesi.addMenuItem(item);
-        };
-        if (!store.hidup) {
-            tambah('memo-agen tidak jalan — systemctl --user start memo-agen', 'memo-kosong');
-        } else if (store.sesi.length === 0) {
-            tambah('Tidak ada sesi agen berjalan', 'memo-kosong');
-        } else {
-            for (const s of store.sesi.slice(0, 5))
-                tambah(`● ${tickerSesi(s)}`, `memo-sesi-${s.status}`);
-            if (store.demo)
-                tambah('(mode demo — data contoh)', 'memo-kosong');
-        }
-
-        // Pills + kabar LebihTeratur yang bisa diklik
-        this._seksiPills.removeAll();
-        if (store.pills.length === 0) {
-            const item = new PopupMenu.PopupMenuItem('memo-integrasi tidak jalan', { reactive: false });
-            item.label.add_style_class_name('memo-kosong');
-            this._seksiPills.addMenuItem(item);
-        }
-        for (const p of store.pills) {
-            const item = new PopupMenu.PopupMenuItem(`${p.aktif ? '●' : '○'} ${p.judul}: ${p.sub}`, { reactive: false });
-            item.label.add_style_class_name(p.aktif ? 'memo-pill-aktif' : 'memo-pill-mati');
-            item.label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
-            this._seksiPills.addMenuItem(item);
-            for (const k of p.kabar ?? []) {
-                const sah = typeof k.url === 'string' && /^https?:\/\//.test(k.url);
-                const sub = new PopupMenu.PopupMenuItem(`   ${sah ? '↗' : '·'} ${k.judul} — ${k.pesan ?? ''}`, { reactive: sah });
-                sub.label.add_style_class_name('memo-kabar');
-                sub.label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
-                if (sah) {
-                    sub.connect('activate', () => {
-                        try {
-                            Gio.AppInfo.launch_default_for_uri(k.url, null);
-                        } catch (e) {
-                            console.error(`[dynamic-island] buka kabar: ${e}`);
-                        }
-                    });
-                }
-                this._seksiPills.addMenuItem(sub);
-            }
-        }
+    _segarkanMini(store) {
+        this._mini.destroy_all_children();
+        const WARNA = { claude: '#D97757', opencode: '#cfd6dd', gemini: '#4285F4', codex: '#10A37F', memo: '#3fb950' };
+        const STATUS = { kerja: '#58a6ff', berpikir: '#58a6ff', tanya: '#f0b429', butuh_izin: '#f0b429', selesai: '#3fb950', galat: '#f85149' };
+        for (const sesi of store.sesi.slice(0, 4))
+            this._mini.add_child(avatarPiksel(WARNA[sesi.agen] ?? '#9aa4b2', STATUS[sesi.status] ?? null, 1));
+        this._mini.visible = this._mini.get_n_children() > 0 && this._current !== this._dot;
     }
 
     jawabIzin(keputusan) {
@@ -651,6 +350,73 @@ class Island {
             `${kata}: ${izin.aksi}`, 2000);
         if (this._agen.izin.length <= 1)
             this.menu.close();
+    }
+
+    wardrobeAktif() {
+        try {
+            const [ok, c] = GLib.file_get_contents(GLib.get_user_config_dir() + '/memo/wardrobe.json');
+            if (ok) {
+                const d = JSON.parse(new TextDecoder().decode(c));
+                if (typeof d?.outfit === 'string')
+                    return d.outfit;
+            }
+        } catch (e) { /* bawaan */ }
+        return 'musiman';
+    }
+
+    pilihWardrobe(pilihan, simpan = true) {
+        if (simpan) {
+            try {
+                GLib.mkdir_with_parents(GLib.get_user_config_dir() + '/memo', 0o700);
+                tulisBerkas(GLib.get_user_config_dir() + '/memo/wardrobe.json', JSON.stringify({ outfit: pilihan }));
+            } catch (e) {
+                console.error(`[dynamic-island] simpan wardrobe: ${e}`);
+            }
+        }
+        const MUSIMAN = { 1: 'emas', 2: 'sakura', 6: 'laut', 7: 'laut', 8: 'laut', 9: 'senja', 10: 'senja', 11: 'senja', 12: 'natal' };
+        const id = pilihan === 'musiman' ? MUSIMAN[new Date().getMonth() + 1] ?? 'klasik' : pilihan;
+        const o = OUTFITS.find(x => x[0] === id) ?? OUTFITS[1];
+        this.setTint(o[2] === null ? 120 : o[2], o[3]);
+    }
+
+    get companionTampil() {
+        return !!this._companion?.visible;
+    }
+
+    togelCompanion() {
+        try {
+            if (this._companion?.visible) {
+                this._companion.sembunyikan();
+            } else {
+                if (!this._companion)
+                    this._companion = new MemoCompanion(this);
+                this._companion.tampilkan();
+                this._companion.sync(this.expression);
+                this._companion.setTint(this._tintHue ?? 120, this._tintGlow ?? 0);
+            }
+        } catch (e) {
+            console.error(`[dynamic-island] companion: ${e}`);
+        }
+    }
+
+    mulaiDemo() {
+        this._agen.mulaiDemo();
+    }
+
+    // Jalur skrip di bin/ repo Memo. Folder extension biasanya symlink ke
+    // repo, jadi targetnya dibaca dulu.
+    jalurBin(nama) {
+        try {
+            let dir = Gio.File.new_for_uri(import.meta.url).get_parent();
+            const info = dir.query_info('standard::symlink-target,standard::is-symlink', Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, null);
+            if (info.get_is_symlink())
+                dir = Gio.File.new_for_path(info.get_symlink_target());
+            const f = dir.get_parent().get_child('bin').get_child(nama);
+            return f.query_exists(null) ? f.get_path() : null;
+        } catch (e) {
+            console.error(`[dynamic-island] jalur bin: ${e}`);
+            return null;
+        }
     }
 
     _adopt(indicator) {
@@ -714,6 +480,7 @@ class Island {
             return;
 
         this._companion?.sync(name);
+        this._panel?.sync(name);
 
         if (this._expressionHoldId) {
             GLib.source_remove(this._expressionHoldId);
@@ -746,6 +513,7 @@ class Island {
         if (opsi.partikel)
             this._gerak.partikel(opsi.partikel, opsi.jumlah ?? 1);
         this._companion?.gerak(nama, opsi);
+        this._panel?.gerak(nama, opsi);
     }
 
     _acakIseng() {
@@ -827,6 +595,7 @@ class Island {
         this._tintGlow = glowBoost;
         this._face.setTint(h, glowBoost);
         this._companion?.setTint(h, glowBoost);
+        this._panel?.setTint(h, glowBoost);
     }
 
     get expression() {
@@ -913,6 +682,7 @@ class Island {
             this._current.visible = false;
         this._current = box;
         box.visible = true;
+        this._mini.visible = box !== this._dot && this._mini.get_n_children() > 0;
 
         this._pill.set_width(-1);
         this._pill.set_height(-1);
@@ -1007,9 +777,9 @@ class Island {
 
     
         destroy() {
-        if (this._statusPollId) {
-            GLib.source_remove(this._statusPollId);
-            this._statusPollId = null;
+        if (this._chatId) {
+            GLib.source_remove(this._chatId);
+            this._chatId = null;
         }
         this._agen?.stop();
         this._agen = null;
@@ -1018,6 +788,8 @@ class Island {
                 GLib.source_remove(id);
         }
         this._detakGerakId = this._sapaId = null;
+        this._panel?.destroy();
+        this._panel = null;
         if (this.menu) {
             this.menu.destroy();
             this.menuManager.removeMenu(this.menu);

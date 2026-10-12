@@ -24,6 +24,7 @@ import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from otak import tanya                                      # noqa: E402
+import izin_klien                                            # noqa: E402
 
 BERKAS_PICU = "/dev/shm/memo-ngobrol.minta"
 # Nama lama yang masih ditulis popup extension (.picu). Diterima juga supaya
@@ -41,6 +42,24 @@ BERKAS_LEVEL = "/dev/shm/memo-ngobrol.level"
 BERKAS_TEKS = "/dev/shm/memo-ngobrol.teks"
 BERKAS_BACKEND = "/dev/shm/memo-ngobrol.backend"
 BERKAS_LAMPIRAN = "/dev/shm/memo-lampiran.json"
+# Percakapan terakhir untuk tab Chat di island.
+BERKAS_RIWAYAT = "/dev/shm/memo-ngobrol.riwayat.json"
+
+
+def catat(peran, teks):
+    import json as _json
+    try:
+        with open(BERKAS_RIWAYAT, encoding="utf-8") as f:
+            riwayat = _json.load(f)
+    except (OSError, ValueError):
+        riwayat = []
+    riwayat = izin_klien.tambah_riwayat(riwayat if isinstance(riwayat, list) else [], peran, teks)
+    try:
+        with open(f"{BERKAS_RIWAYAT}.tmp", "w", encoding="utf-8") as f:
+            _json.dump(riwayat, f, ensure_ascii=False)
+        os.replace(f"{BERKAS_RIWAYAT}.tmp", BERKAS_RIWAYAT)
+    except OSError:
+        pass
 
 
 def konteks_lampiran():
@@ -220,6 +239,8 @@ def satu_giliran(model, backend, tanpa_suara=False, pertanyaan=None):
         tulis_status("berpikir")
 
     tulis_status(f"tanya: {pertanyaan}")
+    catat("kamu", pertanyaan)
+    izin_klien.mulai(pertanyaan)
     # Diucapkan tanpa ditunggu, dari cache, supaya jeda AI tidak terasa mati.
     if not tanpa_suara:
         ucapkan("Sebentar ya", tunggu=False)
@@ -238,6 +259,8 @@ def satu_giliran(model, backend, tanpa_suara=False, pertanyaan=None):
     if galat:
         print(f"galat: {galat}", flush=True)
         tulis_status(f"galat: {galat}")
+        catat("galat", galat)
+        izin_klien.selesai(False)
         set_ekspresi("error", 2500)
         if not tanpa_suara:
             ucapkan("Maaf, saya tidak bisa menjawab sekarang")
@@ -248,12 +271,23 @@ def satu_giliran(model, backend, tanpa_suara=False, pertanyaan=None):
         print(f"[{dipakai}] command: {command}", flush=True)
 
     tulis_status(f"jawab: {say}")
+    catat("memo", say)
     set_ekspresi("bicara", 0)
     if not tanpa_suara and say:
         ucapkan(say)
         
+    # Perintah usulan AI tidak pernah jalan sendiri: harus diklik Izinkan di
+    # kartu izin island (lewat memo-agen). Tanpa klik = tidak dijalankan.
+    if command and not izin_klien.minta_izin(command):
+        catat("info", f"Perintah tidak dijalankan: {command}")
+        tulis_status("perintah dibatalkan")
+        command = None
+        if not tanpa_suara:
+            ucapkan("Baik, perintahnya tidak saya jalankan.")
+
     if command:
         tulis_status(f"eksekusi: {command}")
+        catat("info", f"Menjalankan: {command}")
         set_ekspresi("berpikir", 0)
         try:
             print(f"menjalankan: {command}", flush=True)
@@ -274,6 +308,7 @@ def satu_giliran(model, backend, tanpa_suara=False, pertanyaan=None):
 
     set_ekspresi("netral")
     tulis_status("")
+    izin_klien.selesai(True)
 
 
 def main():

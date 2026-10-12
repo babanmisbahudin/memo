@@ -14,7 +14,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from bunyi_pola import EVENT, cari_berkas, dir_suara, jatuh_ke  # noqa: E402
+from bunyi_pola import EVENT, bisu, cari_berkas, dir_suara, jatuh_ke  # noqa: E402
 
 
 def main(argv=None):
@@ -32,6 +32,8 @@ def main(argv=None):
         print(kustom or f"tema:{jatuh_ke(event)} (taruh di {d}/)")
         return 0
 
+    if bisu():
+        return 0
     try:
         if kustom:
             subprocess.run(["ffplay", "-nodisp", "-autoexit",

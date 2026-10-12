@@ -62,7 +62,9 @@ bisa memberi keduanya.
 | `bin/integrasi.py` | pill GitHub/git, LebihTeratur, Vercel, Notion (HTTPS stdlib) |
 | `bin/memo-integrasi.py` | daemon pill + notifikasi kabar LebihTeratur |
 | `extension/agenStore.js` | baca JSON tiap detik, tulis keputusan |
-| `extension/extension.js` | island (ticker, izin menempel) + menu |
+| `extension/extension.js` | island (ticker, izin menempel, avatar mini), gerak, tidur |
+| `extension/panel.js` | panel ala Coucou: tab Beranda/Chat/+/Pengaturan, kartu izin/selesai/sesi/layanan, kisi pill |
+| `bin/izin_klien.py` | chat Memo sebagai sesi "memo"; perintah usulan AI lewat kartu izin |
 | `extension/shortcut.js` | Super+M menu, Super+Shift+M bicara, Super+Y / Super+Shift+Y izinkan / tolak |
 | `extension/gerakPola.js` | murni: emote, penguncian piksel, sprite partikel, aturan tidur |
 | `extension/gerak.js` | penggerak 12 fps + partikel, dipakai island dan Memo desktop |
@@ -70,6 +72,35 @@ bisa memberi keduanya.
 (`extension/` di repo ini; GNOME memuatnya lewat symlink
 `~/.local/share/gnome-shell/extensions/dynamic-island@local`, dipasang oleh
 `memo-pasang.py extension`.)
+
+## Tampilan ala Coucou
+
+Island hitam pekat menempel di tepi atas (sudut bawah membulat), berisi
+wajah Memo, jam/indikator sistem, dan avatar pill mini untuk sesi yang
+berjalan. Diklik (atau Super+M) ia melebar jadi panel 640 px yang menyatu
+dengan island — tanpa panah, tanpa celah:
+
+- **Baris atas:** tab Beranda / Chat / + di kiri; "N berjalan", suara Memo
+  hidup/mati, dan Pengaturan di kanan.
+- **Beranda:** kartu utama dengan Memo piksel besar — sesi aktif (proyek,
+  agen, tiga langkah terakhir, +N −M), atau kartu izin selebar penuh
+  (perintah persis, Tolak / **Izinkan** / Selalu, cahaya jingga), atau kartu
+  selesai (ringkasan, OK, cahaya hijau), atau detail layanan (kabar
+  LebihTeratur yang bisa diklik). Di kanan kisi pill berwarna dengan avatar
+  piksel; klik pill untuk melihatnya di kartu utama.
+- **Chat:** riwayat percakapan terakhir, kolom ketik, mikrofon, kirim.
+  Mengetik saat panel terbuka langsung pindah ke tab ini.
+- **+:** tindakan cepat (dikirim ke chat) dan Lampirkan berkas… (zenity).
+- **Pengaturan:** Otak AI, Wardrobe, Memo desktop, demo, folder suara.
+
+### Perintah dari chat butuh izin
+
+Otak AI bisa mengusulkan perintah shell (`command` di jawabannya). Dulu
+perintah itu langsung dijalankan; kini selalu lewat kartu izin yang sama
+dengan Claude Code (`bin/izin_klien.py` → memo-agen). Tanpa klik Izinkan —
+ditolak, habis waktu, atau memo-agen mati — perintahnya tidak jalan. Isi
+lampiran ikut dikirim ke AI, jadi tanpa gerbang ini teks di sebuah berkas
+bisa "menyuruh" Memo menjalankan perintah.
 
 ## Gerak ala Mochi, bergaya piksel
 
@@ -138,7 +169,8 @@ terpisah). Selain itu sudah dibuktikan dengan perangkat sungguhan pada
   dengan dialog terminal; klik Izinkan → perintah jalan 0,46 detik kemudian,
   dialog terminal tertutup sendiri; keluar dari Claude → sesi hilang.
 - GNOME Shell 50 headless (D-Bus, dconf, dan `/dev/shm` terpisah dari sesi
-  utama): 27 skenario island/menu lolos — ticker, kartu, klik tombol
-  sungguhan sampai ke agen, pill & kabar, notifikasi, demo, daemon mati.
-  Ditambah 22 skenario gerak (lompat→putar + bintang, piksel bulat, pusing,
-  iseng, kaget/geleng, Memo desktop ikut bergerak, joget + koin, tidur + z).
+  utama), `tests/gnome/uji-island.sh`: 59 skenario — panel 640 px menyatu
+  dengan island, kartu izin dan klik tombol sungguhan sampai ke agen, kartu
+  selesai, detail layanan + tautan aman, tab Chat terkirim, Pengaturan
+  (Otak AI, bisu), gerak piksel, Memo desktop, tidur, dan panel tertutup
+  tidak tergambar.

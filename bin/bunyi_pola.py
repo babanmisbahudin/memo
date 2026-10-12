@@ -53,6 +53,12 @@ def cari_berkas(event, dir_suara):
     return None
 
 
+def bisu(dasar=None):
+    """True bila suara Memo dimatikan dari panel (~/.config/memo/bisu)."""
+    dasar = dasar or os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+    return os.path.exists(os.path.join(dasar, "memo", "bisu"))
+
+
 def dir_suara():
     dasar = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
     return os.path.join(dasar, "memo", "suara")
