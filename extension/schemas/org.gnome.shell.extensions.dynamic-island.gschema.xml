@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.dynamic-island"
+          path="/org/gnome/shell/extensions/dynamic-island/">
+    <key name="toggle-menu" type="as">
+      <default><![CDATA[['<Super>m']]]></default>
+      <summary>Buka/tutup menu Memo</summary>
+      <description>Pintasan ala Coucou: membuka chat Memo dari mana saja.</description>
+    </key>
+    <key name="voice" type="as">
+      <default><![CDATA[['<Super><Shift>m']]]></default>
+      <summary>Mulai bicara</summary>
+      <description>Memicu satu giliran dengar-jawab Memo.</description>
+    </key>
+    <key name="allow" type="as">
+      <default><![CDATA[['<Super>y']]]></default>
+      <summary>Izinkan permintaan agen</summary>
+      <description>Menjawab Allow untuk kartu izin yang sedang menunggu.</description>
+    </key>
+    <key name="deny" type="as">
+      <default><![CDATA[['<Super><Shift>y']]]></default>
+      <summary>Tolak permintaan agen</summary>
+      <description>Menjawab Deny untuk kartu izin yang sedang menunggu.</description>
+    </key>
+  </schema>
+</schemalist>
