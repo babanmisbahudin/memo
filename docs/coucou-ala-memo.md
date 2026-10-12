@@ -64,12 +64,42 @@ bisa memberi keduanya.
 | `extension/agenStore.js` | baca JSON tiap detik, tulis keputusan |
 | `extension/extension.js` | island (ticker, izin menempel) + menu |
 | `extension/shortcut.js` | Super+M menu, Super+Shift+M bicara, Super+Y / Super+Shift+Y izinkan / tolak |
+| `extension/gerakPola.js` | murni: emote, penguncian piksel, sprite partikel, aturan tidur |
+| `extension/gerak.js` | penggerak 12 fps + partikel, dipakai island dan Memo desktop |
 
-(`extension/` = `~/.local/share/gnome-shell/extensions/dynamic-island@local`.)
+(`extension/` di repo ini; GNOME memuatnya lewat symlink
+`~/.local/share/gnome-shell/extensions/dynamic-island@local`, dipasang oleh
+`memo-pasang.py extension`.)
+
+## Gerak ala Mochi, bergaya piksel
+
+Mata tetap digambar `face.js`; yang bergerak adalah aktornya, dengan tabel
+keyframe yang diporting dari `BotEngine.swift` Coucou. Island dan Memo
+desktop memakai gerak yang sama. Gaya piksel: 12 langkah per detik seperti
+sprite, posisi dan ukuran terkunci ke petak piksel wajah, putaran per 10°,
+partikel berupa pixel-art. Timer hanya hidup selama ada gerak — saat diam
+bebannya nol.
+
+| Kejadian | Gerak | Partikel |
+|---|---|---|
+| Memo muncul | sapa | ✦ |
+| Agen mulai berpikir | angguk | |
+| Agen bekerja (tiap 8 dtk) | oleng | |
+| Kartu izin muncul / masih menunggu (tiap 6 dtk) | kaget / getar | ? |
+| Izinkan, Selalu / Tolak | angguk / geleng | ✓ / ✕ |
+| Agen selesai | lompat lalu putar | ✦ ×5 |
+| Agen galat | geleng | ✕ |
+| Pembayaran LebihTeratur | dansa | koin ×4 |
+| Chat LebihTeratur / kabar lain | kaget / sapa | ✉ / ✦ |
+| Klik / tiga klik cepat | tepuk / pusing | ✦ |
+| Charger dicolok / dicabut, baterai lemah | lompat / kedip, getar | ! |
+| Diam lama | lirik, kedip, angguk acak (25–50 dtk) | |
+| 2 menit sepi + kursor jauh | tidur (kepala miring) | z tiap 3 dtk |
 
 ## Memasang
 
 ```
+bin/memo-pasang.py extension    # tautkan extension/ ke GNOME Shell
 bin/memo-pasang.py layanan      # memo-agen + memo-integrasi (systemd --user)
 bin/memo-pasang.py claude       # tampilkan diff ~/.claude/settings.json, tanya dulu
 bin/memo-pasang.py opencode     # plugin ~/.config/opencode/plugins/memo.js
@@ -110,3 +140,5 @@ terpisah). Selain itu sudah dibuktikan dengan perangkat sungguhan pada
 - GNOME Shell 50 headless (D-Bus, dconf, dan `/dev/shm` terpisah dari sesi
   utama): 27 skenario island/menu lolos — ticker, kartu, klik tombol
   sungguhan sampai ke agen, pill & kabar, notifikasi, demo, daemon mati.
+  Ditambah 22 skenario gerak (lompat→putar + bintang, piksel bulat, pusing,
+  iseng, kaget/geleng, Memo desktop ikut bergerak, joget + koin, tidur + z).

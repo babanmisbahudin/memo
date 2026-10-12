@@ -13,12 +13,13 @@ import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { RobotFace } from './robotFace.js';
+import { Gerak } from './gerak.js';
 
 const SKALA = 2.6;
-const CONFIG = '/.config/memo/companion.json';
+const CONFIG = '/memo/companion.json';
 
 function rumah() {
-    return GLib.get_home_dir();
+    return GLib.get_user_config_dir();
 }
 
 function muatKonfig() {
@@ -35,7 +36,7 @@ function muatKonfig() {
 
 function simpanKonfig(d) {
     try {
-        const dir = rumah() + '/.config/memo';
+        const dir = rumah() + '/memo';
         GLib.mkdir_with_parents(dir, 0o700);
         GLib.file_set_contents(dir + '/companion.json', JSON.stringify(d));
     } catch (e) {
@@ -49,8 +50,8 @@ export class MemoCompanion {
         const cfg = muatKonfig();
 
         this._face = new RobotFace();
-        this._face.actor.set_pivot_point(0.5, 0.5);
-        this._face.actor.set_scale(SKALA, SKALA);
+        // Gerak yang sama dengan island, hanya diperbesar.
+        this._gerak = new Gerak(this._face.actor, { skalaDasar: SKALA, amplitudo: 1, pivotY: 0.5, arahPartikel: -1, blokPartikel: 3 });
         this._face.setBlinkingEnabled(true);
 
         this.actor = new St.BoxLayout({
@@ -136,6 +137,23 @@ export class MemoCompanion {
         }
     }
 
+    gerak(nama, opsi = {}) {
+        if (!this.visible)
+            return;
+        if (nama)
+            this._gerak.main(nama, opsi);
+        if (opsi.partikel)
+            this._gerak.partikel(opsi.partikel, opsi.jumlah ?? 1);
+    }
+
+    tidurkan() {
+        this._gerak.tidurkan();
+    }
+
+    bangunkan() {
+        this._gerak.bangunkan();
+    }
+
     setTint(hue, glowBoost) {
         try {
             this._face.setTint(hue, glowBoost);
@@ -161,6 +179,7 @@ export class MemoCompanion {
             GLib.source_remove(this._gazeId);
             this._gazeId = null;
         }
+        this._gerak.destroy();
         this._face.destroy();
         this.actor.destroy();
     }

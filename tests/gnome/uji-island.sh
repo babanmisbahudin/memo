@@ -12,7 +12,8 @@
 #   UJI_SIMPAN=1 tests/gnome/uji-island.sh   jangan hapus folder uji sesudahnya
 set -u
 DI="$(cd "$(dirname "$0")" && pwd)"
-EXT="${XDG_DATA_HOME:-$HOME/.local/share}/gnome-shell/extensions/dynamic-island@local"
+# Yang diuji adalah extension/ di repo ini, bukan salinan yang terpasang.
+EXT="$(cd "$DI/../../extension" && pwd)"
 T="$(mktemp -d -t memo-uji-XXXXXX)"
 # Jalur soket AF_UNIX dibatasi 108 karakter, jadi runtime dir dibuat pendek.
 RUN="/run/user/$(id -u)/memo-uji-$$"

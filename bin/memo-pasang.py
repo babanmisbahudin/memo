@@ -3,6 +3,7 @@
 
   memo-pasang.py claude          hook Claude Code di ~/.claude/settings.json
   memo-pasang.py opencode        plugin di ~/.config/opencode/plugins/memo.js
+  memo-pasang.py extension       symlink extension/ ke GNOME Shell (dynamic-island@local)
   memo-pasang.py layanan         service memo-agen + memo-integrasi (systemd --user)
   memo-pasang.py status          apa saja yang sudah terpasang
   tambah --lepas untuk melepas, --ya untuk tidak bertanya.
@@ -28,6 +29,9 @@ PENANDA = "memo-hook.py"
 
 SETTINGS_CLAUDE = pathlib.Path.home() / ".claude" / "settings.json"
 PLUGIN_OPENCODE = pathlib.Path(os.environ.get("XDG_CONFIG_HOME") or pathlib.Path.home() / ".config") / "opencode" / "plugins" / "memo.js"
+EXT_UUID = "dynamic-island@local"
+SUMBER_EXT = AKAR.parent / "extension"
+DIR_EXT = pathlib.Path(os.environ.get("XDG_DATA_HOME") or pathlib.Path.home() / ".local" / "share") / "gnome-shell" / "extensions" / EXT_UUID
 DIR_SYSTEMD = pathlib.Path(os.environ.get("XDG_CONFIG_HOME") or pathlib.Path.home() / ".config") / "systemd" / "user"
 
 # Event Claude Code yang dikirim ke Memo, dan batas waktunya (detik). Hanya
@@ -231,6 +235,27 @@ def cmd_layanan(lepas, ya):
     return 0
 
 
+def cmd_extension(lepas, ya):
+    if lepas:
+        if DIR_EXT.is_symlink():
+            DIR_EXT.unlink()
+            print(f"Dilepas: {DIR_EXT}")
+        return 0
+    subprocess.run(["glib-compile-schemas", str(SUMBER_EXT / "schemas")], check=False)
+    if DIR_EXT.is_symlink() and DIR_EXT.resolve() == SUMBER_EXT.resolve():
+        print(f"{DIR_EXT} sudah menunjuk {SUMBER_EXT}")
+    elif DIR_EXT.exists() or DIR_EXT.is_symlink():
+        print(f"{DIR_EXT} sudah ada dan bukan symlink ke repo ini — pindahkan dulu.", file=sys.stderr)
+        return 1
+    else:
+        DIR_EXT.parent.mkdir(parents=True, exist_ok=True)
+        DIR_EXT.symlink_to(SUMBER_EXT)
+        print(f"Tertaut: {DIR_EXT} -> {SUMBER_EXT}")
+    subprocess.run(["gnome-extensions", "enable", EXT_UUID], check=False)
+    print("Versi terbaru termuat setelah logout/login (Wayland tidak bisa memuat ulang extension).")
+    return 0
+
+
 def cmd_status():
     try:
         settings = json.loads(SETTINGS_CLAUDE.read_text(encoding="utf-8"))
@@ -242,6 +267,8 @@ def cmd_status():
     print(f"Claude Code : {len(terpasang)}/{len(EVENT_CLAUDE)} event"
           + ("" if terpasang else "  (memo-pasang.py claude)"))
     print(f"OpenCode    : {'terpasang' if PLUGIN_OPENCODE.exists() else 'belum  (memo-pasang.py opencode)'}")
+    tertaut = DIR_EXT.is_symlink() and DIR_EXT.resolve() == SUMBER_EXT.resolve()
+    print(f"Extension   : {'tertaut ke ' + str(SUMBER_EXT) if tertaut else 'belum  (memo-pasang.py extension)'}")
     for nama in LAYANAN:
         aktif = _systemctl("is-active", nama).stdout.strip()
         print(f"{nama:<22}: {aktif}")
@@ -250,7 +277,7 @@ def cmd_status():
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("sasaran", choices=("claude", "opencode", "layanan", "status"))
+    ap.add_argument("sasaran", choices=("claude", "opencode", "extension", "layanan", "status"))
     ap.add_argument("--lepas", action="store_true")
     ap.add_argument("--ya", action="store_true", help="tulis tanpa bertanya")
     ap.add_argument("--cetak", action="store_true", help="claude: cetak hook saja, tidak menulis apa pun")
@@ -260,6 +287,7 @@ def main(argv=None):
         return 0
     return {"claude": lambda: cmd_claude(args.lepas, args.ya),
             "opencode": lambda: cmd_opencode(args.lepas, args.ya),
+            "extension": lambda: cmd_extension(args.lepas, args.ya),
             "layanan": lambda: cmd_layanan(args.lepas, args.ya),
             "status": cmd_status}[args.sasaran]()
 

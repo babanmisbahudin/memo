@@ -15,6 +15,8 @@ import { RobotService } from './robotService.js';
 import { AgenStore, tickerSesi } from './agenStore.js';
 import { MemoShortcuts } from './shortcut.js';
 import { MemoCompanion } from './companion.js';
+import { Gerak } from './gerak.js';
+import { DETIK_TIDUR, ISENG, ISENG_MAKS_S, ISENG_MIN_S, JARAK_BANGUN, bolehTidur } from './gerakPola.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 // MediaSource (pemberitahuan ganti lagu lewat MPRIS) DIBUANG, jangan
@@ -76,6 +78,15 @@ class Island {
         this._eventIsi = null;
         this._izinTampil = null;
         this._aktivitas = null;
+        this._tidur = false;
+        this._aktifTerakhir = Date.now();
+        this._detikTidur = DETIK_TIDUR;
+        this._statusLalu = new Map();
+        this._izinLalu = new Set();
+        this._klik = [];
+        this._agenBekerja = false;
+        this._detik = 0;
+        this._isengBerikut = this._acakIseng();
 
         this._pill = new St.BoxLayout({
             style_class: 'dynamic-island-pill',
@@ -94,6 +105,8 @@ class Island {
         
         
         this._face = new RobotFace();
+        // Gerak tubuh ala Mochi; amplitudo kecil supaya tidak keluar top bar.
+        this._gerak = new Gerak(this._face.actor, { amplitudo: 0.45, arahPartikel: 1, blokPartikel: 2 });
         
         // --- Memo Menu ---
         this.menu = new PopupMenu.PopupMenu(this._pill, 0.5, St.Side.TOP);
@@ -300,7 +313,7 @@ class Island {
         const MUSIMAN = { 1: 'emas', 2: 'sakura', 3: 'klasik', 4: 'klasik', 5: 'klasik', 6: 'laut', 7: 'laut', 8: 'laut', 9: 'senja', 10: 'senja', 11: 'senja', 12: 'natal' };
         const bacaWardrobe = () => {
             try {
-                const [ok, c] = GLib.file_get_contents(GLib.get_home_dir() + '/.config/memo/wardrobe.json');
+                const [ok, c] = GLib.file_get_contents(GLib.get_user_config_dir() + '/memo/wardrobe.json');
                 if (ok) {
                     const d = JSON.parse(new TextDecoder().decode(c));
                     if (typeof d?.outfit === 'string')
@@ -330,8 +343,8 @@ class Island {
             const item = new PopupMenu.PopupMenuItem('');
             item.connect('activate', () => {
                 try {
-                    GLib.mkdir_with_parents(GLib.get_home_dir() + '/.config/memo', 0o700);
-                    tulisBerkas(GLib.get_home_dir() + '/.config/memo/wardrobe.json',
+                    GLib.mkdir_with_parents(GLib.get_user_config_dir() + '/memo', 0o700);
+                    tulisBerkas(GLib.get_user_config_dir() + '/memo/wardrobe.json',
                         JSON.stringify({ outfit: id }));
                 } catch (e) {
                     console.error(`[dynamic-island] simpan wardrobe: ${e}`);
@@ -348,7 +361,7 @@ class Island {
         const suaraItem = new PopupMenu.PopupImageMenuItem('Buka folder suara kustom', 'audio-x-generic-symbolic');
         suaraItem.connect('activate', () => {
             try {
-                const dir = GLib.get_home_dir() + '/.config/memo/suara';
+                const dir = GLib.get_user_config_dir() + '/memo/suara';
                 GLib.mkdir_with_parents(dir, 0o700);
                 Gio.AppInfo.launch_default_for_uri(`file://${dir}`, null);
             } catch (e) {
@@ -383,7 +396,7 @@ class Island {
         lainnyaSub.menu.addMenuItem(companionItem);
         // Pulihkan companion bila sebelum restart dalam keadaan terbuka.
         try {
-            const [cok, cc] = GLib.file_get_contents(GLib.get_home_dir() + '/.config/memo/companion.json');
+            const [cok, cc] = GLib.file_get_contents(GLib.get_user_config_dir() + '/memo/companion.json');
             if (cok && JSON.parse(new TextDecoder().decode(cc)).terbuka) {
                 this._companion = new MemoCompanion(this);
                 this._companion.sync('netral');
@@ -410,6 +423,16 @@ class Island {
         });
 
         this._face.onClick = () => {
+            // Coucou: tiga tepukan cepat bikin Mochi pusing.
+            const kini = Date.now();
+            this._klik = [...this._klik.filter(t => kini - t < 1700), kini];
+            if (this._klik.length >= 3) {
+                this._klik = [];
+                this.gerak('pusing', { partikel: 'bintang', jumlah: 3 });
+                this.setExpression('bingung', 1500);
+            } else {
+                this.gerak('tepuk');
+            }
             this.menu.toggle();
         };
         // -----------------
@@ -469,6 +492,19 @@ class Island {
         this._covered = this._computeCovered();
         this._update();
         this._agen.start();
+        this._detakGerakId = GLib.timeout_add_seconds(GLib.PRIORITY_LOW, 1, () => {
+            try {
+                this._detakGerak();
+            } catch (e) {
+                console.error(`[dynamic-island] detak gerak: ${e}`);
+            }
+            return GLib.SOURCE_CONTINUE;
+        });
+        this._sapaId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1500, () => {
+            this._sapaId = null;
+            this.gerak('sapa', { partikel: 'bintang', jumlah: 2, diam: true });
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     // Isi kotak event menurut prioritas: kejadian sesaat (volume, notifikasi)
@@ -494,6 +530,36 @@ class Island {
     _segarkanAgen(store) {
         const izin = store.izin[0] ?? null;
         const aktif = store.sesiAktif;
+
+        const izinBaru = store.izin.some(i => !this._izinLalu.has(i.id));
+        this._izinLalu = new Set(store.izin.map(i => i.id));
+        let emote = null;
+        for (const s of store.sesi) {
+            const lama = this._statusLalu.get(s.id);
+            if (!lama || lama === s.status)
+                continue;
+            if (s.status === 'galat')
+                emote = 'geleng';
+            else if (s.status === 'selesai' && emote !== 'geleng')
+                emote = 'lompat';
+            else if (s.status === 'berpikir' && ['idle', 'selesai'].includes(lama) && !emote)
+                emote = 'angguk';
+        }
+        this._statusLalu = new Map(store.sesi.map(s => [s.id, s.status]));
+        this._agenBekerja = store.sesi.some(s => ['kerja', 'berpikir', 'tanya'].includes(s.status));
+        if (izinBaru) {
+            this.gerak('kaget', { partikel: 'tanya' });
+        } else if (emote === 'lompat') {
+            // Coucou finished: lompat, lalu berguling, sambil menebar bintang.
+            this.gerak('lompat', { partikel: 'bintang', jumlah: 5 });
+            this.gerak('putar', { antre: true });
+        } else if (emote === 'geleng') {
+            this.gerak('geleng', { partikel: 'tidak' });
+        } else if (emote) {
+            this.gerak(emote);
+        }
+        if (aktif || izin)
+            this._aktifTerakhir = Date.now();
         const tanda = JSON.stringify([store.hidup, store.izin, store.sesi.slice(0, 5).map(s => [s.status, tickerSesi(s)]),
             store.pills]);
         if (tanda === this._tandaAgen)
@@ -576,6 +642,10 @@ class Island {
         }
         if (!this._agen.jawab(izin.id, keputusan))
             return;
+        if (keputusan === 'deny')
+            this.gerak('geleng', { partikel: 'tidak' });
+        else
+            this.gerak('angguk', { partikel: 'ok', jumlah: keputusan === 'always' ? 2 : 1 });
         const kata = { allow: 'Diizinkan', deny: 'Ditolak', always: 'Selalu diizinkan' }[keputusan];
         this.trigger(keputusan === 'deny' ? 'action-unavailable-symbolic' : 'emblem-ok-symbolic',
             `${kata}: ${izin.aksi}`, 2000);
@@ -634,6 +704,12 @@ class Island {
     }
 
     setExpression(name, durationMs = 0) {
+        if (this._tidur && name !== 'tidur') {
+            this._tidur = false;
+            this._aktifTerakhir = Date.now();
+            this._gerak.bangunkan();
+            this._companion?.bangunkan();
+        }
         if (!this._face.setExpression(name))
             return;
 
@@ -654,6 +730,91 @@ class Island {
                     return GLib.SOURCE_REMOVE;
                 });
         }
+    }
+
+    // Satu emote untuk island DAN Memo di desktop, supaya keduanya sama.
+    // opsi: kali, antre, partikel (nama sprite), jumlah, diam (gerak iseng:
+    // tidak dihitung sebagai aktivitas, jadi tidak menunda tidur).
+    gerak(nama, opsi = {}) {
+        if (!opsi.diam) {
+            this._aktifTerakhir = Date.now();
+            if (this._tidur)
+                this.setExpression('netral');
+        }
+        if (nama)
+            this._gerak.main(nama, opsi);
+        if (opsi.partikel)
+            this._gerak.partikel(opsi.partikel, opsi.jumlah ?? 1);
+        this._companion?.gerak(nama, opsi);
+    }
+
+    _acakIseng() {
+        return ISENG_MIN_S + Math.floor(Math.random() * (ISENG_MAKS_S - ISENG_MIN_S + 1));
+    }
+
+    // Gerak berulang, satu detak per detik: z saat tidur, gemetar saat izin
+    // menunggu, oleng saat agen bekerja, dan sesekali gerak iseng saat diam.
+    _detakGerak() {
+        this._detik++;
+        if (this._gerak.emoteAktif)
+            return;
+        if (this._tidur) {
+            if (this._detik % 3 === 0)
+                this.gerak(null, { partikel: 'z', diam: true });
+        } else if (this._izinTampil) {
+            if (this._detik % 6 === 0)
+                this.gerak('getar', { partikel: 'tanya', diam: true });
+        } else if (this._agenBekerja) {
+            if (this._detik % 8 === 0)
+                this.gerak('oleng', { diam: true });
+        } else if (--this._isengBerikut <= 0) {
+            this._isengBerikut = this._acakIseng();
+            this.gerak(ISENG[Math.floor(Math.random() * ISENG.length)], { diam: true });
+        }
+    }
+
+    _tidurkan() {
+        this._tidur = true;
+        this.setExpression('tidur');
+        this._gerak.tidurkan();
+        this._companion?.tidurkan();
+    }
+
+    _cekTidur(pointerX, pointerY) {
+        const titik = [this._pill];
+        if (this._companion?.visible)
+            titik.push(this._companion.actor);
+        let jarak = Infinity;
+        for (const a of titik) {
+            const [x, y] = a.get_transformed_position();
+            jarak = Math.min(jarak, Math.hypot(pointerX - (x + a.width / 2), pointerY - (y + a.height / 2)));
+        }
+        if (jarak <= JARAK_BANGUN) {
+            this._aktifTerakhir = Date.now();
+            if (this._tidur)
+                this.setExpression('netral');
+            return;
+        }
+        if (!this._tidur && bolehTidur({
+            diamMs: Date.now() - this._aktifTerakhir,
+            jarakKursor: jarak,
+            adaIzin: !!this._izinTampil,
+            adaAktivitas: !!this._aktivitas || this._eventActive,
+            ekspresi: this.expression,
+        }, this._detikTidur))
+            this._tidurkan();
+    }
+
+    // Kabar dari LebihTeratur ikut menggerakkan Memo: pembayaran = lompat.
+    reaksiNotifikasi(aplikasi, judul) {
+        if (!/lebihteratur/i.test(aplikasi ?? ''))
+            return;
+        if (/bayar|pembayaran|payment|lunas/i.test(judul ?? ''))
+            this.gerak('dansa', { partikel: 'koin', jumlah: 4 });
+        else if (/chat|pesan/i.test(judul ?? ''))
+            this.gerak('kaget', { partikel: 'pesan' });
+        else
+            this.gerak('sapa', { partikel: 'bintang', jumlah: 2 });
     }
 
     resetExpression() {
@@ -696,6 +857,7 @@ class Island {
     }
 
     trigger(iconName, text, holdMs = 3500) {
+        this._aktifTerakhir = Date.now();
         this._queue.push({ iconName, text, holdMs });
         if (!this._eventActive)
             this._nextEvent();
@@ -823,6 +985,7 @@ class Island {
         }
 
         this._aimEyes(pointerX, pointerY);
+        this._cekTidur(pointerX, pointerY);
 
         if (!this._pollActive)
             return;
@@ -850,6 +1013,11 @@ class Island {
         }
         this._agen?.stop();
         this._agen = null;
+        for (const id of [this._detakGerakId, this._sapaId]) {
+            if (id)
+                GLib.source_remove(id);
+        }
+        this._detakGerakId = this._sapaId = null;
         if (this.menu) {
             this.menu.destroy();
             this.menuManager.removeMenu(this.menu);
@@ -872,6 +1040,7 @@ class Island {
         this._restoreAdopted();
         this._companion?.destroy();
         this._companion = null;
+        this._gerak.destroy();
         this._face.destroy();
         this._pill.destroy();
     }
@@ -901,6 +1070,7 @@ class NotificationSource {
                 notification.acknowledged = true;
             const title = notification.title || source.title || 'Notifikasi';
             this._island.trigger('preferences-system-notifications-symbolic', title, 3500);
+            this._island.reaksiNotifikasi(source.title, title);
         } catch (e) {
             console.error(`[dynamic-island] notification handler error: ${e}`);
         }
@@ -958,11 +1128,14 @@ class BatterySource {
                         ? `Mengisi daya · ${Math.round(percentage)}%`
                         : `Charger dicabut · ${Math.round(percentage)}%`,
                     3500);
+                this._island.gerak(charging ? 'lompat' : 'kedip');
             }
 
             const low = percentage <= 20 && !charging;
-            if (!silent && low && !this._lastLow)
+            if (!silent && low && !this._lastLow) {
                 this._island.trigger('battery-low-symbolic', `Baterai lemah · ${Math.round(percentage)}%`, 4000);
+                this._island.gerak('getar', { partikel: 'seru' });
+            }
 
             this._lastLow = low;
             this._lastCharging = charging;

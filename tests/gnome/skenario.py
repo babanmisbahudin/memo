@@ -21,10 +21,10 @@ def ev(js):
     isi = unquote(out[len("(true, '"):-2].strip('"'))
     try: return json.loads(isi)
     except Exception: return {"__mentah": isi}
-def potret(nama):
+def potret(nama, area=(300, 0, 1000, 560)):
     path = f"{T}/{nama}.png"
     subprocess.run(["gdbus", "call", "--session", "--dest", "org.gnome.Shell.Screenshot", "--object-path", "/org/gnome/Shell/Screenshot",
-                    "--method", "org.gnome.Shell.Screenshot.ScreenshotArea", "300", "0", "1000", "560", "false", path], env=env, capture_output=True)
+                    "--method", "org.gnome.Shell.Screenshot.ScreenshotArea", *map(str, area), "false", path], env=env, capture_output=True)
     return path
 def hook(p, latar=False):
     a = [sys.executable, f"{R}/bin/memo-hook.py"]
@@ -118,6 +118,97 @@ cek("mode demo mengisi sesi + kartu", k["kartu"] and any("mode demo" in x for x 
 ev("const i = memoUji.island(); i.jawabIzin('allow'); return true;")
 k = tunggu(lambda k: not k["kartu"])
 cek("menjawab kartu demo menutup demo", not k["kartu"], k)
+
+
+# --- gerak ala Mochi: island & Memo desktop -------------------------------
+def sampel(js, detik):
+    hasil, akhir = [], time.time() + detik
+    while time.time() < akhir:
+        hasil.append(ev(js)); time.sleep(0.03)
+    return hasil
+G = "const i = memoUji.island(); const a = i._face.actor;"
+POSE = G + "return {e: i._gerak.emoteAktif, ty: a.translation_y, tx: a.translation_x, sy: a.scale_y, rz: a.rotation_angle_z, timer: i._gerak._id, p: i._gerak.jumlahPartikel};"
+# Gerak iseng acak dimatikan dulu supaya tidak menyela pengukuran.
+ev("memoUji.island()._isengBerikut = 9999; return true;")
+gb = {"session_id": "ses-gerak", "cwd": "/home/himisbah/Projects/memo"}
+hook({**gb, "hook_event_name": "UserPromptSubmit", "prompt": "uji gerak"})
+hook({**gb, "hook_event_name": "PreToolUse", "tool_name": "Read", "tool_input": {"file_path": "/x/a.py"}})
+tunggu(lambda k: "memo" in " ".join(k["sesi"]))
+time.sleep(1.2)
+hook({**gb, "hook_event_name": "Stop"})
+s = sampel(POSE, 3.6)
+urutan = [x.get("e") for x in s if x.get("e")]
+cek("agen selesai -> Memo melompat", "lompat" in urutan, urutan[:8])
+cek("lalu berguling (putar) sesudah lompat", "putar" in urutan and urutan.index("putar") > urutan.index("lompat"), urutan)
+cek("berguling sungguhan (rotasi mencapai >= 90 derajat)", max(abs(x.get("rz", 0)) for x in s) >= 90)
+cek("bintang piksel bertebaran saat selesai", max(x.get("p", 0) for x in s) >= 3, max(x.get("p", 0) for x in s))
+cek("gaya piksel: geser selalu piksel bulat", all(float(x.get("ty", 0)).is_integer() and float(x.get("tx", 0)).is_integer() for x in s))
+cek("gaya piksel: rotasi per 10 derajat", all(round(x.get("rz", 0)) % 10 == 0 for x in s))
+cek("lompatan benar-benar naik (translation_y < 0)", min(x.get("ty", 0) for x in s) < -1, min(x.get("ty", 0) for x in s))
+cek("gepeng-melar terjadi (scale_y berubah)", any(abs(x.get("sy", 1) - 1) > 0.05 for x in s))
+akhir = ev(POSE)
+cek("setelah emote kembali diam, timer & partikel habis", akhir.get("e") is None and abs(akhir.get("ty", 1)) < 0.01 and akhir.get("timer") == 0 and akhir.get("p") == 0, akhir)
+
+ev("const i = memoUji.island(); i._face.onClick(); i._face.onClick(); i._face.onClick(); i.menu.close(); return true;")
+s = sampel(POSE, 0.6)
+cek("tiga klik cepat -> Memo pusing", any(x.get("e") == "pusing" for x in s), [x.get("e") for x in s][:6])
+time.sleep(1.2)
+ev("memoUji.island()._isengBerikut = 1; return true;")
+s = sampel(POSE, 2.4)
+cek("gerak iseng muncul sendiri saat diam", any(x.get("e") in ("lirik", "kedip", "angguk") for x in s), [x.get("e") for x in s if x.get("e")][:4])
+ev("memoUji.island()._isengBerikut = 9999; return true;")
+
+pr = hook({**gb, "hook_event_name": "PermissionRequest", "tool_name": "Bash", "tool_input": {"command": "git push"}}, latar=True)
+s = sampel(POSE, 1.8)
+cek("izin baru -> Memo kaget", any(x.get("e") == "kaget" for x in s), [x.get("e") for x in s][:8])
+ev("memoUji.island().jawabIzin('deny'); return true;")
+s = sampel(POSE, 0.8)
+cek("ditolak -> Memo menggeleng (geser kiri-kanan)", any(x.get("e") == "geleng" for x in s) and min(x.get("tx", 0) for x in s) < -0.5 < 0.5 < max(x.get("tx", 0) for x in s))
+pr.stdout.read(); pr.wait(5)
+
+ev("""const i = memoUji.island();
+      const lain = i.menu._getMenuItems().find(m => m.label?.text?.startsWith('Lainnya'));
+      lain.menu._getMenuItems().find(m => m.label.text.startsWith('Lepas Memo')).activate(null); return true;""")
+k = ev("const c = memoUji.island()._companion; return {ada: !!c, tampil: c?.visible};")
+cek("Memo desktop bisa dilepas", k == {"ada": True, "tampil": True}, k)
+cek("posisi Memo desktop disimpan di config uji, bukan ~/.config asli", os.path.exists(f"{T}/config/memo/companion.json"))
+ev("memoUji.island().gerak('lompat'); return true;")
+s = sampel("const c = memoUji.island()._companion; return {e: c._gerak.emoteAktif, ty: c._face.actor.translation_y, s: c._face.actor.scale_y};", 0.7)
+cek("Memo desktop ikut melompat bersama island", any(x.get("e") == "lompat" for x in s) and min(x.get("ty", 0) for x in s) < -5, s[:3])
+time.sleep(0.6)
+cek("Memo desktop kembali ke skala 2,6x setelah emote", abs(ev("return memoUji.island()._companion._face.actor.scale_y;") - 2.6) < 0.01)
+potret("5-desktop", (1000, 0, 600, 900))
+subprocess.run(["notify-send", "--app-name=LebihTeratur", "Pembayaran otomatis masuk", "Rp 199.000 paket Pro"], env=env)
+s = sampel(POSE, 0.9)
+cek("pembayaran LebihTeratur -> Memo berjoget + koin", any(x.get("e") == "dansa" for x in s) and max(x.get("p", 0) for x in s) >= 2, [(x.get("e"), x.get("p")) for x in s][:5])
+k = ev("const c = memoUji.island()._companion; return {e: c._gerak.emoteAktif, p: c._gerak.jumlahPartikel};")
+cek("Memo desktop ikut berjoget + koin", k.get("e") == "dansa" and k.get("p", 0) >= 1, k)
+potret("7-joget", (300, 0, 1300, 900))
+time.sleep(2)
+
+# Tidur hanya boleh saat tidak ada agen bekerja: akhiri sesi uji dulu.
+hook({**gb, "hook_event_name": "SessionEnd"})
+tunggu(lambda k: k["eks"] == "netral" and k["kotak"] != "event", 8)
+ev("memoUji.geserKursor(1500, 850); const i = memoUji.island(); i._detikTidur = 1; i._aktifTerakhir = Date.now() - 5000; return true;")
+k = None
+for _ in range(20):
+    k = ev("const i = memoUji.island(); return {tidur: i._tidur, eks: i.expression, gerakTidur: i._gerak.tidur, comp: i._companion?._gerak.tidur};")
+    if k.get("tidur"): break
+    time.sleep(0.25)
+cek("sepi + kursor jauh -> Memo tidur (island & desktop)", k == {"tidur": True, "eks": "tidur", "gerakTidur": True, "comp": True}, k)
+s = sampel("return memoUji.island()._gerak.jumlahPartikel;", 4.0)
+cek("tidur -> gelembung z piksel naik turun", max(s) >= 1, s[:6])
+potret("6-tidur", (300, 0, 1300, 900))
+gb = {**gb, "session_id": "ses-gerak-2"}
+hook({**gb, "hook_event_name": "UserPromptSubmit", "prompt": "bangun"})
+k = None
+for _ in range(20):
+    k = ev("const i = memoUji.island(); return {tidur: i._tidur, eks: i.expression, gerakTidur: i._gerak.tidur};")
+    if not k.get("tidur"): break
+    time.sleep(0.25)
+cek("agen mulai bekerja -> Memo bangun", k.get("tidur") is False and k.get("eks") != "tidur" and k.get("gerakTidur") is False, k)
+ev("memoUji.geserKursor(800, 16); const i = memoUji.island(); i._detikTidur = 120; return true;")
+hook({**gb, "hook_event_name": "SessionEnd"})
 
 daemon.terminate(); daemon.wait(5)
 k = tunggu(lambda k: not k["hidup"])
