@@ -162,7 +162,7 @@ akan membuatnya sulit dibaca. Pemisahan ini juga yang memungkinkan lapis
 pengujian 1 dan 2 — logika murni tidak boleh tercampur dengan kode yang butuh
 GNOME Shell hidup.
 
-Isi `~/Projects/asisten-robot/` selain `docs/` baru dibuat di Fase 2.
+Isi `~/Projects/memo/` selain `docs/` baru dibuat di Fase 2.
 
 ## Risiko
 

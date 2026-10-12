@@ -1,4 +1,4 @@
-# Asisten Robot — Memo
+# Memo
 
 Asisten desktop GNOME berwujud robot bermata ekspresif yang menempel di
 Dynamic Island (`dynamic-island@local`). Meniru

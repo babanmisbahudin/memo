@@ -23,10 +23,10 @@ def cek(label, syarat):
 
 # --- format baris ---
 WAKTU = datetime(2026, 10, 2, 14, 3, 11)
-b = log_pola.baris(WAKTU, "browser", "github.com/himisbah/asisten-robot")
+b = log_pola.baris(WAKTU, "browser", "github.com/himisbah/memo")
 cek("waktu di depan", b.startswith("[2026-10-02 14:03:11]"))
 cek("sumber ikut", " browser " in b)
-cek("isian di akhir", b.endswith("github.com/himisbah/asisten-robot"))
+cek("isian di akhir", b.endswith("github.com/himisbah/memo"))
 
 def sumber_ngawur():
     try:
@@ -42,7 +42,7 @@ p = log_pola.parse_baris(b)
 cek("baris bisa diurai ulang", p is not None)
 cek("waktu kembali sama", p[0] == "2026-10-02 14:03:11")
 cek("sumber kembali sama", p[1] == "browser")
-cek("isian kembali sama", p[2] == "github.com/himisbah/asisten-robot")
+cek("isian kembali sama", p[2] == "github.com/himisbah/memo")
 cek("baris bukan log ditolak", log_pola.parse_baris("#opi vault") is None)
 
 # Newline tidak boleh memecah satu kegiatan jadi beberapa baris.
@@ -91,7 +91,7 @@ for u in URI_BERISIKO:
     cek(f"URI berkredensial ditolak: {u[:34]}", not log_pola.aman_untuk_log(u))
 
 URI_AMAN = [
-    "https://github.com/himisbah/asisten-robot",
+    "https://github.com/himisbah/memo",
     "http://localhost:20128/dashboard",
     "git clone https://github.com/icedman/dash2dock-lite.git",
     "curl https://api.example.com/v1/status",
@@ -134,7 +134,7 @@ cek("perintah sangat panjang ditolak",
 # --- URL ---
 URL = [
     "https://www.google.com/search?q=pytest",
-    "https://github.com/himisbah/asisten-robot/",
+    "https://github.com/himisbah/memo/",
     "https://app.com/api/x?token=SECRET123&user=1",
     "https://mail.com/#/inbox",
     "bukan-url",
@@ -143,7 +143,7 @@ URL = [
 r = [log_pola.bersihkan_url(u) for u in URL]
 cek("www dibuang", r[0].startswith("google.com/search"))
 cek("query dibuang", "q=pytest" not in r[0])
-cek("path dipertahankan", r[1] == "github.com/himisbah/asisten-robot")
+cek("path dipertahankan", r[1] == "github.com/himisbah/memo")
 cek("token di query dibuang", "SECRET123" not in r[2])
 cek("fragmen dibuang", "#" not in r[3])
 cek("url ngawur tidak bikin error", r[4] == "bukan-url")

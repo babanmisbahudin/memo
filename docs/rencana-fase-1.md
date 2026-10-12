@@ -16,8 +16,8 @@ angka; transisi = interpolasi angka, bukan animasi khusus per pasangan ekspresi.
 
 **Tech Stack:** GJS ESM, GNOME Shell 50.1, St, Clutter, Cairo, Gio D-Bus.
 
-**Spec:** `~/Projects/asisten-robot/docs/fase-1-wajah-ekspresif.md`
-**Arsitektur keseluruhan:** `~/Projects/asisten-robot/docs/arsitektur.md`
+**Spec:** `~/Projects/memo/docs/fase-1-wajah-ekspresif.md`
+**Arsitektur keseluruhan:** `~/Projects/memo/docs/arsitektur.md`
 
 ## Global Constraints
 

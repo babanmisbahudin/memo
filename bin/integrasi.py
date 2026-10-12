@@ -123,7 +123,7 @@ def github_status():
 
 def git_lokal(path_proyek=""):
     """Perubahan git lokal: setara ticker +N -M di notch Coucou."""
-    target = path_proyek or os.path.expanduser("~/Projects/asisten-robot")
+    target = path_proyek or os.path.expanduser("~/Projects/memo")
     stat = _jalan(["git", "-C", target, "diff", "--shortstat"])
     if not stat:
         bersih = _jalan(["git", "-C", target, "status", "--porcelain"])

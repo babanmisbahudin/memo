@@ -36,7 +36,7 @@ BERISIKO = [
 AMAN = [
     "git status",
     "python3 tests/test_jari.py",
-    "cd ~/Projects/asisten-robot",
+    "cd ~/Projects/memo",
     "systemctl --user restart memo-tangan.service",
 ]
 
@@ -73,9 +73,9 @@ cek("awalan www dibuang", "google.com" in dom)
 cek("url ngawur tidak bikin error", "bukan-url" not in dom)
 
 # --- susunan teks ---
-baris = susun([("github.com", 12)], ["asisten-robot"], [("git", 30)], disaring=4)
+baris = susun([("github.com", 12)], ["memo"], [("git", 30)], disaring=4)
 cek("browser muncul", any("github.com (12)" in b for b in baris))
-cek("vscode muncul", any("asisten-robot" in b for b in baris))
+cek("vscode muncul", any("memo" in b for b in baris))
 cek("terminal muncul", any("30× git" in b for b in baris))
 cek("jumlah tersaring disebut", any("4 baris disaring" in b for b in baris))
 cek("bagian kosong dilewati", susun([], [], []) == [])

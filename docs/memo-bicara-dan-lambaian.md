@@ -121,7 +121,7 @@ jejak sesaat — jadi geserannya tidak pernah sempat terkumpul.
 ### Mencoba tanpa mengubah apa pun
 
 ```
-~/Projects/asisten-robot/bin/memo-coba
+~/Projects/memo/bin/memo-coba
 ```
 
 Menampilkan pose yang terbaca dan aksi yang akan diambil, tanpa benar-benar
