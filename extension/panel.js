@@ -7,6 +7,8 @@ import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import Pango from 'gi://Pango';
+import GObject from 'gi://GObject';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { RobotFace } from './robotFace.js';
 import { Gerak } from './gerak.js';
@@ -233,8 +235,41 @@ export class PanelMemo {
     }
 
     // --- Baris atas: tab kiri, status + suara + pengaturan kanan ---------
+    // Jam + titik notifikasi bawaan Ubuntu, dicerminkan dari dateMenu di top
+    // bar supaya formatnya selalu sama dengan pengaturan sistem. Diklik:
+    // membuka kalender & notifikasi bawaan.
+    _bangunJam() {
+        const isi = new St.BoxLayout({ style_class: 'memo-jam-isi', y_align: Clutter.ActorAlign.CENTER });
+        this._jam = new St.Label({ style_class: 'memo-jam-teks', y_align: Clutter.ActorAlign.CENTER });
+        this._titikNotif = new St.Widget({ style_class: 'memo-jam-titik', visible: false,
+            y_align: Clutter.ActorAlign.CENTER });
+        isi.add_child(this._jam);
+        isi.add_child(this._titikNotif);
+        this._tombolJam = new St.Button({ style_class: 'memo-jam', can_focus: true, child: isi,
+            x_expand: true, y_expand: true, x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER });
+        this._tombolJam.connect('clicked', () => this._island.bukaKalender());
+        this._ikatan = [];
+        const dm = Main.panel.statusArea.dateMenu;
+        try {
+            if (dm?._clockDisplay)
+                this._ikatan.push(dm._clockDisplay.bind_property('text', this._jam, 'text', GObject.BindingFlags.SYNC_CREATE));
+            if (dm?._indicator)
+                this._ikatan.push(dm._indicator.bind_property('visible', this._titikNotif, 'visible', GObject.BindingFlags.SYNC_CREATE));
+        } catch (e) {
+            console.error(`[dynamic-island] jam panel: ${e}`);
+        }
+        if (!this._jam.text) {
+            const kini = GLib.DateTime.new_now_local();
+            this._jam.text = kini.format('%b %e  %H:%M');
+        }
+        return this._tombolJam;
+    }
+
     _bangunAtas() {
+        const tumpuk = new St.Widget({ layout_manager: new Clutter.BinLayout(), x_expand: true });
         const atas = new St.BoxLayout({ style_class: 'memo-panel-atas', x_expand: true });
+        tumpuk.add_child(atas);
+        tumpuk.add_child(this._bangunJam());
         this._tombolTab = {};
         for (const [id, ikon] of [['beranda', 'go-home-symbolic'], ['chat', 'chat-bubble-text-symbolic'],
             ['tambah', 'list-add-symbolic']]) {
@@ -257,7 +292,7 @@ export class PanelMemo {
         this._tombolTab.atur = atur;
         atas.add_child(atur);
         this._segarkanSuara();
-        return atas;
+        return tumpuk;
     }
 
     _bangunAvatar() {
@@ -797,6 +832,9 @@ export class PanelMemo {
     }
 
     destroy() {
+        for (const b of this._ikatan ?? [])
+            b.unbind();
+        this._ikatan = [];
         this._wajah.gerak.destroy();
         this._wajah.wajah.destroy();
         this.actor.destroy();

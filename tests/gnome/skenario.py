@@ -135,6 +135,21 @@ potret("9-atur", (300, 0, 1000, 420))
 ev("const p = memoUji.island()._panel; p._ikonSuara.get_parent().emit('clicked', 1); return true;"); time.sleep(0.2)
 cek("tombol suara lagi: suara kembali", not os.path.exists(f"{T}/config/memo/bisu"))
 ev("const i = memoUji.island(); i._panel.pilihTab('beranda'); i.menu.close(); return true;")
+ev("memoUji.island().menu.open(); return true;"); time.sleep(0.6)
+j = ev("""const i = memoUji.island(); const p = i._panel; const dm = memoUji.Main.panel.statusArea.dateMenu;
+          const [bx] = i.menu.box.get_transformed_position(); const [jx] = p._tombolJam.get_transformed_position();
+          return {jam: p._jam.text, asli: dm._clockDisplay.text, tengahPanel: Math.round(bx + i.menu.box.width / 2),
+                  tengahJam: Math.round(jx + p._tombolJam.width / 2), tampak: p._tombolJam.visible && p._tombolJam.mapped};""")
+cek("jam bawaan Ubuntu tampil di panel, sama dengan jam bilah atas", j.get("jam") and j.get("jam") == j.get("asli") and j.get("tampak"), j)
+cek("jam tepat di tengah baris atas panel", abs(j.get("tengahPanel", 0) - j.get("tengahJam", 999)) <= 2, j)
+potret("11-jam", (300, 0, 1000, 420))
+ev("memoUji.island()._panel._tombolJam.emit('clicked', 1); return true;"); time.sleep(0.9)
+k = ev("""const i = memoUji.island(); const dm = memoUji.Main.panel.statusArea.dateMenu;
+          return {memo: i.menu.isOpen, kalender: dm.menu.isOpen, kotak: i._current === i._normal ? 'normal' : 'lain'};""")
+cek("klik jam -> panel Memo tertutup, kalender & notifikasi bawaan terbuka", k == {"memo": False, "kalender": True, "kotak": "normal"}, k)
+potret("12-kalender", (300, 0, 1000, 560))
+ev("memoUji.Main.panel.statusArea.dateMenu.menu.close(); return true;"); time.sleep(0.6)
+cek("kalender ditutup -> island kembali normal", ev("return memoUji.island()._kalender;") is False)
 
 subprocess.run(["notify-send", "--app-name=LebihTeratur", "Vendor Baru Terdaftar", "Dekor Indah mendaftar"], env=env)
 k = tunggu(lambda k: k["label"] == "Vendor Baru Terdaftar", 4)

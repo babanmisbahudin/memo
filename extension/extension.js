@@ -406,6 +406,31 @@ class Island {
         this._agen.mulaiDemo();
     }
 
+    // Kalender & notifikasi bawaan Ubuntu dari jam di panel. Island dipaksa
+    // menampilkan jam aslinya (yang tersembunyi saat jendela dimaksimalkan)
+    // supaya kalender punya tempat menempel, lalu dibuka setelah panel Memo
+    // tertutup dan island selesai melebar.
+    bukaKalender() {
+        const dm = Main.panel.statusArea.dateMenu;
+        if (!dm?.menu)
+            return;
+        if (!this._kalenderId) {
+            this._kalenderId = dm.menu.connect('open-state-changed', (_m, buka) => {
+                if (!buka && this._kalender) {
+                    this._kalender = false;
+                    this._update();
+                }
+            });
+        }
+        this.menu.close();
+        this._kalender = true;
+        this._update();
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, ANIM_MS + 40, () => {
+            dm.menu.open();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
     // Jalur skrip di bin/ repo Memo. Folder extension biasanya symlink ke
     // repo, jadi targetnya dibaca dulu.
     jalurBin(nama) {
@@ -659,6 +684,8 @@ class Island {
     }
 
     _resolveTarget() {
+        if (this._kalender)
+            return this._normal;
         if (this._eventActive || this._izinTampil)
             return this._event;
         if (!this._covered || this._pointerNear)
@@ -791,6 +818,10 @@ class Island {
                 GLib.source_remove(id);
         }
         this._detakGerakId = this._sapaId = null;
+        if (this._kalenderId) {
+            Main.panel.statusArea.dateMenu?.menu?.disconnect(this._kalenderId);
+            this._kalenderId = null;
+        }
         this._panel?.destroy();
         this._panel = null;
         if (this.menu) {

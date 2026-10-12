@@ -107,6 +107,36 @@
     color: #ffffff;
 }
 
+.memo-jam {
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 17px;
+    color: #ffffff;
+    background-color: transparent;
+}
+
+.memo-jam:hover,
+.memo-jam:focus {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.memo-jam-isi {
+    spacing: 6px;
+}
+
+.memo-jam-teks {
+    font-weight: 700;
+    font-size: 13px;
+    color: #ffffff;
+}
+
+/* Titik notifikasi belum dibaca: kotak kecil, gaya piksel. */
+.memo-jam-titik {
+    width: 6px;
+    height: 6px;
+    background-color: #f0b429;
+}
+
 .memo-panel-status {
     color: rgba(255, 255, 255, 0.45);
     font-size: 13px;
