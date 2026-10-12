@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Script untuk bertanya ke Memo lewat terminal
+AKAR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+if [ -z "$1" ]; then
+    echo "Gunakan: ./bin/tanya \"pertanyaan Anda\""
+    exit 1
+fi
+
+echo "$1" > /dev/shm/memo-ngobrol.teks
+echo "Pesan dikirim ke Memo!"

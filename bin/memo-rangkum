@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Pembungkus supaya tidak perlu mengetik jalur panjang.
+#   memo-rangkum            tulis ringkasan ke catatan hari ini
+#   memo-rangkum --kering   lihat dulu, jangan tulis
+exec python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/memo-rangkum.py" "$@"

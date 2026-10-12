@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Catat seluruh kegiatan ke log harian di dalam vault Obsidian.
+#
+#   memo-log                    catat 6 jam terakhir
+#   memo-log --jam 24           catat sehari penuh
+#   memo-log --kering           lihat dulu, jangan tulis
+#   memo-log --tanpa-berkas     lewati pemindaian berkas (lebih cepat)
+#
+# Aman dijalankan sesering mungkin: kegiatan yang sudah tercatat tidak ditulis
+# lagi, jadi isinya tidak membengkak.
+exec python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/memo-log.py" "$@"

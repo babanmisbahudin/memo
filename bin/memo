@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# Memo bicara: mata pindah ke ekspresi "bicara" selama bersuara, lalu kembali
+# ke "netral". Ekspresi dan berkas sementara dibereskan lewat trap supaya tidak
+# tersangkut kalau perintahnya dihentikan di tengah jalan.
+#
+# Suara utama edge-tts (neural, natural, BUTUH INTERNET dan teksnya dikirim ke
+# server Microsoft). Kalau gagal, jatuh ke espeak-ng yang offline tapi kaku —
+# Memo lebih baik terdengar kaku daripada bisu.
+set -uo pipefail
+
+AKAR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON="$AKAR/.venv/bin/python"
+
+ROBOT_DEST="org.himisbah.Robot"
+ROBOT_PATH="/org/himisbah/Robot"
+
+SUARA="${MEMO_VOICE:-id-ID-ArdiNeural}"
+KECEPATAN="${MEMO_RATE:-+0%}"
+SUARA_CADANGAN="${MEMO_FALLBACK_VOICE:-Indonesian+Andy}"
+
+# Efek robot: nada diturunkan, diberi getaran khas robot, gema metalik tipis,
+# lalu dipangkas seperti keluar dari speaker kecil. Sengaja ditumpuk di atas
+# suara neural yang natural — hasilnya terdengar sebagai robot yang disengaja,
+# bukan sebagai TTS murahan.
+#
+# Efeknya dipasang SEBELUM masuk cache, jadi tidak menambah jeda saat dipakai.
+EFEK_ROBOT="${MEMO_EFEK:-asetrate=24000*0.88,aresample=24000,atempo=1.136,tremolo=f=22:d=0.45,aecho=0.8:0.8:16:0.3,highpass=f=220,lowpass=f=4200}"
+
+CACHE="${MEMO_CACHE:-$HOME/.cache/memo-tts}"
+
+berkas_sementara=""
+
+bereskan() {
+    gdbus call --session --dest "$ROBOT_DEST" --object-path "$ROBOT_PATH" \
+        --method "$ROBOT_DEST".SetExpression netral 0 >/dev/null 2>&1 || true
+    [ -n "$berkas_sementara" ] && rm -f "$berkas_sementara"
+}
+
+ekspresi_bicara() {
+    gdbus call --session --dest "$ROBOT_DEST" --object-path "$ROBOT_PATH" \
+        --method "$ROBOT_DEST".SetExpression bicara 0 >/dev/null 2>&1 || true
+}
+
+hanya_cache=0
+if [ "${1:-}" = "--hanya-cache" ]; then
+    hanya_cache=1
+    shift
+fi
+
+teks="$*"
+if [ -z "$teks" ]; then
+    cat >&2 <<'EOF'
+pemakaian: memo "kalimat yang mau diucapkan"
+
+  MEMO_VOICE=id-ID-GadisNeural memo "halo"   # suara perempuan
+  MEMO_RATE=-10% memo "halo"                 # bicara lebih pelan
+  memo --hanya-cache "halo"                  # siapkan suaranya, jangan bunyikan
+  daftar suara: .venv/bin/edge-tts --list-voices | grep id-ID
+EOF
+    exit 1
+fi
+
+trap bereskan EXIT INT TERM
+[ "$hanya_cache" -eq 0 ] && ekspresi_bicara
+
+# --- Utama: edge-tts, dengan cache ---
+#
+# Sintesis edge-tts makan ~11 detik di jaringan ini padahal berkasnya cuma
+# puluhan kilobyte — hambatannya latensi, bukan lebar pita. Kalimat yang sama
+# (sapaan isyarat tangan, misalnya) tidak perlu disintesis ulang tiap kali,
+# jadi hasilnya disimpan dan pemutaran berikutnya jadi seketika.
+if [ -x "$AKAR/.venv/bin/edge-tts" ] && command -v ffplay >/dev/null 2>&1; then
+    mkdir -p "$CACHE"
+    kunci="$(printf '%s|%s|%s' "$SUARA" "$KECEPATAN" "$teks" | md5sum | cut -d' ' -f1)"
+    berkas_cache="$CACHE/$kunci.mp3"
+
+    if [ ! -s "$berkas_cache" ]; then
+        berkas_sementara="$(mktemp --suffix=.mp3)"
+        if "$AKAR/.venv/bin/edge-tts" --voice "$SUARA" --rate "$KECEPATAN" \
+                --text "$teks" --write-media "$berkas_sementara" >/dev/null 2>&1 \
+                && [ -s "$berkas_sementara" ]; then
+            berkas_efek="$(mktemp --suffix=.mp3)"
+            if [ -n "$EFEK_ROBOT" ] && command -v ffmpeg >/dev/null 2>&1 \
+                    && ffmpeg -y -v error -i "$berkas_sementara" \
+                        -af "$EFEK_ROBOT" "$berkas_efek" 2>/dev/null \
+                    && [ -s "$berkas_efek" ]; then
+                mv "$berkas_efek" "$berkas_cache"
+            else
+                rm -f "$berkas_efek"
+                mv "$berkas_sementara" "$berkas_cache"
+            fi
+            rm -f "$berkas_sementara"
+            berkas_sementara=""
+        else
+            echo "edge-tts gagal (internet mati?), memakai suara cadangan" >&2
+        fi
+    fi
+
+    if [ -s "$berkas_cache" ]; then
+        [ "$hanya_cache" -eq 1 ] && exit 0
+        ffplay -nodisp -autoexit -loglevel quiet "$berkas_cache"
+        exit 0
+    fi
+fi
+
+# --- Cadangan: espeak-ng, offline ---
+[ "$hanya_cache" -eq 1 ] && exit 1
+galat=$(spd-say -w -l id -y "$SUARA_CADANGAN" -r -10 -p -20 "$teks" 2>&1 >/dev/null)
+if [ -n "$galat" ]; then
+    echo "gagal bersuara: $galat" >&2
+    exit 1
+fi
