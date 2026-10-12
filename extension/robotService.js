@@ -1,19 +1,8 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
-import Clutter from 'gi://Clutter';
 
 const BUS_NAME = 'org.himisbah.Robot';
 const OBJECT_PATH = '/org/himisbah/Robot';
-
-const CTRL = Clutter.KEY_Control_L;
-
-// Daftar tetap kombinasi yang boleh dikirim lewat D-Bus. Sengaja sesempit
-// kebutuhan: tab berikutnya, tab sebelumnya, tutup tab.
-const DIIZINKAN = {
-    'ctrl+Page_Down': { pengubah: [CTRL], keyval: Clutter.KEY_Page_Down },
-    'ctrl+Page_Up': { pengubah: [CTRL], keyval: Clutter.KEY_Page_Up },
-    'ctrl+w': { pengubah: [CTRL], keyval: Clutter.KEY_w },
-};
 
 const INTERFACE = `
 <node>
@@ -27,9 +16,6 @@ const INTERFACE = `
       <arg type="d" direction="in" name="glowBoost"/>
     </method>
     <method name="Reset"/>
-    <method name="SendKey">
-      <arg type="s" direction="in" name="accel"/>
-    </method>
     <method name="BukaMenu"/>
     <property name="Expression" type="s" access="read"/>
     <signal name="ExpressionChanged">
@@ -88,50 +74,13 @@ export class RobotService {
         return this._controller.expression;
     }
 
-    // Menyuntik tombol ke aplikasi yang sedang fokus. Di Wayland hanya
-    // compositor yang boleh melakukan ini, dan extension berjalan di dalamnya —
-    // itulah sebabnya bagian ini ada di sini, bukan di pendeteksi isyarat.
-    //
-    // Hanya kombinasi dari daftar tetap yang dilayani. Membiarkan pemanggil
-    // mengirim tombol sembarang berarti membuka penekan tombol apa pun lewat
-    // D-Bus sesi, dan itu terlalu luas untuk kebutuhan mengganti tab.
-    SendKey(accel) {
-        try {
-            const izin = DIIZINKAN[accel];
-            if (!izin) {
-                console.log(`[dynamic-island] kombinasi tombol ditolak: ${accel}`);
-                return;
-            }
-            this._tekan(izin.pengubah, izin.keyval);
-        } catch (e) {
-            console.error(`[dynamic-island] SendKey gagal: ${e}`);
-        }
-    }
-
-    // Dipanggil pendeteksi isyarat saat telapak terbuka: menu yang terbuka
-    // sekaligus jadi tanda kasat mata bahwa gerbang kendali sedang terbuka.
+    // Membuka menu Memo dari luar (mis. skrip atau pintasan lain).
     BukaMenu() {
         try {
             this._controller.bukaMenu();
         } catch (e) {
             console.error(`[dynamic-island] BukaMenu gagal: ${e}`);
         }
-    }
-
-    _tekan(pengubah, keyval) {
-        if (!this._papanMaya) {
-            const seat = Clutter.get_default_backend().get_default_seat();
-            this._papanMaya = seat.create_virtual_device(
-                Clutter.InputDeviceType.KEYBOARD_DEVICE);
-        }
-
-        const waktu = global.get_current_time() * 1000;
-        for (const p of pengubah)
-            this._papanMaya.notify_keyval(waktu, p, Clutter.KeyState.PRESSED);
-        this._papanMaya.notify_keyval(waktu, keyval, Clutter.KeyState.PRESSED);
-        this._papanMaya.notify_keyval(waktu, keyval, Clutter.KeyState.RELEASED);
-        for (const p of [...pengubah].reverse())
-            this._papanMaya.notify_keyval(waktu, p, Clutter.KeyState.RELEASED);
     }
 
     notifyExpressionChanged(name) {

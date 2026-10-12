@@ -13,8 +13,7 @@ LebihTeratur ke laptop.
 | Wajah + island | `extension/` (GNOME Shell), wajah Cairo, gerak piksel ala Mochi, D-Bus `org.himisbah.Robot` | [arsitektur.md](docs/arsitektur.md), [fase-1-wajah-ekspresif.md](docs/fase-1-wajah-ekspresif.md) |
 | Sesi agen & izin | hook Claude Code/OpenCode → `memo-agen` → island | [coucou-ala-memo.md](docs/coucou-ala-memo.md) |
 | Kabar LebihTeratur | vendor daftar, chat, pembayaran → notifikasi laptop | [coucou-ala-memo.md](docs/coucou-ala-memo.md#kabar-lebihteratur) |
-| Ngobrol | `memo-suara` (whisper + otak.py: opencode/claude/gemini/ollama) | [memo-bicara-dan-lambaian.md](docs/memo-bicara-dan-lambaian.md) |
-| Isyarat tangan | `memo-tangan.py` (MediaPipe, `model/hand_landmarker.task`) | [memo-bicara-dan-lambaian.md](docs/memo-bicara-dan-lambaian.md) |
+| Ngobrol | `memo-suara` (whisper + otak.py: opencode/claude/gemini/ollama, suara lewat `bin/memo`) | [arsitektur.md](docs/arsitektur.md) |
 
 ## Mulai cepat
 

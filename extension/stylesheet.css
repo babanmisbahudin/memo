@@ -53,20 +53,8 @@
     color: rgba(255, 255, 255, 0.45);
 }
 
-.memo-isyarat-pose {
-    color: rgba(255, 255, 255, 0.85);
-    font-size: 13px;
-}
 
-.memo-isyarat-aksi {
-    color: rgba(255, 255, 255, 0.5);
-    font-size: 13px;
-}
 
-.memo-pratinjau {
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-}
 
 .memo-status {
     color: rgba(150, 210, 255, 0.9);

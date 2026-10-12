@@ -5,7 +5,7 @@ Berjalan terus dengan model whisper SUDAH termuat di memori. Itu inti
 keberadaannya: memuat model tiap kali tombol diklik menambah ~3 detik pada
 giliran yang sudah 12 detik. Harganya ~500 MB memori selagi layanan nyala.
 
-Dipicu lewat berkas di /dev/shm, pola yang sama dengan pratinjau kamera —
+Dipicu lewat berkas di /dev/shm, pola yang sama dengan memo-agen —
 popup menyentuh berkasnya, layanan ini melihatnya. Lebih sederhana daripada
 memasang D-Bus di sisi Python, dan sudah terbukti jalan.
 
