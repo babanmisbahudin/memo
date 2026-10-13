@@ -137,6 +137,19 @@
     background-color: #f0b429;
 }
 
+.memo-sistem {
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 17px;
+    color: #ffffff;
+    background-color: transparent;
+}
+
+.memo-sistem:hover,
+.memo-sistem:focus {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
 .memo-panel-status {
     color: rgba(255, 255, 255, 0.45);
     font-size: 13px;

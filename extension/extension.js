@@ -79,6 +79,8 @@ class Island {
         this._izinTampil = null;
         this._aktivitas = null;
         this._tidur = false;
+        this._paksaNormal = null;
+        this._sistemId = new Map();
         this._aktifTerakhir = Date.now();
         this._detikTidur = DETIK_TIDUR;
         this._statusLalu = new Map();
@@ -406,45 +408,37 @@ class Island {
         this._agen.mulaiDemo();
     }
 
-    // Kalender & notifikasi bawaan Ubuntu dari jam di panel. Island dipaksa
-    // menampilkan jam aslinya (yang tersembunyi saat jendela dimaksimalkan)
-    // supaya kalender punya tempat menempel, lalu dibuka setelah panel Memo
-    // tertutup dan island selesai melebar.
-    bukaKalender() {
-        const dm = Main.panel.statusArea.dateMenu;
-        if (!dm?.menu)
+    // Menu sistem bawaan (kalender & notifikasi, Pengaturan Cepat) dari
+    // panel Memo. Island dipaksa menampilkan jam & ikon aslinya — yang
+    // tersembunyi saat jendela dimaksimalkan — supaya menunya punya tempat
+    // menempel, lalu dibuka setelah panel Memo tertutup dan island melebar.
+    _bukaMenuSistem(nama) {
+        const tombol = Main.panel.statusArea[nama];
+        if (!tombol?.menu)
             return;
-        if (!this._kalenderId) {
-            this._kalenderId = dm.menu.connect('open-state-changed', (_m, buka) => {
-                if (!buka && this._kalender) {
-                    this._kalender = false;
+        if (!this._sistemId.has(nama)) {
+            this._sistemId.set(nama, [tombol.menu, tombol.menu.connect('open-state-changed', (_m, buka) => {
+                if (!buka && this._paksaNormal === nama) {
+                    this._paksaNormal = null;
                     this._update();
                 }
-            });
+            })]);
         }
         this.menu.close();
-        this._kalender = true;
+        this._paksaNormal = nama;
         this._update();
         GLib.timeout_add(GLib.PRIORITY_DEFAULT, ANIM_MS + 40, () => {
-            dm.menu.open();
+            tombol.menu.open();
             return GLib.SOURCE_REMOVE;
         });
     }
 
-    // Jalur skrip di bin/ repo Memo. Folder extension biasanya symlink ke
-    // repo, jadi targetnya dibaca dulu.
-    jalurBin(nama) {
-        try {
-            let dir = Gio.File.new_for_uri(import.meta.url).get_parent();
-            const info = dir.query_info('standard::symlink-target,standard::is-symlink', Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, null);
-            if (info.get_is_symlink())
-                dir = Gio.File.new_for_path(info.get_symlink_target());
-            const f = dir.get_parent().get_child('bin').get_child(nama);
-            return f.query_exists(null) ? f.get_path() : null;
-        } catch (e) {
-            console.error(`[dynamic-island] jalur bin: ${e}`);
-            return null;
-        }
+    bukaKalender() {
+        this._bukaMenuSistem('dateMenu');
+    }
+
+    bukaPengaturanCepat() {
+        this._bukaMenuSistem('quickSettings');
     }
 
     _adopt(indicator) {
@@ -684,7 +678,7 @@ class Island {
     }
 
     _resolveTarget() {
-        if (this._kalender)
+        if (this._paksaNormal)
             return this._normal;
         if (this._eventActive || this._izinTampil)
             return this._event;
@@ -818,10 +812,9 @@ class Island {
                 GLib.source_remove(id);
         }
         this._detakGerakId = this._sapaId = null;
-        if (this._kalenderId) {
-            Main.panel.statusArea.dateMenu?.menu?.disconnect(this._kalenderId);
-            this._kalenderId = null;
-        }
+        for (const [menu, id] of this._sistemId.values())
+            menu.disconnect(id);
+        this._sistemId.clear();
         this._panel?.destroy();
         this._panel = null;
         if (this.menu) {

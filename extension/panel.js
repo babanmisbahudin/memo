@@ -265,6 +265,20 @@ export class PanelMemo {
         return this._tombolJam;
     }
 
+    // Ikon sistem bilah atas (Wi-Fi, suara, daya, baterai, ...) sebagai salinan
+    // langsung, jadi selalu sama dengan aslinya. Diklik: Pengaturan Cepat
+    // bawaan (restart/matikan, kunci layar, Wi-Fi, Bluetooth, ...).
+    _bangunIkonSistem() {
+        const qs = Main.panel.statusArea.quickSettings;
+        const isi = qs?._indicators
+            ? new Clutter.Clone({ source: qs._indicators, y_align: Clutter.ActorAlign.CENTER })
+            : new St.Icon({ icon_name: 'system-shutdown-symbolic', icon_size: 16 });
+        this._tombolSistem = new St.Button({ style_class: 'memo-sistem', can_focus: true, child: isi,
+            y_align: Clutter.ActorAlign.CENTER });
+        this._tombolSistem.connect('clicked', () => this._island.bukaPengaturanCepat());
+        return this._tombolSistem;
+    }
+
     _bangunAtas() {
         const tumpuk = new St.Widget({ layout_manager: new Clutter.BinLayout(), x_expand: true });
         const atas = new St.BoxLayout({ style_class: 'memo-panel-atas', x_expand: true });
@@ -279,9 +293,12 @@ export class PanelMemo {
             this._tombolTab[id] = b;
             atas.add_child(b);
         }
-        atas.add_child(new St.Widget({ x_expand: true }));
+        // Status di kiri (setelah +) supaya sisi kanan cukup untuk ikon sistem
+        // tanpa menabrak jam di tengah.
         this._statusAtas = label('', 'memo-panel-status');
         atas.add_child(this._statusAtas);
+        atas.add_child(new St.Widget({ x_expand: true }));
+        atas.add_child(this._bangunIkonSistem());
         this._ikonSuara = new St.Icon({ icon_size: 16 });
         const suara = new St.Button({ style_class: 'memo-tab', can_focus: true, child: this._ikonSuara });
         suara.connect('clicked', () => this._togelSuara());
@@ -297,7 +314,10 @@ export class PanelMemo {
 
     _bangunAvatar() {
         const bingkai = new St.Widget({ layout_manager: new Clutter.BinLayout(), style_class: 'memo-avatar',
-            width: 100, height: 80, y_align: Clutter.ActorAlign.CENTER });
+            width: 100, height: 80, y_align: Clutter.ActorAlign.CENTER,
+            // Diset eksplisit: x_expand milik lencana tidak boleh merambat ke
+            // bingkai, kalau tidak wajah melebar ke tengah kartu.
+            x_expand: false, y_expand: false });
         const wajah = new RobotFace();
         wajah.actor.x_align = Clutter.ActorAlign.CENTER;
         wajah.actor.y_align = Clutter.ActorAlign.CENTER;
@@ -383,7 +403,8 @@ export class PanelMemo {
                 this._selesai.delete(id);
         }
         const jalan = store.sesi.filter(s => ['kerja', 'berpikir', 'tanya', 'butuh_izin'].includes(s.status)).length;
-        this._statusAtas.text = !store.hidup ? 'memo-agen mati' : jalan ? `${jalan} berjalan` : 'siap';
+        this._statusAtas.text = !store.hidup ? 'memo-agen mati' : jalan ? `${jalan} berjalan` : '';
+        this._statusAtas.visible = !!this._statusAtas.text;
 
         const tanda = JSON.stringify([store.hidup, store.izin, store.sesi, store.pills, this._pilihan,
             [...this._selesai.keys()], store.demo]);
@@ -828,7 +849,7 @@ export class PanelMemo {
     }
 
     _segarkanSuara() {
-        this._ikonSuara.icon_name = this.bisu ? 'audio-volume-muted-symbolic' : 'audio-volume-high-symbolic';
+        this._ikonSuara.icon_name = this.bisu ? 'notifications-disabled-symbolic' : 'preferences-system-notifications-symbolic';
     }
 
     destroy() {
