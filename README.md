@@ -15,6 +15,7 @@ LebihTeratur ke laptop.
 | Kabar LebihTeratur | vendor daftar, chat, pembayaran → notifikasi laptop | [coucou-ala-memo.md](docs/coucou-ala-memo.md#kabar-lebihteratur) |
 | Ngobrol | `memo-suara` (whisper + otak.py: opencode/claude/gemini/ollama, suara lewat `bin/memo`) | [arsitektur.md](docs/arsitektur.md) |
 | Sambutan | `sambutan/` — kartu Memo saat login, Log Out, Restart, Power Off, Suspend | [sambutan.md](docs/sambutan.md) |
+| Layar login & kunci | `login/` — tema GDM + extension `memo-kunci@local` | [layar-login.md](docs/layar-login.md) |
 
 ## Mulai cepat
 
@@ -23,9 +24,11 @@ bin/memo-pasang.py extension   # tautkan extension/ ke GNOME Shell
 bin/memo-pasang.py layanan     # jalankan memo-agen + memo-integrasi
 bin/memo-pasang.py claude      # sambungkan Claude Code (diff ditampilkan dulu)
 bin/memo-pasang.py sambutan    # sambutan Memo saat login + menu daya
+bin/memo-pasang.py kunci       # layar kunci ala Memo (tema login GDM: docs/layar-login.md)
 bin/memo-pasang.py status
 tests/semua.sh                 # semua tes, tanpa GNOME/kamera/jaringan
 tests/gnome/uji-island.sh      # extension + sambutan di GNOME Shell headless (±4 menit)
+tests/gnome/uji-login.sh       # layar login GDM + layar kunci, bus sistem palsu (±1 menit)
 ```
 
 Semuanya satu folder dan satu repo: extension ada di `extension/` dan

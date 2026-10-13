@@ -1,1 +1,1 @@
-{"uuid": "memo-uji@local", "name": "Memo uji", "description": "Hanya untuk sesi headless uji", "shell-version": ["50"]}
+{"uuid": "memo-uji@local", "name": "Memo uji", "description": "Hanya untuk sesi headless uji", "shell-version": ["50"], "session-modes": ["user", "gdm", "unlock-dialog"]}

@@ -110,5 +110,22 @@ with tempfile.TemporaryDirectory() as d:
     cek("lepas: hallo-baban kembali persis", (auto / "hallo-baban.desktop").read_text() == LAMA)
     cek("lepas: penanda menu daya bawaan", tanda.exists())
 
+# Layar kunci: symlink login/ -> extensions/memo-kunci@local, idempoten, bisa dilepas.
+with tempfile.TemporaryDirectory() as d:
+    panggilan.clear()
+    tujuan = pathlib.Path(d) / "extensions" / "memo-kunci@local"
+    cek("kunci: tertaut", pasang._taut_extension(False, "memo-kunci@local", pasang.SUMBER_KUNCI, tujuan) == 0
+        and tujuan.resolve() == pasang.SUMBER_KUNCI.resolve())
+    cek("kunci: diaktifkan", ("enable", "memo-kunci@local") in panggilan)
+    cek("kunci: idempoten", pasang._taut_extension(False, "memo-kunci@local", pasang.SUMBER_KUNCI, tujuan) == 0)
+    lain = pathlib.Path(d) / "extensions" / "bukan-symlink@local"
+    lain.mkdir()
+    cek("kunci: folder asli tidak ditimpa", pasang._taut_extension(False, "x@local", pasang.SUMBER_KUNCI, lain) == 1
+        and lain.is_dir() and not lain.is_symlink())
+    cek("kunci --lepas", pasang._taut_extension(True, "memo-kunci@local", pasang.SUMBER_KUNCI, tujuan) == 0
+        and not tujuan.exists() and ("disable", "memo-kunci@local") in panggilan)
+    cek("sumber kunci punya metadata unlock-dialog",
+        "unlock-dialog" in json.loads((pasang.SUMBER_KUNCI / "metadata.json").read_text())["session-modes"])
+
 print(f"\n{lolos} lolos, {gagal} gagal")
 sys.exit(1 if gagal else 0)

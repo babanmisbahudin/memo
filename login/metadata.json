@@ -1,0 +1,13 @@
+{
+  "uuid": "memo-kunci@local",
+  "name": "Memo Kunci",
+  "description": "Layar kunci ala Memo/Coucou: hanya stylesheet, tanpa tombol atau aksi di layar kunci.",
+  "shell-version": [
+    "50"
+  ],
+  "session-modes": [
+    "user",
+    "unlock-dialog"
+  ],
+  "url": ""
+}

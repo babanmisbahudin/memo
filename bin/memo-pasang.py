@@ -6,6 +6,7 @@
   memo-pasang.py extension       symlink extension/ ke GNOME Shell (dynamic-island@local)
   memo-pasang.py layanan         service memo-agen + memo-integrasi (systemd --user)
   memo-pasang.py sambutan        sambutan Memo saat login + menu daya (ganti hallo-baban)
+  memo-pasang.py kunci           layar kunci ala Memo (extension memo-kunci@local dari login/)
   memo-pasang.py status          apa saja yang sudah terpasang
   tambah --lepas untuk melepas, --ya untuk tidak bertanya.
 
@@ -33,6 +34,9 @@ PLUGIN_OPENCODE = pathlib.Path(os.environ.get("XDG_CONFIG_HOME") or pathlib.Path
 EXT_UUID = "dynamic-island@local"
 SUMBER_EXT = AKAR.parent / "extension"
 DIR_EXT = pathlib.Path(os.environ.get("XDG_DATA_HOME") or pathlib.Path.home() / ".local" / "share") / "gnome-shell" / "extensions" / EXT_UUID
+KUNCI_UUID = "memo-kunci@local"
+SUMBER_KUNCI = AKAR.parent / "login"
+DIR_KUNCI = DIR_EXT.parent / KUNCI_UUID
 DIR_SYSTEMD = pathlib.Path(os.environ.get("XDG_CONFIG_HOME") or pathlib.Path.home() / ".config") / "systemd" / "user"
 DIR_AUTOSTART = pathlib.Path(os.environ.get("XDG_CONFIG_HOME") or pathlib.Path.home() / ".config") / "autostart"
 # Penanda yang dibaca extension tiap tombol daya diklik: ada = menu daya bawaan.
@@ -243,25 +247,35 @@ def cmd_layanan(lepas, ya):
     return 0
 
 
-def cmd_extension(lepas, ya):
+def _taut_extension(lepas, uuid, sumber, tujuan):
     if lepas:
-        if DIR_EXT.is_symlink():
-            DIR_EXT.unlink()
-            print(f"Dilepas: {DIR_EXT}")
+        _gnome_extensions("disable", uuid)
+        if tujuan.is_symlink():
+            tujuan.unlink()
+            print(f"Dilepas: {tujuan}")
         return 0
-    subprocess.run(["glib-compile-schemas", str(SUMBER_EXT / "schemas")], check=False)
-    if DIR_EXT.is_symlink() and DIR_EXT.resolve() == SUMBER_EXT.resolve():
-        print(f"{DIR_EXT} sudah menunjuk {SUMBER_EXT}")
-    elif DIR_EXT.exists() or DIR_EXT.is_symlink():
-        print(f"{DIR_EXT} sudah ada dan bukan symlink ke repo ini — pindahkan dulu.", file=sys.stderr)
+    if tujuan.is_symlink() and tujuan.resolve() == sumber.resolve():
+        print(f"{tujuan} sudah menunjuk {sumber}")
+    elif tujuan.exists() or tujuan.is_symlink():
+        print(f"{tujuan} sudah ada dan bukan symlink ke repo ini — pindahkan dulu.", file=sys.stderr)
         return 1
     else:
-        DIR_EXT.parent.mkdir(parents=True, exist_ok=True)
-        DIR_EXT.symlink_to(SUMBER_EXT)
-        print(f"Tertaut: {DIR_EXT} -> {SUMBER_EXT}")
-    subprocess.run(["gnome-extensions", "enable", EXT_UUID], check=False)
+        tujuan.parent.mkdir(parents=True, exist_ok=True)
+        tujuan.symlink_to(sumber)
+        print(f"Tertaut: {tujuan} -> {sumber}")
+    _gnome_extensions("enable", uuid)
     print("Versi terbaru termuat setelah logout/login (Wayland tidak bisa memuat ulang extension).")
     return 0
+
+
+def cmd_extension(lepas, ya):
+    if not lepas:
+        subprocess.run(["glib-compile-schemas", str(SUMBER_EXT / "schemas")], check=False)
+    return _taut_extension(lepas, EXT_UUID, SUMBER_EXT, DIR_EXT)
+
+
+def cmd_kunci(lepas, ya):
+    return _taut_extension(lepas, KUNCI_UUID, SUMBER_KUNCI, DIR_KUNCI)
 
 
 DESKTOP_SAMBUTAN = """[Desktop Entry]
@@ -335,6 +349,8 @@ def cmd_status():
     print(f"OpenCode    : {'terpasang' if PLUGIN_OPENCODE.exists() else 'belum  (memo-pasang.py opencode)'}")
     tertaut = DIR_EXT.is_symlink() and DIR_EXT.resolve() == SUMBER_EXT.resolve()
     print(f"Extension   : {'tertaut ke ' + str(SUMBER_EXT) if tertaut else 'belum  (memo-pasang.py extension)'}")
+    kunci = DIR_KUNCI.is_symlink() and DIR_KUNCI.resolve() == SUMBER_KUNCI.resolve()
+    print(f"Layar kunci : {'tertaut ke ' + str(SUMBER_KUNCI) if kunci else 'belum  (memo-pasang.py kunci)'}")
     for nama in LAYANAN:
         aktif = _systemctl("is-active", nama).stdout.strip()
         print(f"{nama:<22}: {aktif}")
@@ -345,7 +361,7 @@ def cmd_status():
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("sasaran", choices=("claude", "opencode", "extension", "layanan", "sambutan", "status"))
+    ap.add_argument("sasaran", choices=("claude", "opencode", "extension", "layanan", "sambutan", "kunci", "status"))
     ap.add_argument("--lepas", action="store_true")
     ap.add_argument("--ya", action="store_true", help="tulis tanpa bertanya")
     ap.add_argument("--cetak", action="store_true", help="claude: cetak hook saja, tidak menulis apa pun")
@@ -358,6 +374,7 @@ def main(argv=None):
             "extension": lambda: cmd_extension(args.lepas, args.ya),
             "layanan": lambda: cmd_layanan(args.lepas, args.ya),
             "sambutan": lambda: cmd_sambutan(args.lepas, args.ya),
+            "kunci": lambda: cmd_kunci(args.lepas, args.ya),
             "status": cmd_status}[args.sasaran]()
 
 
