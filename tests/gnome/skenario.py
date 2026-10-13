@@ -51,8 +51,13 @@ if st != {"s": 1, "g": ""}:
                     if "CRITICAL" in b or "JS ERROR" in b or "@file://" in b)[:3000])
     sys.exit(1)
 cek("panel tertutup tidak tergambar", ev("return memoUji.island().menu.actor.visible;") is False)
-cek("pintasan terpasang lewat getSettings()", k.get("pintasan") == ["toggle-menu", "voice", "allow", "deny"], k.get("pintasan"))
-cek("daemon mati -> menu bilang tidak jalan", any("tidak jalan" in x for x in k.get("sesi", [])), k.get("sesi"))
+for _ in range(40):
+    k = keadaan()
+    if "__galat" not in k:
+        break
+    time.sleep(0.25)
+cek("pintasan terpasang lewat getSettings()", k.get("pintasan") == ["toggle-menu", "voice", "allow", "deny"], k)
+cek("daemon mati -> menu bilang tidak jalan", any("tidak jalan" in x for x in k.get("sesi", [])), k)
 potret("0-diam")
 
 daemon = subprocess.Popen([sys.executable, f"{R}/bin/memo-agen.py"], env=env)
@@ -276,8 +281,52 @@ hook({**gb, "hook_event_name": "SessionEnd"})
 daemon.terminate(); daemon.wait(5)
 k = tunggu(lambda k: not k["hidup"])
 cek("daemon berhenti -> menu tahu", not k["hidup"] and any("tidak jalan" in x for x in k["sesi"]), k)
+# --- Layar sambutan (login/logout/restart/shutdown/suspend), mode uji ---------
+# Klien GTK diarahkan ke soket Wayland shell uji (bukan sesi yang sedang dipakai).
+envG = dict(env, WAYLAND_DISPLAY=open(f"{T}/wayland").read().strip(), GDK_BACKEND="wayland")
+envG.pop("DISPLAY", None)
+SAMBUTAN = os.path.join(R, "sambutan", "sambutan.js")
+for jenis in ["masuk", "keluar", "restart", "matikan", "tidur"]:
+    pr = subprocess.Popen(["gjs", "-m", SAMBUTAN, jenis, "--uji"], env=envG, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    time.sleep(1.6)
+    potret(f"20-sambutan-{jenis}", (0, 0, 1600, 900))
+    try:
+        keluar, galat_g = pr.communicate(timeout=8)
+    except subprocess.TimeoutExpired:
+        pr.kill(); keluar, galat_g = pr.communicate()
+    cek(f"sambutan {jenis}: tampil lalu lanjut sendiri (uji: tanpa aksi)", pr.returncode == 0 and keluar.strip() == "lanjut", (pr.returncode, keluar, galat_g[-400:]))
+    cek(f"sambutan {jenis}: tanpa galat GJS", "JS ERROR" not in galat_g and "TypeError" not in galat_g, galat_g[-400:])
+pr = subprocess.Popen(["gjs", "-m", SAMBUTAN, "matikan", "--uji"], env=envG, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+time.sleep(1.2)
+fokus = ev("return String(global.display.focus_window?.get_wm_class());")
+ev("memoUji.tekanTombol(0xff1b); return true;")
+keluar, _ = pr.communicate(timeout=8)
+cek("sambutan: jendela mendapat fokus keyboard", fokus == "com.local.MemoSambutan.matikan", fokus)
+cek("sambutan: Esc membatalkan shutdown", keluar.strip() == "batal", keluar)
+
+# Menu daya (SystemActions) -> sambutan. Shell uji memakai MEMO_SAMBUTAN_UJI=1,
+# jadi sambutan berjalan dengan --uji dan tidak benar-benar mematikan.
+WM = "return String(global.display.focus_window?.get_wm_class());"
+cek("jalurBin menemukan skrip di bin/ repo", str(ev("return memoUji.island().jalurBin('memo-lampirkan.py');")).endswith("/bin/memo-lampirkan.py"))
+ev("memoUji.aksiSistem().activatePowerOff(); return true;"); time.sleep(1.2)
+cek("menu daya: Power Off membuka sambutan matikan", ev(WM) == "com.local.MemoSambutan.matikan", ev(WM))
+ev("memoUji.tekanTombol(0xff1b); return true;"); time.sleep(1.2)
+k = ev("return {sambutan: !!global.display.focus_window?.get_wm_class()?.startsWith('com.local.MemoSambutan'), modal: memoUji.Main.modalCount};")
+cek("menu daya: Esc menutup sambutan tanpa dialog bawaan", k == {"sambutan": False, "modal": 0}, k)
+ev("memoUji.aksiSistem().activateSuspend(); return true;"); time.sleep(1.2)
+cek("menu daya: Suspend membuka sambutan tidur", ev(WM) == "com.local.MemoSambutan.tidur", ev(WM))
+time.sleep(2.5)
+ev("const s = memoUji.Main.extensionManager.lookup('dynamic-island@local').stateObj._sambutan; globalThis.cadanganUji = false; s._tampilkan('/tidak/ada/sambutan.js', 'matikan', () => { globalThis.cadanganUji = true; }); return true;")
+k = None
+for _ in range(20):
+    k = ev("return globalThis.cadanganUji;")
+    if k is True: break
+    time.sleep(0.25)
+cek("menu daya: sambutan gagal -> kembali ke aksi bawaan GNOME", k is True, k)
+
 log = open(f"{T}/shell.log", errors="ignore").read()
-galat = [b for b in log.splitlines() if "JS ERROR" in b or ("dynamic-island" in b and "CRITICAL" in b)]
+# "pakai dialog bawaan" sengaja dipicu uji cadangan menu daya di atas.
+galat = [b for b in log.splitlines() if ("JS ERROR" in b or ("dynamic-island" in b and "CRITICAL" in b)) and "pakai dialog bawaan" not in b]
 cek("tidak ada JS ERROR / CRITICAL dynamic-island di log shell", not galat, galat[:5])
 print(f"\n{sum(hasil)} lolos, {len(hasil) - sum(hasil)} gagal")
 print(f"tangkapan layar: {T}/*.png")

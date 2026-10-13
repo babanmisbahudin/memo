@@ -14,6 +14,7 @@ LebihTeratur ke laptop.
 | Sesi agen & izin | hook Claude Code/OpenCode → `memo-agen` → island | [coucou-ala-memo.md](docs/coucou-ala-memo.md) |
 | Kabar LebihTeratur | vendor daftar, chat, pembayaran → notifikasi laptop | [coucou-ala-memo.md](docs/coucou-ala-memo.md#kabar-lebihteratur) |
 | Ngobrol | `memo-suara` (whisper + otak.py: opencode/claude/gemini/ollama, suara lewat `bin/memo`) | [arsitektur.md](docs/arsitektur.md) |
+| Sambutan | `sambutan/` — kartu Memo saat login, Log Out, Restart, Power Off, Suspend | [sambutan.md](docs/sambutan.md) |
 
 ## Mulai cepat
 
@@ -21,9 +22,10 @@ LebihTeratur ke laptop.
 bin/memo-pasang.py extension   # tautkan extension/ ke GNOME Shell
 bin/memo-pasang.py layanan     # jalankan memo-agen + memo-integrasi
 bin/memo-pasang.py claude      # sambungkan Claude Code (diff ditampilkan dulu)
+bin/memo-pasang.py sambutan    # sambutan Memo saat login + menu daya
 bin/memo-pasang.py status
 tests/semua.sh                 # semua tes, tanpa GNOME/kamera/jaringan
-tests/gnome/uji-island.sh      # extension di GNOME Shell headless (±1 menit)
+tests/gnome/uji-island.sh      # extension + sambutan di GNOME Shell headless (±4 menit)
 ```
 
 Semuanya satu folder dan satu repo: extension ada di `extension/` dan

@@ -459,6 +459,7 @@ export class PanelMemo {
     _isiKartuUtama(store) {
         this._info.destroy_all_children();
         this.kartuIzin = null;
+        this.izinPerintah = null;
         this.tombolIzin = {};
         const u = this._utama(store);
         this._kartuUtama.style_class = `memo-kartu memo-kartu-${u.jenis}`;

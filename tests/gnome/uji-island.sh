@@ -27,12 +27,16 @@ gsettings set org.gnome.shell disable-user-extensions false
 gsettings set org.gnome.shell enabled-extensions "['dynamic-island@local', 'memo-uji@local']"
 gsettings set org.gnome.desktop.interface color-scheme prefer-dark
 echo "$DBUS_SESSION_BUS_ADDRESS" > "$MEMO_UJI_DIR/bus"
+echo "wayland-memo-uji-$PPID" > "$MEMO_UJI_DIR/wayland"
 exec gnome-shell --headless --virtual-monitor 1600x900 --wayland --no-x11 --wayland-display="wayland-memo-uji-$PPID"
 SKRIP
 chmod +x "$T/mulai.sh"
 
-env -u DISPLAY -u WAYLAND_DISPLAY XDG_CONFIG_HOME="$T/config" XDG_DATA_HOME="$T/data" \
-    MEMO_SHM="$T/shm" MEMO_UJI_DIR="$T" dbus-run-session -- "$T/mulai.sh" > "$T/shell.log" 2>&1 &
+# XDG_RUNTIME_DIR sendiri juga: shell menulis penanda
+# gnome-shell-disable-extensions di sana, dan bila penanda itu tertinggal di
+# runtime dir sesi asli, login berikutnya mematikan semua extension.
+env -u DISPLAY -u WAYLAND_DISPLAY XDG_CONFIG_HOME="$T/config" XDG_DATA_HOME="$T/data" XDG_RUNTIME_DIR="$RUN" \
+    MEMO_SHM="$T/shm" MEMO_UJI_DIR="$T" MEMO_SAMBUTAN_UJI=1 dbus-run-session -- "$T/mulai.sh" > "$T/shell.log" 2>&1 &
 SHELL_PID=$!
 
 MEMO_UJI_DIR="$T" MEMO_UJI_RUN="$RUN" timeout 180 python3 "$DI/skenario.py"
@@ -42,6 +46,10 @@ for pid in $(pgrep -x gnome-shell); do
     tr '\0' ' ' < "/proc/$pid/cmdline" | grep -q "wayland-memo-uji" && kill "$pid"
 done
 wait "$SHELL_PID" 2>/dev/null
+# Portal dokumen & gvfs dari bus uji memasang FUSE di $RUN; lepas dulu.
+for m in "$RUN/doc" "$RUN/gvfs"; do
+    grep -q " $m " /proc/mounts && fusermount3 -uz "$m" 2>/dev/null
+done
 rm -rf "$RUN"
 if [ "${UJI_SIMPAN:-}" = 1 ] || [ $HASIL -ne 0 ]; then
     echo "folder uji disimpan: $T (log: $T/shell.log)"

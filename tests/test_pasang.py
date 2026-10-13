@@ -71,5 +71,44 @@ cek("opencode label bash", hook_pola.label_alat("bash", {"command": "bun test"})
 cek("opencode label read", hook_pola.label_alat("read", {"filePath": "/a/b/c.md"}) == "Read c.md")
 cek("plugin memuat jalur hook", str(BIN / "memo-hook.py") in pasang.PLUGIN_JS % json.dumps(pasang.HOOK))
 
+# Sambutan: autostart Memo, hallo-baban disembunyikan (bukan dihapus), extension
+# lama dinonaktifkan; --lepas mengembalikan semuanya. gnome-extensions dipalsukan.
+panggilan = []
+
+
+class _Hasil:
+    def __init__(self, stdout="", returncode=0):
+        self.stdout, self.returncode, self.stderr = stdout, returncode, ""
+
+
+def _palsu(*arg):
+    panggilan.append(arg)
+    return _Hasil("baban-power-greeting@local\ndynamic-island@local\n" if arg[0] == "list" else "")
+
+
+pasang._gnome_extensions = _palsu
+LAMA = "[Desktop Entry]\nType=Application\nExec=gjs /x/greeting.js\n\n[Desktop Action a]\nExec=y\n"
+with tempfile.TemporaryDirectory() as d:
+    auto, tanda = pathlib.Path(d) / "autostart", pathlib.Path(d) / "memo" / "tanpa-sambutan"
+    auto.mkdir()
+    (auto / "hallo-baban.desktop").write_text(LAMA)
+    tanda.parent.mkdir()
+    tanda.touch()
+    cek("sambutan: terpasang", pasang.cmd_sambutan(False, True, auto, tanda) == 0)
+    isi = (auto / "memo-sambutan.desktop").read_text()
+    cek("sambutan: Exec menunjuk sambutan.js masuk", f'Exec=gjs -m "{pasang.SAMBUTAN}" masuk' in isi)
+    lama = (auto / "hallo-baban.desktop").read_text()
+    cek("sambutan: hallo-baban disembunyikan di grup [Desktop Entry]",
+        lama.startswith("[Desktop Entry]\n# Disembunyikan") and lama.index("Hidden=true") < lama.index("[Desktop Action"))
+    cek("sambutan: cadangan hallo-baban dibuat", len(list(auto.glob("hallo-baban.desktop.memo-*.bak"))) == 1)
+    cek("sambutan: penanda tanpa-sambutan dihapus", not tanda.exists())
+    cek("sambutan: extension lama dinonaktifkan", ("disable", "baban-power-greeting@local") in panggilan)
+    cek("sambutan: idempoten", pasang.cmd_sambutan(False, True, auto, tanda) == 0
+        and (auto / "hallo-baban.desktop").read_text() == lama)
+    cek("sambutan --lepas", pasang.cmd_sambutan(True, True, auto, tanda) == 0)
+    cek("lepas: autostart Memo hilang", not (auto / "memo-sambutan.desktop").exists())
+    cek("lepas: hallo-baban kembali persis", (auto / "hallo-baban.desktop").read_text() == LAMA)
+    cek("lepas: penanda menu daya bawaan", tanda.exists())
+
 print(f"\n{lolos} lolos, {gagal} gagal")
 sys.exit(1 if gagal else 0)

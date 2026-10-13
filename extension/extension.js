@@ -16,6 +16,8 @@ import { MemoShortcuts } from './shortcut.js';
 import { MemoCompanion } from './companion.js';
 import { OUTFITS, PanelMemo, avatarPiksel } from './panel.js';
 import { Gerak } from './gerak.js';
+import { jalurRepo } from './jalur.js';
+import { SambutanSistem } from './sambutanSistem.js';
 import { DETIK_TIDUR, ISENG, ISENG_MAKS_S, ISENG_MIN_S, JARAK_BANGUN, bolehTidur } from './gerakPola.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
@@ -431,6 +433,11 @@ class Island {
             tombol.menu.open();
             return GLib.SOURCE_REMOVE;
         });
+    }
+
+    // Jalur skrip di bin/ repo Memo.
+    jalurBin(nama) {
+        return jalurRepo('bin', nama);
     }
 
     bukaKalender() {
@@ -1163,10 +1170,19 @@ export default class DynamicIslandExtension extends Extension {
             console.error(`[dynamic-island] shortcuts failed: ${e}`);
         }
 
+        try {
+            this._sambutan = new SambutanSistem();
+            this._sambutan.enable();
+        } catch (e) {
+            console.error(`[dynamic-island] sambutan menu daya: ${e}`);
+        }
+
         console.log(`[dynamic-island] enabled, ${this._sources.length}/4 sources, adopted ${this._island._adopted.length} panel items`);
     }
 
     disable() {
+        this._sambutan?.disable();
+        this._sambutan = null;
         this._shortcuts?.disable();
         this._shortcuts = null;
         this._sources?.forEach(s => s.destroy());

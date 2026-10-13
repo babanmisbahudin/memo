@@ -5,6 +5,7 @@
   memo-pasang.py opencode        plugin di ~/.config/opencode/plugins/memo.js
   memo-pasang.py extension       symlink extension/ ke GNOME Shell (dynamic-island@local)
   memo-pasang.py layanan         service memo-agen + memo-integrasi (systemd --user)
+  memo-pasang.py sambutan        sambutan Memo saat login + menu daya (ganti hallo-baban)
   memo-pasang.py status          apa saja yang sudah terpasang
   tambah --lepas untuk melepas, --ya untuk tidak bertanya.
 
@@ -33,6 +34,13 @@ EXT_UUID = "dynamic-island@local"
 SUMBER_EXT = AKAR.parent / "extension"
 DIR_EXT = pathlib.Path(os.environ.get("XDG_DATA_HOME") or pathlib.Path.home() / ".local" / "share") / "gnome-shell" / "extensions" / EXT_UUID
 DIR_SYSTEMD = pathlib.Path(os.environ.get("XDG_CONFIG_HOME") or pathlib.Path.home() / ".config") / "systemd" / "user"
+DIR_AUTOSTART = pathlib.Path(os.environ.get("XDG_CONFIG_HOME") or pathlib.Path.home() / ".config") / "autostart"
+# Penanda yang dibaca extension tiap tombol daya diklik: ada = menu daya bawaan.
+TANPA_SAMBUTAN = pathlib.Path(os.environ.get("XDG_CONFIG_HOME") or pathlib.Path.home() / ".config") / "memo" / "tanpa-sambutan"
+SAMBUTAN = AKAR.parent / "sambutan" / "sambutan.js"
+# Sambutan lama yang digantikan: autostart login + extension menu daya.
+AUTOSTART_LAMA = "hallo-baban.desktop"
+EXT_LAMA = "baban-power-greeting@local"
 
 # Event Claude Code yang dikirim ke Memo, dan batas waktunya (detik). Hanya
 # PermissionRequest yang lama: relay menunggu klik maks 110 detik.
@@ -256,6 +264,64 @@ def cmd_extension(lepas, ya):
     return 0
 
 
+DESKTOP_SAMBUTAN = """[Desktop Entry]
+Type=Application
+Name=Sambutan Memo
+Comment=Memo menyapa setelah login
+Exec=gjs -m "%s" masuk
+X-GNOME-Autostart-Delay=2
+NoDisplay=true
+"""
+TANDA_SEMBUNYI = "# Disembunyikan memo-pasang.py sambutan: sambutan Memo menggantikannya.\nHidden=true\n"
+
+
+def sembunyikan_entri(isi):
+    """Tambah Hidden=true tepat di bawah [Desktop Entry] (bukan di grup lain)."""
+    if TANDA_SEMBUNYI in isi:
+        return isi
+    kepala = "[Desktop Entry]\n"
+    if kepala in isi:
+        return isi.replace(kepala, kepala + TANDA_SEMBUNYI, 1)
+    return isi.rstrip("\n") + "\n" + TANDA_SEMBUNYI
+
+
+def _gnome_extensions(*arg):
+    return subprocess.run(["gnome-extensions", *arg], capture_output=True, text=True)
+
+
+def cmd_sambutan(lepas, ya, dir_autostart=None, penanda=None):
+    dir_autostart = dir_autostart or DIR_AUTOSTART
+    penanda = penanda or TANPA_SAMBUTAN
+    memo = dir_autostart / "memo-sambutan.desktop"
+    lama = dir_autostart / AUTOSTART_LAMA
+    if lepas:
+        if memo.exists():
+            memo.unlink()
+            print(f"Dihapus: {memo}")
+        if lama.exists() and TANDA_SEMBUNYI in (isi := lama.read_text(encoding="utf-8")):
+            tulis_dengan_diff(lama, isi, isi.replace(TANDA_SEMBUNYI, ""), ya)
+        penanda.parent.mkdir(parents=True, exist_ok=True)
+        penanda.touch()
+        print("Menu daya kembali ke bawaan GNOME (berlaku langsung).")
+        if _gnome_extensions("info", EXT_LAMA).returncode == 0:
+            print(f"Sambutan lama: gnome-extensions enable {EXT_LAMA}")
+        return 0
+    isi_memo = memo.read_text(encoding="utf-8") if memo.exists() else ""
+    if not tulis_dengan_diff(memo, isi_memo, DESKTOP_SAMBUTAN % SAMBUTAN, ya):
+        return 1
+    if lama.exists():
+        isi = lama.read_text(encoding="utf-8")
+        if not tulis_dengan_diff(lama, isi, sembunyikan_entri(isi), ya):
+            return 1
+    penanda.unlink(missing_ok=True)
+    if EXT_LAMA in _gnome_extensions("list", "--enabled").stdout.split():
+        if _konfirmasi(f"Nonaktifkan extension {EXT_LAMA} (menu dayanya digantikan Memo)?", ya):
+            r = _gnome_extensions("disable", EXT_LAMA)
+            print(f"{EXT_LAMA}: {'dinonaktifkan' if r.returncode == 0 else r.stderr.strip()}")
+    print("Menu daya memakai sambutan Memo setelah logout/login (extension Memo dimuat ulang).")
+    return 0
+
+
 def cmd_status():
     try:
         settings = json.loads(SETTINGS_CLAUDE.read_text(encoding="utf-8"))
@@ -272,12 +338,14 @@ def cmd_status():
     for nama in LAYANAN:
         aktif = _systemctl("is-active", nama).stdout.strip()
         print(f"{nama:<22}: {aktif}")
+    sambutan = (DIR_AUTOSTART / "memo-sambutan.desktop").exists() and not TANPA_SAMBUTAN.exists()
+    print(f"Sambutan    : {'terpasang' if sambutan else 'belum  (memo-pasang.py sambutan)'}")
     return 0
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("sasaran", choices=("claude", "opencode", "extension", "layanan", "status"))
+    ap.add_argument("sasaran", choices=("claude", "opencode", "extension", "layanan", "sambutan", "status"))
     ap.add_argument("--lepas", action="store_true")
     ap.add_argument("--ya", action="store_true", help="tulis tanpa bertanya")
     ap.add_argument("--cetak", action="store_true", help="claude: cetak hook saja, tidak menulis apa pun")
@@ -289,6 +357,7 @@ def main(argv=None):
             "opencode": lambda: cmd_opencode(args.lepas, args.ya),
             "extension": lambda: cmd_extension(args.lepas, args.ya),
             "layanan": lambda: cmd_layanan(args.lepas, args.ya),
+            "sambutan": lambda: cmd_sambutan(args.lepas, args.ya),
             "status": cmd_status}[args.sasaran]()
 
 
