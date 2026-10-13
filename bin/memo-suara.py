@@ -25,6 +25,8 @@ import numpy as np
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from otak import tanya                                      # noqa: E402
 import izin_klien                                            # noqa: E402
+import aksi_laptop                                           # noqa: E402
+import aksi_pola                                             # noqa: E402
 
 BERKAS_PICU = "/dev/shm/memo-ngobrol.minta"
 # Nama lama yang masih ditulis popup extension (.picu). Diterima juga supaya
@@ -224,6 +226,53 @@ def dengar(model):
     return teks or None
 
 
+def kabari(pesan, berhasil, tanpa_suara):
+    catat("memo", pesan)
+    tulis_status(f"jawab: {pesan}")
+    set_ekspresi("senang" if berhasil else "bingung", 1500)
+    if not tanpa_suara:
+        ucapkan(pesan)
+
+
+def aksi_langsung(pertanyaan, tanpa_suara):
+    """Kalimat pengguna sendiri seperti "buka youtube" dijalankan tanpa AI,
+    sama seperti mengklik peluncur. False bila harus diserahkan ke AI: bukan
+    perintah membuka, atau nama aplikasi tebakan tidak ketemu."""
+    aksi = aksi_pola.pahami(pertanyaan)
+    if not aksi:
+        return False
+    tebakan = aksi["jenis"] == "aplikasi" and all(k.startswith("?") for k in aksi["target"])
+    izin_klien.mulai(pertanyaan)
+    if aksi["jenis"] != "tidak_ketemu":
+        izin_klien.langkah(aksi_pola.uraian(aksi))
+    berhasil, pesan = aksi_laptop.jalankan(aksi)
+    print(f"aksi langsung {aksi}: {berhasil} {pesan}", flush=True)
+    if not berhasil and tebakan:
+        return False
+    kabari(pesan, berhasil, tanpa_suara)
+    set_ekspresi("netral")
+    tulis_status("")
+    izin_klien.selesai(berhasil)
+    return True
+
+
+def aksi_usulan_ai(data, tanpa_suara):
+    """Aksi membuka usulan AI: divalidasi, lalu baru jalan setelah diklik
+    Izinkan di kartu izin island (aturan yang sama dengan perintah shell)."""
+    aksi = aksi_pola.dari_ai(data)
+    if not aksi:
+        if data:
+            catat("info", f"Aksi dari AI ditolak (tidak sah): {data}")
+        return
+    if not izin_klien.minta_izin(aksi_pola.uraian(aksi)):
+        catat("info", f"Tidak dibuka: {aksi_pola.uraian(aksi)}")
+        if not tanpa_suara:
+            ucapkan("Baik, tidak saya buka.")
+        return
+    berhasil, pesan = aksi_laptop.jalankan(aksi)
+    kabari(pesan, berhasil, tanpa_suara)
+
+
 def satu_giliran(model, backend, tanpa_suara=False, pertanyaan=None):
     """Satu giliran tanya-jawab. `pertanyaan` diisi kalau datang dari ketikan;
     kalau None, Memo merekam dan mendengarkan."""
@@ -240,6 +289,8 @@ def satu_giliran(model, backend, tanpa_suara=False, pertanyaan=None):
 
     tulis_status(f"tanya: {pertanyaan}")
     catat("kamu", pertanyaan)
+    if aksi_langsung(pertanyaan, tanpa_suara):
+        return
     izin_klien.mulai(pertanyaan)
     # Diucapkan tanpa ditunggu, dari cache, supaya jeda AI tidak terasa mati.
     if not tanpa_suara:
@@ -252,7 +303,7 @@ def satu_giliran(model, backend, tanpa_suara=False, pertanyaan=None):
                 if b: backend = b
         except: pass
 
-    say, command, dipakai, galat = tanya(
+    say, command, dipakai, galat, aksi = tanya(
         pertanyaan if not (konteks := konteks_lampiran())
         else f"{pertanyaan}\n\n{konteks}",
         backend=backend)
@@ -276,6 +327,9 @@ def satu_giliran(model, backend, tanpa_suara=False, pertanyaan=None):
     if not tanpa_suara and say:
         ucapkan(say)
         
+    if aksi:
+        aksi_usulan_ai(aksi, tanpa_suara)
+
     # Perintah usulan AI tidak pernah jalan sendiri: harus diklik Izinkan di
     # kartu izin island (lewat memo-agen). Tanpa klik = tidak dijalankan.
     if command and not izin_klien.minta_izin(command):

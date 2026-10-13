@@ -281,6 +281,32 @@ hook({**gb, "hook_event_name": "SessionEnd"})
 daemon.terminate(); daemon.wait(5)
 k = tunggu(lambda k: not k["hidup"])
 cek("daemon berhenti -> menu tahu", not k["hidup"] and any("tidak jalan" in x for x in k["sesi"]), k)
+# --- Memo mengelola laptop: D-Bus Buka (pembuka palsu mencatat ke $T/dibuka) --
+def buka(jenis, target):
+    r = subprocess.run(["gdbus", "call", "--session", "--dest", "org.himisbah.Robot", "--object-path",
+                        "/org/himisbah/Robot", "--method", "org.himisbah.Robot.Buka", json.dumps(jenis),
+                        json.dumps(target)], env=env, capture_output=True, text=True)
+    return (r.stdout or r.stderr).strip()
+def dibuka():
+    time.sleep(1.2)
+    try: return open(f"{T}/dibuka").read().split("\n")
+    except OSError: return []
+ev("memoUji.island().menu.open(); return true;"); time.sleep(0.5)
+k = buka("url", "https://www.youtube.com")
+cek("Buka url: dibuka aplikasi bawaan https", k.startswith("(true") and "buka:https://www.youtube.com" in dibuka(), (k, dibuka()))
+cek("Buka berhasil -> panel Memo ditutup", ev("return memoUji.island().menu.isOpen;") is False)
+os.makedirs(f"{T}/folder-uji", exist_ok=True)
+k = buka("folder", f"{T}/folder-uji")
+cek("Buka folder: dibuka aplikasi bawaan folder", k.startswith("(true")
+    and any(x in (f"buka:{T}/folder-uji", f"buka:file://{T}/folder-uji") for x in dibuka()), (k, dibuka()))
+k = buka("aplikasi", "tidak.ada.desktop\n?pembuka")
+cek("Buka aplikasi: kandidat dicari lewat pencarian GNOME", k == "(true, 'Memo Uji Pembuka')" and "buka:" in dibuka(), (k, dibuka()))
+sebelum = dibuka()
+hasil_tolak = [buka("url", "file:///etc/passwd"), buka("url", "javascript:alert(1)"), buka("folder", "/tidak/ada"),
+               buka("folder", "relatif"), buka("terminal", "/tidak/ada"), buka("aplikasi", "?zzzz-tidak-ada"), buka("hapus", "/")]
+cek("Buka menolak url non-http, folder tak ada, jenis asing", all(x == "(false, '')" for x in hasil_tolak) and dibuka() == sebelum,
+    (hasil_tolak, dibuka()[-3:]))
+
 # --- Layar sambutan (login/logout/restart/shutdown/suspend), mode uji ---------
 # Klien GTK diarahkan ke soket Wayland shell uji (bukan sesi yang sedang dipakai).
 envG = dict(env, WAYLAND_DISPLAY=open(f"{T}/wayland").read().strip(), GDK_BACKEND="wayland")

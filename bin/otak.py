@@ -26,8 +26,12 @@ PROMPT = (
     "Keluarkan respons HANYA berupa satu objek JSON dengan format:\n"
     "{\n"
     '  "say": "Jawabanmu (bahasa Indonesia, ringkas, maksimal dua kalimat, tanpa markdown/emoji)",\n'
-    '  "command": "Perintah CLI untuk menjalankan aksi (misal git, gh, vercel, render) jika ada, atau null jika hanya sekadar ngobrol"\n'
+    '  "command": "Perintah CLI untuk menjalankan aksi (misal git, gh, vercel, render) jika ada, atau null jika hanya sekadar ngobrol",\n'
+    '  "aksi": {"jenis": "url|aplikasi|folder|terminal", "target": "..."} atau null\n'
     "}\n"
+    "Untuk MEMBUKA sesuatu di laptop pakai aksi, bukan command: url = alamat https:// lengkap "
+    "(cari di YouTube: https://www.youtube.com/results?search_query=...), aplikasi = nama aplikasi, "
+    "folder = jalur folder (~/...), terminal = jalur folder tempat terminal dibuka.\n"
     "Jangan tambahkan teks apa pun di luar JSON."
 )
 
@@ -232,10 +236,13 @@ def _tanya_ollama(pertanyaan, model="llama3.1"):
 
 def tanya(pertanyaan, backend="otomatis", lanjutkan=True, ikut_sesi=True):
 
-    """Mengembalikan (say, command, backend_terpakai, galat)."""
+    """Mengembalikan (say, command, backend_terpakai, galat, aksi).
+
+    `aksi` = field "aksi" mentah dari AI (dict atau None); validasinya di
+    aksi_pola.dari_ai, eksekusinya tetap lewat kartu izin."""
     pilihan = pilih_backend(backend)
     if not pilihan:
-        return "", None, None, "tidak ada CLI AI yang terpasang"
+        return "", None, None, "tidak ada CLI AI yang terpasang", None
 
     try:
         if pilihan == "gemini":
@@ -255,12 +262,12 @@ def tanya(pertanyaan, backend="otomatis", lanjutkan=True, ikut_sesi=True):
         else:
             jawab = _tanya_claude(pertanyaan, lanjutkan)
     except subprocess.TimeoutExpired:
-        return "", None, pilihan, f"{pilihan} tidak menjawab dalam {BATAS_DETIK} detik"
+        return "", None, pilihan, f"{pilihan} tidak menjawab dalam {BATAS_DETIK} detik", None
     except Exception as e:                                   # noqa: BLE001
-        return "", None, pilihan, f"{pilihan} gagal: {e}"
+        return "", None, pilihan, f"{pilihan} gagal: {e}", None
 
     if not jawab:
-        return "", None, pilihan, f"{pilihan} menjawab kosong"
+        return "", None, pilihan, f"{pilihan} menjawab kosong", None
         
     try:
         import re
@@ -272,6 +279,7 @@ def tanya(pertanyaan, backend="otomatis", lanjutkan=True, ikut_sesi=True):
             jawab_bersih = jawab.strip()
             
         data = json.loads(jawab_bersih)
-        return data.get("say", ""), data.get("command"), pilihan, None
+        aksi = data.get("aksi")
+        return data.get("say", ""), data.get("command"), pilihan, None, aksi if isinstance(aksi, dict) else None
     except json.JSONDecodeError:
-        return jawab, None, pilihan, None
+        return jawab, None, pilihan, None, None

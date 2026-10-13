@@ -1,6 +1,8 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
+import { buka } from './bukaLaptop.js';
+
 const BUS_NAME = 'org.himisbah.Robot';
 const OBJECT_PATH = '/org/himisbah/Robot';
 
@@ -17,6 +19,12 @@ const INTERFACE = `
     </method>
     <method name="Reset"/>
     <method name="BukaMenu"/>
+    <method name="Buka">
+      <arg type="s" direction="in" name="jenis"/>
+      <arg type="s" direction="in" name="target"/>
+      <arg type="b" direction="out" name="berhasil"/>
+      <arg type="s" direction="out" name="nama"/>
+    </method>
     <property name="Expression" type="s" access="read"/>
     <signal name="ExpressionChanged">
       <arg type="s" name="name"/>
@@ -80,6 +88,20 @@ export class RobotService {
             this._controller.bukaMenu();
         } catch (e) {
             console.error(`[dynamic-island] BukaMenu gagal: ${e}`);
+        }
+    }
+
+    // Membuka situs/aplikasi/folder/terminal untuk Memo (bin/aksi_laptop.py).
+    // Panel Memo ditutup supaya jendela yang baru terbuka tidak tertutupi.
+    Buka(jenis, target) {
+        try {
+            const hasil = buka(jenis, target);
+            if (hasil[0])
+                this._controller.menu?.close();
+            return hasil;
+        } catch (e) {
+            console.error(`[dynamic-island] Buka ${jenis} gagal: ${e}`);
+            return [false, ''];
         }
     }
 

@@ -21,6 +21,20 @@ mkdir -p "$T/config" "$T/shm" "$T/data/gnome-shell/extensions" && mkdir -m 700 "
 ln -s "$EXT" "$T/data/gnome-shell/extensions/dynamic-island@local"
 cp -r "$DI/memo-uji@local" "$T/data/gnome-shell/extensions/"
 
+# Pembuka palsu untuk uji "Memo buka youtube/folder/aplikasi": jadi aplikasi
+# bawaan http/https/folder di shell uji, hanya mencatat apa yang dibuka.
+mkdir -p "$T/data/applications"
+printf '#!/bin/sh\necho "buka:$*" >> "%s/dibuka"\n' "$T" > "$T/catat-buka.sh" && chmod +x "$T/catat-buka.sh"
+cat > "$T/data/applications/memo-uji-pembuka.desktop" <<DESKTOP
+[Desktop Entry]
+Type=Application
+Name=Memo Uji Pembuka
+Exec=$T/catat-buka.sh %U
+MimeType=x-scheme-handler/http;x-scheme-handler/https;inode/directory;
+DESKTOP
+printf '[Default Applications]\nx-scheme-handler/http=memo-uji-pembuka.desktop\nx-scheme-handler/https=memo-uji-pembuka.desktop\ninode/directory=memo-uji-pembuka.desktop\n' \
+    > "$T/config/mimeapps.list"
+
 cat > "$T/mulai.sh" <<'SKRIP'
 #!/bin/bash
 gsettings set org.gnome.shell disable-user-extensions false
