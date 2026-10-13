@@ -124,6 +124,24 @@ with tempfile.TemporaryDirectory() as d:
         and lain.is_dir() and not lain.is_symlink())
     cek("kunci --lepas", pasang._taut_extension(True, "memo-kunci@local", pasang.SUMBER_KUNCI, tujuan) == 0
         and not tujuan.exists() and ("disable", "memo-kunci@local") in panggilan)
+    # Shell yang jalan belum kenal extension baru: enable gagal -> gsettings.
+    tersimpan = {"v": "['ding@rastersoft.com', 'dynamic-island@local']"}
+
+    def _gset(*arg):
+        panggilan.append(("gsettings",) + arg)
+        if arg[0] == "set":
+            tersimpan["v"] = arg[3]
+        return _Hasil(tersimpan["v"] + "\n")
+
+    pasang._gnome_extensions = lambda *arg: _Hasil(returncode=2) if arg[0] == "enable" else _palsu(*arg)
+    pasang._gsettings = _gset
+    cek("aktifkan: enable gagal -> ditambahkan ke enabled-extensions",
+        pasang.aktifkan_extension("memo-kunci@local")
+        and tersimpan["v"] == "['ding@rastersoft.com', 'dynamic-island@local', 'memo-kunci@local']")
+    cek("aktifkan: tidak dobel", pasang.aktifkan_extension("memo-kunci@local") and tersimpan["v"].count("memo-kunci") == 1)
+    tersimpan["v"] = "@as []"
+    cek("aktifkan: dari daftar kosong", pasang.aktifkan_extension("memo-kunci@local") and tersimpan["v"] == "['memo-kunci@local']")
+    pasang._gnome_extensions = _palsu
     cek("sumber kunci punya metadata unlock-dialog",
         "unlock-dialog" in json.loads((pasang.SUMBER_KUNCI / "metadata.json").read_text())["session-modes"])
 

@@ -16,6 +16,7 @@ baru ditulis setelah dikonfirmasi.
 """
 
 import argparse
+import ast
 import datetime
 import difflib
 import json
@@ -263,7 +264,8 @@ def _taut_extension(lepas, uuid, sumber, tujuan):
         tujuan.parent.mkdir(parents=True, exist_ok=True)
         tujuan.symlink_to(sumber)
         print(f"Tertaut: {tujuan} -> {sumber}")
-    _gnome_extensions("enable", uuid)
+    if not aktifkan_extension(uuid):
+        print(f"{uuid} gagal diaktifkan; aktifkan lewat aplikasi Extensions setelah login ulang.", file=sys.stderr)
     print("Versi terbaru termuat setelah logout/login (Wayland tidak bisa memuat ulang extension).")
     return 0
 
@@ -301,6 +303,31 @@ def sembunyikan_entri(isi):
 
 def _gnome_extensions(*arg):
     return subprocess.run(["gnome-extensions", *arg], capture_output=True, text=True)
+
+
+def _gsettings(*arg):
+    return subprocess.run(["gsettings", *arg], capture_output=True, text=True)
+
+
+def aktifkan_extension(uuid):
+    """Aktifkan extension. Shell yang sedang jalan belum mengenal extension
+    yang baru ditautkan (dipindai saat login), jadi `gnome-extensions enable`
+    gagal; uuid lalu ditambahkan langsung ke enabled-extensions."""
+    if _gnome_extensions("enable", uuid).returncode == 0:
+        return True
+    r = _gsettings("get", "org.gnome.shell", "enabled-extensions")
+    if r.returncode != 0:
+        return False
+    teks = r.stdout.strip().removeprefix("@as ")
+    try:
+        daftar = ast.literal_eval(teks)
+    except (ValueError, SyntaxError):
+        return False
+    if uuid not in daftar:
+        daftar.append(uuid)
+        if _gsettings("set", "org.gnome.shell", "enabled-extensions", str(daftar)).returncode != 0:
+            return False
+    return True
 
 
 def cmd_sambutan(lepas, ya, dir_autostart=None, penanda=None):
