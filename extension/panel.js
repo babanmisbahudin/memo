@@ -9,6 +9,7 @@ import Gio from 'gi://Gio';
 import Pango from 'gi://Pango';
 import GObject from 'gi://GObject';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { Slider } from 'resource:///org/gnome/shell/ui/slider.js';
 
 import { RobotFace } from './robotFace.js';
 import { Gerak } from './gerak.js';
@@ -16,6 +17,9 @@ import { tickerSesi } from './agenStore.js';
 
 const SHM = GLib.getenv('MEMO_SHM') || '/dev/shm';
 const KONFIG = () => `${GLib.get_user_config_dir()}/memo`;
+// Slider sifat Memo hidup: [nama, ujung kiri (0), ujung kanan (1)].
+const SIFAT_MEMO = [['penasaran', 'cuek', 'penasaran'], ['aktif', 'malas', 'aktif'],
+    ['iseng', 'kalem', 'iseng'], ['manja', 'pemalu', 'manja']];
 
 // Warna aksen per agen/layanan (cermin pill_katalog.py, disesuaikan supaya
 // terbaca di atas hitam).
@@ -789,12 +793,35 @@ export class PanelMemo {
         this._namaBaju = label('', 'memo-langkah');
         barisBaju.add_child(this._namaBaju);
         bagian('Wardrobe', barisBaju);
-        const barisMemo = new St.BoxLayout({ style_class: 'memo-segmen' });
-        this._tombolDesktop = tombol('Lepas ke desktop', 'memo-btn-gelap', () => {
-            this._island.togelCompanion();
+        // Memo hidup di desktop: sakelar, panggil, pulang, dan sifat.
+        const barisHidup = new St.BoxLayout({ style_class: 'memo-segmen' });
+        this._tombolHidup = tombol('Jalan-jalan: mati', 'memo-btn-gelap', () => {
+            const h = this._island.hidup;
+            h?.setAktif(!h.aktif);
             this.segarkanAtur();
         });
-        barisMemo.add_child(this._tombolDesktop);
+        barisHidup.add_child(this._tombolHidup);
+        barisHidup.add_child(tombol('Panggil ke sini', 'memo-btn-gelap', () => {
+            this._island.menu.close();
+            this._island.hidup?.panggilKeSini();
+        }));
+        barisHidup.add_child(tombol('Pulang', 'memo-btn-gelap', () => this._island.hidup?.pulang()));
+        bagian('Jalan-jalan', barisHidup);
+        const kolomSifat = new St.BoxLayout({ vertical: true, x_expand: true, style_class: 'memo-sifat' });
+        this._sliderSifat = SIFAT_MEMO.map(([nama, kiri, kanan]) => {
+            const baris = new St.BoxLayout({ style_class: 'memo-sifat-baris' });
+            const slider = new Slider(0.5);
+            slider.add_style_class_name('memo-slider');
+            slider._memoSifat = nama;
+            slider.connect('notify::value', () => this._island.hidup?.setSifat(nama, slider.value));
+            baris.add_child(label(kiri, 'memo-sifat-ujung'));
+            baris.add_child(slider);
+            baris.add_child(label(kanan, 'memo-sifat-ujung'));
+            kolomSifat.add_child(baris);
+            return slider;
+        });
+        bagian('Sifat Memo', kolomSifat);
+        const barisMemo = new St.BoxLayout({ style_class: 'memo-segmen' });
         barisMemo.add_child(tombol('Demo 60 dtk', 'memo-btn-gelap', () => {
             this._island.mulaiDemo();
             this.pilihTab('beranda');
@@ -826,8 +853,13 @@ export class PanelMemo {
                 b.remove_style_pseudo_class('checked');
         }
         this._namaBaju.text = OUTFITS.find(o => o[0] === baju)?.[1] ?? '';
-        this._tombolDesktop.get_child().get_children().at(-1).text =
-            this._island.companionTampil ? 'Kembalikan ke island' : 'Lepas ke desktop';
+        const h = this._island.hidup;
+        this._tombolHidup.get_child().get_children().at(-1).text = h?.aktif ? 'Jalan-jalan: nyala' : 'Jalan-jalan: mati';
+        const sifat = h?.sifat ?? {};
+        for (const s of this._sliderSifat) {
+            if (typeof sifat[s._memoSifat] === 'number')
+                s.value = sifat[s._memoSifat];
+        }
     }
 
     // --- Suara Memo hidup/mati -------------------------------------------

@@ -236,21 +236,39 @@ s = sampel(POSE, 0.8)
 cek("ditolak -> Memo menggeleng (geser kiri-kanan)", any(x.get("e") == "geleng" for x in s) and min(x.get("tx", 0) for x in s) < -0.5 < 0.5 < max(x.get("tx", 0) for x in s))
 pr.stdout.read(); pr.wait(5)
 
-ev("const p = memoUji.island()._panel; p.pilihTab('atur'); p._tombolDesktop.emit('clicked', 1); memoUji.island().menu.close(); return true;")
-k = ev("const c = memoUji.island()._companion; return {ada: !!c, tampil: c?.visible};")
-cek("Memo desktop bisa dilepas", k == {"ada": True, "tampil": True}, k)
-cek("posisi Memo desktop disimpan di config uji, bukan ~/.config asli", os.path.exists(f"{T}/config/memo/companion.json"))
+# --- Memo hidup di desktop (extension/hidup/) --------------------------------
+H = "const h = memoUji.island().hidup;"
+KH = H + ("const b = h._badan; return {luar: h.diLuar, tampak: h.actor.visible, keadaan: b.keadaan, "
+          "pijakan: b.pijakan ?? null, x: b.x, y: b.y, tepi: b.tepi?.jenis ?? null, keg: h._pikiran.kegiatan, "
+          "induk: h.actor.get_parent() === global.window_group ? 'jendela' : 'atas', "
+          "redup: memoUji.island()._face.actor.opacity};")
+def tunggu_hidup(syarat, batas=8):
+    akhir, k = time.time() + batas, {}
+    while time.time() < akhir:
+        k = ev(KH)
+        try:
+            if syarat(k): return k
+        except Exception: pass
+        time.sleep(0.25)
+    return k
+ev("const p = memoUji.island()._panel; p.pilihTab('atur'); p._tombolHidup.emit('clicked', 1); "
+   "p._sliderSifat[0].value = 0.9; memoUji.island().menu.close(); memoUji.island()._kabarTerakhir = 0; return true;")
+cek("tombol Pengaturan menyalakan jalan-jalan", ev(H + "return h.aktif;") is True)
+cek("slider sifat mengubah sifat Memo", abs(ev(H + "return h.sifat.penasaran;") - 0.9) < 0.001)
+k = tunggu_hidup(lambda k: k["luar"] and k["keadaan"] == "berdiri", 10)
+cek("jalan-jalan dinyalakan -> Memo keluar dari island & mendarat", k.get("luar") and k.get("tampak") and k.get("keadaan") == "berdiri", k)
+cek("island meredup saat Memo keluar", k.get("redup") == 70, k)
+cek("jalan-jalan tersimpan di config uji, bukan ~/.config asli", json.load(open(f"{T}/config/memo/hidup.json")).get("aktif") is True)
 ev("memoUji.island().gerak('lompat'); return true;")
-s = sampel("const c = memoUji.island()._companion; return {e: c._gerak.emoteAktif, ty: c._face.actor.translation_y, s: c._face.actor.scale_y};", 0.7)
-cek("Memo desktop ikut melompat bersama island", any(x.get("e") == "lompat" for x in s) and min(x.get("ty", 0) for x in s) < -5, s[:3])
-time.sleep(0.6)
-cek("Memo desktop kembali ke skala 2,6x setelah emote", abs(ev("return memoUji.island()._companion._face.actor.scale_y;") - 2.6) < 0.01)
-potret("5-desktop", (1000, 0, 600, 900))
+s = sampel(H + "return {e: h._gerak.emoteAktif, ty: h.actor.translation_y};", 0.7)
+cek("Memo hidup ikut melompat bersama island", any(x.get("e") == "lompat" for x in s) and min(x.get("ty", 0) for x in s) < -5, s[:3])
+potret("5-desktop", (0, 0, 1600, 900))
 subprocess.run(["notify-send", "--app-name=LebihTeratur", "Pembayaran otomatis masuk", "Rp 199.000 paket Pro"], env=env)
 s = sampel(POSE, 0.9)
 cek("pembayaran LebihTeratur -> Memo berjoget + koin", any(x.get("e") == "dansa" for x in s) and max(x.get("p", 0) for x in s) >= 2, [(x.get("e"), x.get("p")) for x in s][:5])
-k = ev("const c = memoUji.island()._companion; return {e: c._gerak.emoteAktif, p: c._gerak.jumlahPartikel};")
-cek("Memo desktop ikut berjoget + koin", k.get("e") == "dansa" and k.get("p", 0) >= 1, k)
+k = tunggu_hidup(lambda k: not k["luar"], 4)
+cek("kabar datang -> Memo pulang ke island", k.get("luar") is False and k.get("redup") == 255, k)
+ev(H + "h.setAktif(false); return true;")
 potret("7-joget", (300, 0, 1300, 900))
 time.sleep(2)
 
@@ -260,10 +278,10 @@ tunggu(lambda k: k["eks"] == "netral" and k["kotak"] != "event", 8)
 ev("memoUji.geserKursor(1500, 850); const i = memoUji.island(); i._detikTidur = 1; i._aktifTerakhir = Date.now() - 5000; return true;")
 k = None
 for _ in range(20):
-    k = ev("const i = memoUji.island(); return {tidur: i._tidur, eks: i.expression, gerakTidur: i._gerak.tidur, comp: i._companion?._gerak.tidur};")
+    k = ev("const i = memoUji.island(); return {tidur: i._tidur, eks: i.expression, gerakTidur: i._gerak.tidur};")
     if k.get("tidur"): break
     time.sleep(0.25)
-cek("sepi + kursor jauh -> Memo tidur (island & desktop)", k == {"tidur": True, "eks": "tidur", "gerakTidur": True, "comp": True}, k)
+cek("sepi + kursor jauh -> Memo tidur", k == {"tidur": True, "eks": "tidur", "gerakTidur": True}, k)
 s = sampel("return memoUji.island()._gerak.jumlahPartikel;", 4.0)
 cek("tidur -> gelembung z piksel naik turun", max(s) >= 1, s[:6])
 potret("6-tidur", (300, 0, 1300, 900))
@@ -350,10 +368,62 @@ for _ in range(20):
     time.sleep(0.25)
 cek("menu daya: sambutan gagal -> kembali ke aksi bawaan GNOME", k is True, k)
 
+# --- Memo hidup: jendela uji, digeser, maximize, izin, kursor -----------------
+JENDELA = os.path.join(R, "tests", "gnome", "jendela-uji.js")
+WJ = "const w = global.display.list_all_windows().find(x => x.get_title() === 'Jendela Uji Memo');"
+daemon2 = subprocess.Popen([sys.executable, f"{R}/bin/memo-agen.py"], env=env)
+tunggu(lambda k: k["hidup"])
+jw = subprocess.Popen(["gjs", "-m", JENDELA, "Jendela Uji Memo"], env=envG, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+for _ in range(40):
+    if ev(WJ + "return !!w;") is True: break
+    time.sleep(0.25)
+ev(WJ + "w.move_resize_frame(true, 300, 420, 700, 380); return true;")
+ev("memoUji.geserKursor(1500, 100); const i = memoUji.island(); i.menu.close(); i._kabarTerakhir = 0; return true;")
+ev(H + "h.setAktif(true); return true;")
+k = tunggu_hidup(lambda k: k["luar"] and k["keadaan"] in ("berdiri", "ngintip"), 10)
+cek("Memo keluar lagi sesudah dinyalakan", k.get("luar") is True, k)
+time.sleep(2)   # pikiran mengenal jendela uji dulu, supaya tidak "menoleh" di tengah uji
+wid = ev(WJ + "return w.get_id();")
+ev(H + "h._pikiran = {...h._pikiran, kegiatan: 'melamun', sisaMs: 1e9}; "
+   f"h._pergiKe({{jenis: 'titik', x: 600, y: 420, jendelaId: {wid}}}); return true;")
+k = tunggu_hidup(lambda k: k["keadaan"] == "berdiri" and k["pijakan"] == wid, 8)
+cek("Memo pindah ke atas jendela uji", k.get("keadaan") == "berdiri" and k.get("pijakan") == wid and k.get("y") == 420, k)
+di_atas = ev(H + WJ + "const a = global.window_group.get_children(); "
+             "return a.indexOf(h.actor) === a.indexOf(w.get_compositor_private()) + 1;")
+cek("Memo diselipkan tepat di atas jendela pijakannya", k.get("induk") == "jendela" and di_atas is True, (k, di_atas))
+potret("30-hidup-jendela", (0, 0, 1600, 900))
+ev(WJ + "w.move_frame(true, 340, 440); return true;")
+k = tunggu_hidup(lambda k: k["pijakan"] == wid and k["y"] == 440, 4)
+cek("jendela digeser pelan -> Memo ikut terbawa", k.get("pijakan") == wid and k.get("y") == 440, k)
+
+jm = subprocess.Popen(["gjs", "-m", JENDELA, "Jendela Maksimal", "--maksimal"], env=envG, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+k = tunggu_hidup(lambda k: k["keadaan"] == "ngintip" and k["tepi"] == "layar", 10)
+cek("jendela aktif dimaksimalkan -> Memo ngintip dari tepi layar", k.get("keadaan") == "ngintip" and k.get("tepi") == "layar", k)
+potret("31-hidup-ngintip", (0, 0, 1600, 900))
+jm.kill(); jm.wait(5)
+
+pr = hook({**gb, "session_id": "ses-hidup", "hook_event_name": "PermissionRequest", "tool_name": "Bash",
+           "tool_input": {"command": "ls"}}, latar=True)
+k = tunggu_hidup(lambda k: not k["luar"], 5)
+cek("izin agen -> Memo pulang ke island", k.get("luar") is False and k.get("redup") == 255, k)
+ev("memoUji.island().jawabIzin('deny'); return true;")
+pr.stdout.read(); pr.wait(5)
+
+ev("const i = memoUji.island(); i.menu.close(); i._kabarTerakhir = 0; return true;")
+k = tunggu_hidup(lambda k: k["luar"] and k["keadaan"] in ("berdiri", "ngintip"), 10)
+mx, my = k.get("x", 0), k.get("y", 0)
+ev(f"memoUji.geserKursor({mx}, {my - 36}); return true;")
+k = tunggu_hidup(lambda k: ((k["x"] - mx) ** 2 + (k["y"] - my) ** 2) ** 0.5 > 150, 6)
+cek("kursor mendekat -> Memo menyingkir", ((k.get("x", mx) - mx) ** 2 + (k.get("y", my) - my) ** 2) ** 0.5 > 150, (mx, my, k))
+
+ev(H + "h.setAktif(false); return true;")
+jw.kill(); jw.wait(5)
+daemon2.terminate(); daemon2.wait(5)
 log = open(f"{T}/shell.log", errors="ignore").read()
 # "pakai dialog bawaan" sengaja dipicu uji cadangan menu daya di atas.
 galat = [b for b in log.splitlines() if ("JS ERROR" in b or ("dynamic-island" in b and "CRITICAL" in b)) and "pakai dialog bawaan" not in b]
 cek("tidak ada JS ERROR / CRITICAL dynamic-island di log shell", not galat, galat[:5])
+cek("tidak ada galat Memo hidup di log shell", "[dynamic-island] hidup:" not in log)
 print(f"\n{sum(hasil)} lolos, {len(hasil) - sum(hasil)} gagal")
 print(f"tangkapan layar: {T}/*.png")
 sys.exit(0 if all(hasil) else 1)

@@ -13,7 +13,7 @@ import { RobotFace } from './robotFace.js';
 import { RobotService } from './robotService.js';
 import { AgenStore, tickerSesi } from './agenStore.js';
 import { MemoShortcuts } from './shortcut.js';
-import { MemoCompanion } from './companion.js';
+import { MemoHidup } from './hidup/memoHidup.js';
 import { OUTFITS, PanelMemo, avatarPiksel } from './panel.js';
 import { Gerak } from './gerak.js';
 import { jalurRepo } from './jalur.js';
@@ -54,6 +54,8 @@ function tulisBerkas(path, isi) {
 }
 
 const RECHECK_MS = 250;
+// Memo hidup baru keluar lagi sesudah sekian lama tanpa izin/kabar baru.
+const SEPI_SEBELUM_KELUAR_MS = 20000;
 const POLL_NEAR_MS = 100;
 const POLL_FAR_MS = 400;
 const POINTER_NEAR_Y = 220;
@@ -74,7 +76,8 @@ class Island {
         this._pollActive = false;
         this._expressionHoldId = null;
         this._service = null;
-        this._companion = null;
+        this._hidup = null;
+        this._kabarTerakhir = 0;
         this._tintHue = 120;
         this._tintGlow = 0;
         this._eventIsi = null;
@@ -142,6 +145,8 @@ class Island {
 
         this.menu.connect('open-state-changed', (_m, open) => {
             if (open) {
+                // Panel dibuka dari mana pun -> Memo pulang dulu ke island.
+                this._hidup?.pulang();
                 // Seperti Coucou: panel naik menutupi strip island, jadi
                 // baris teratas langsung tab + kontrol, bukan jam/notifikasi.
                 this.menu.actor.set_style(`-boxpointer-gap: ${-Math.round(this._pill.height)}px;`);
@@ -163,15 +168,14 @@ class Island {
         });
 
         this.pilihWardrobe(this.wardrobeAktif(), false);
-        // Pulihkan Memo desktop bila sebelum restart dalam keadaan terbuka.
+        // Memo hidup di desktop (extension/hidup/): keluar dari island untuk
+        // jalan-jalan bila dinyalakan di Pengaturan.
         try {
-            const [cok, cc] = GLib.file_get_contents(GLib.get_user_config_dir() + '/memo/companion.json');
-            if (cok && JSON.parse(new TextDecoder().decode(cc)).terbuka) {
-                this._companion = new MemoCompanion(this);
-                this._companion.sync('netral');
-                this._companion.setTint(this._tintHue ?? 120, this._tintGlow ?? 0);
-            }
-        } catch (e) { /* mulai tanpa companion */ }
+            this._hidup = new MemoHidup(this);
+            this._hidup.setTint(this._tintHue ?? 120, this._tintGlow ?? 0);
+        } catch (e) {
+            console.error(`[dynamic-island] memo hidup: ${e}`);
+        }
 
         this._face.onClick = () => {
             // Coucou: tiga tepukan cepat bikin Mochi pusing.
@@ -302,6 +306,8 @@ class Island {
         this._statusLalu = new Map(store.sesi.map(s => [s.id, s.status]));
         this._agenBekerja = store.sesi.some(s => ['kerja', 'berpikir', 'tanya'].includes(s.status));
         if (izinBaru) {
+            this._kabarTerakhir = Date.now();
+            this._hidup?.pulang();
             this.gerak('kaget', { partikel: 'tanya' });
         } else if (emote === 'lompat') {
             // Coucou finished: lompat, lalu berguling, sambil menebar bintang.
@@ -386,24 +392,42 @@ class Island {
         this.setTint(o[2] === null ? 120 : o[2], o[3]);
     }
 
-    get companionTampil() {
-        return !!this._companion?.visible;
+    get hidup() {
+        return this._hidup;
     }
 
-    togelCompanion() {
-        try {
-            if (this._companion?.visible) {
-                this._companion.sembunyikan();
-            } else {
-                if (!this._companion)
-                    this._companion = new MemoCompanion(this);
-                this._companion.tampilkan();
-                this._companion.sync(this.expression);
-                this._companion.setTint(this._tintHue ?? 120, this._tintGlow ?? 0);
-            }
-        } catch (e) {
-            console.error(`[dynamic-island] companion: ${e}`);
-        }
+    // --- Untuk Memo hidup (extension/hidup/memoHidup.js) ---------------------
+    // Boleh keluar: tidak ada izin/kabar yang tampil, panel tertutup, dan
+    // sepi sejak kabar terakhir.
+    bolehKeluar() {
+        return !this._izinTampil && !this._eventActive && !this.menu.isOpen &&
+            Date.now() - this._kabarTerakhir >= SEPI_SEBELUM_KELUAR_MS;
+    }
+
+    // Titik tengah bawah pill: tempat Memo keluar dan pulang.
+    posisiIsland() {
+        const [x, y] = this._pill.get_transformed_position();
+        return [Math.round(x + this._pill.width / 2), Math.round(y + this._pill.height)];
+    }
+
+    // Selagi Memo di desktop, mata di island redup (Memo sedang keluar).
+    memoKeluar() {
+        this._face.actor.opacity = 70;
+    }
+
+    memoKembali() {
+        this._face.actor.opacity = 255;
+        this.gerak('sapa', { diam: true });
+    }
+
+    get sedangTidur() {
+        return this._tidur;
+    }
+
+    // Notifikasi (termasuk kabar LebihTeratur) memanggil Memo pulang.
+    kabarDatang() {
+        this._kabarTerakhir = Date.now();
+        this._hidup?.pulang();
     }
 
     mulaiDemo() {
@@ -503,12 +527,10 @@ class Island {
             this._tidur = false;
             this._aktifTerakhir = Date.now();
             this._gerak.bangunkan();
-            this._companion?.bangunkan();
         }
         if (!this._face.setExpression(name))
             return;
 
-        this._companion?.sync(name);
         this._panel?.sync(name);
 
         if (this._expressionHoldId) {
@@ -541,7 +563,7 @@ class Island {
             this._gerak.main(nama, opsi);
         if (opsi.partikel)
             this._gerak.partikel(opsi.partikel, opsi.jumlah ?? 1);
-        this._companion?.gerak(nama, opsi);
+        this._hidup?.gerak(nama, opsi);
         this._panel?.gerak(nama, opsi);
     }
 
@@ -574,13 +596,12 @@ class Island {
         this._tidur = true;
         this.setExpression('tidur');
         this._gerak.tidurkan();
-        this._companion?.tidurkan();
     }
 
     _cekTidur(pointerX, pointerY) {
         const titik = [this._pill];
-        if (this._companion?.visible)
-            titik.push(this._companion.actor);
+        if (this._hidup?.actor.visible)
+            titik.push(this._hidup.actor);
         let jarak = Infinity;
         for (const a of titik) {
             const [x, y] = a.get_transformed_position();
@@ -623,7 +644,7 @@ class Island {
         this._tintHue = h;
         this._tintGlow = glowBoost;
         this._face.setTint(h, glowBoost);
-        this._companion?.setTint(h, glowBoost);
+        this._hidup?.setTint(h, glowBoost);
         this._panel?.setTint(h, glowBoost);
     }
 
@@ -844,8 +865,8 @@ class Island {
 
         Main.panel.remove_style_class_name('dynamic-island-panel');
         this._restoreAdopted();
-        this._companion?.destroy();
-        this._companion = null;
+        this._hidup?.destroy();
+        this._hidup = null;
         this._gerak.destroy();
         this._face.destroy();
         this._pill.destroy();
@@ -877,6 +898,7 @@ class NotificationSource {
             const title = notification.title || source.title || 'Notifikasi';
             this._island.trigger('preferences-system-notifications-symbolic', title, 3500);
             this._island.reaksiNotifikasi(source.title, title);
+            this._island.kabarDatang();
         } catch (e) {
             console.error(`[dynamic-island] notification handler error: ${e}`);
         }

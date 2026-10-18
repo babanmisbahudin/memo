@@ -43,8 +43,12 @@
     padding-left: 6px;
 }
 
-.memo-companion {
-    padding: 14px 18px;
+/* Memo hidup di desktop: badan Mochi = island hitam bulat (extension/hidup/). */
+.memo-hidup {
+    background-color: #000000;
+    border-radius: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
 }
 
 /* --- Panel (PopupMenu tanpa panah, tanpa celah, menempel di island) ---
@@ -480,4 +484,23 @@
 
 .memo-baju:checked {
     border-color: #ffffff;
+}
+
+/* Slider sifat Memo hidup di tab Pengaturan. */
+.memo-sifat {
+    spacing: 6px;
+}
+
+.memo-sifat-baris {
+    spacing: 10px;
+}
+
+.memo-sifat-ujung {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 12px;
+    min-width: 64px;
+}
+
+.memo-slider {
+    min-width: 220px;
 }
