@@ -8,7 +8,7 @@ import Cairo from 'cairo';
 import Gdk from 'gi://Gdk?version=4.0';
 import system from 'system';
 
-import { HURUF, lebarTeks } from '../hurufPiksel.js';
+import { HURUF, lebarTeks } from '../../extension/hurufPiksel.js';
 import { Layar, MS_LANGKAH, NAMA_JENIS, PEMBUKA, bagianHari, ukuranPetak } from '../layar.js';
 
 let gagal = 0;

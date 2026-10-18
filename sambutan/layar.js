@@ -26,7 +26,7 @@ import GdkPixbuf from 'gi://GdkPixbuf';
 
 import { drawFace, lerpParams, resolveExpression } from '../extension/face.js';
 import { DASAR, EASE, FPS_PIKSEL, POSE_TIDUR, SPRITE, durasi, poseEmote } from '../extension/gerakPola.js';
-import { HURUF, TINGGI_BARIS, lebarTeks, tulisTeks } from './hurufPiksel.js';
+import { HURUF, TINGGI_BARIS, lebarTeks, tulisTeks } from '../extension/hurufPiksel.js';
 
 export const NAMA_JENIS = ['masuk', 'keluar', 'restart', 'matikan', 'tidur'];
 export const MS_LANGKAH = 1000 / FPS_PIKSEL;
