@@ -6,14 +6,14 @@ Tanggal: 2026-10-18 · Status: bagian A + B diimplementasikan — pemakaian di
 Memo keluar dari Dynamic Island dan hidup di desktop seperti NPC: melompat
 di atas jendela, mengintip sana-sini, punya kebutuhan, sifat, dan ritme
 harian sendiri. Dokumen ini hanya mencakup **A (tubuh & jelajah)** dan
-**B (pikiran lokal, tanpa AI)**. Bagian C–E dirancang terpisah sesudahnya
-(lihat [Bagian berikutnya](#bagian-berikutnya)).
+**B (pikiran lokal, tanpa AI)**. Bagian lanjutan yang sempat direncanakan
+dibatalkan (lihat [Bagian berikutnya](#bagian-berikutnya)).
 
 ## Keputusan
 
 | Topik | Keputusan |
 |---|---|
-| Urutan | A + B tipis dulu; C, D, E menyusul dengan desain sendiri |
+| Lingkup | A + B saja; C (otak kedua, kesadaran AI), D, E (mode Jarvis) dibatalkan 2026-10-18 |
 | Badan | **Mochi**: island hitam bulat yang sekarang (mata LED face.js), tanpa kaki; bergerak dengan melompat & gepeng-melar (gerakPola.js) |
 | Cara gerak | **Gravitasi + lompat**: berdiri di lantai (dasar layar, tepi atas jendela), melompat antar lantai, jatuh bila lantainya hilang |
 | Island | **Satu Memo**: keluar dari island untuk jalan-jalan, pulang bila ada izin/kabar/panel dibuka, lalu keluar lagi |
@@ -263,8 +263,7 @@ langkah.
 
 ## Bagian berikutnya
 
-| Bagian | Isi | Catatan |
-|---|---|---|
-| C — Ingatan & kesadaran | kebiasaanmu dipelajari, ucapan/pikiran dari AI lewat `otak.py`, **vault otak kedua** (`~/Documents/himisbah`, 57 catatan) sebagai ingatan jangka panjang | Usul: Memo hanya **membaca** vault, tidak menulis (sejalan dengan dibuangnya pencatat kegiatan ke vault pada 2026-10-12). Perlu diputuskan: ❓ `05-Pribadi` ikut atau tidak; ❓ isi vault boleh dikirim ke AI awan (Claude/Gemini) atau hanya Ollama lokal |
-| D — Pengaturan lanjutan | area boleh jelajah, jam tenang, profil sifat | |
-| E — Mode Jarvis layar penuh | menu Memo layar penuh (gaya `sambutan/layar.js`), ngobrol suara terus-menerus, menjalankan perintah ("buka YouTube"), **suara Memo ala "tiny robot"** — imut, tidak kaku seperti robot (permintaan pengguna 2026-10-18) | Pondasi sudah ada: `memo-suara` (Super+Shift+M) dan `aksi_pola.py`. ❓ "Aplikasi desktop YouTube" belum terpasang di laptop ini; sekarang YouTube dibuka di browser |
+Tidak ada. Pada 2026-10-18 pengguna membatalkan rencana lanjutan: C (ingatan
+dari vault otak kedua, kebiasaan yang dipelajari, ucapan/kepribadian dari AI),
+D (pengaturan lanjutan), dan E (mode Jarvis layar penuh, suara "tiny robot").
+Memo hidup cukup sampai A + B: tubuh, jelajah, dan pikiran lokal tanpa AI.
