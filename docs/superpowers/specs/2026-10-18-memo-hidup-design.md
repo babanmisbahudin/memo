@@ -1,6 +1,7 @@
 # Memo Hidup — Desain Bagian A + B
 
-Tanggal: 2026-10-18 · Status: desain disetujui per bagian, belum ada kode.
+Tanggal: 2026-10-18 · Status: bagian A + B diimplementasikan — pemakaian di
+[docs/memo-hidup.md](../../memo-hidup.md).
 
 Memo keluar dari Dynamic Island dan hidup di desktop seperti NPC: melompat
 di atas jendela, mengintip sana-sini, punya kebutuhan, sifat, dan ritme

@@ -16,6 +16,7 @@ LebihTeratur ke laptop.
 | Ngobrol | `memo-suara` (whisper + otak.py: opencode/claude/gemini/ollama, suara lewat `bin/memo`) | [arsitektur.md](docs/arsitektur.md) |
 | Kelola laptop | "buka youtube / terminal / folder memo" dari chat & suara | [kelola-laptop.md](docs/kelola-laptop.md) |
 | Sambutan | `sambutan/` — animasi piksel layar penuh saat login, Log Out, Restart, Power Off, Suspend | [sambutan.md](docs/sambutan.md) |
+| Memo hidup | `extension/hidup/` — Memo keluar dari island, hidup di desktop ala NPC (lompat, ngintip, sifat) | [memo-hidup.md](docs/memo-hidup.md) |
 | Layar login & kunci | `login/` — tema GDM + extension `memo-kunci@local` | [layar-login.md](docs/layar-login.md) |
 
 ## Mulai cepat
