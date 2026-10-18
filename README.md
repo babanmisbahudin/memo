@@ -15,7 +15,7 @@ LebihTeratur ke laptop.
 | Kabar LebihTeratur | vendor daftar, chat, pembayaran → notifikasi laptop | [coucou-ala-memo.md](docs/coucou-ala-memo.md#kabar-lebihteratur) |
 | Ngobrol | `memo-suara` (whisper + otak.py: opencode/claude/gemini/ollama, suara lewat `bin/memo`) | [arsitektur.md](docs/arsitektur.md) |
 | Kelola laptop | "buka youtube / terminal / folder memo" dari chat & suara | [kelola-laptop.md](docs/kelola-laptop.md) |
-| Sambutan | `sambutan/` — kartu Memo saat login, Log Out, Restart, Power Off, Suspend | [sambutan.md](docs/sambutan.md) |
+| Sambutan | `sambutan/` — animasi piksel layar penuh saat login, Log Out, Restart, Power Off, Suspend | [sambutan.md](docs/sambutan.md) |
 | Layar login & kunci | `login/` — tema GDM + extension `memo-kunci@local` | [layar-login.md](docs/layar-login.md) |
 
 ## Mulai cepat

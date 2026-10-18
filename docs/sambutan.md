@@ -3,23 +3,40 @@
 Layar sambutan untuk login dan menu daya, menggantikan `hallo-baban`
 (`~/.local/share/hallo-baban/` + extension `baban-power-greeting@local`).
 
-Bentuknya sama dengan island Memo yang membesar: kartu hitam turun dari tepi
-atas layar, isinya Memo piksel besar dengan gerak dan partikel yang sama
-persis dengan di island. `sambutan/sambutan.js` memakai langsung
-`extension/face.js` dan `extension/gerakPola.js` (tidak disalin), wajah
-dirender 44×26 lalu diperbesar ×6 dengan filter *nearest*, jadi tetap pecah
-piksel.
+Layar penuh dan bergaya piksel. Island hitam di tepi atas layar membesar
+sampai memenuhi layar (Memo ikut membesar di dalamnya), lalu menyala jadi
+adegan: langit ber-dither menurut jam, bintang berkelip, bulan/matahari,
+siluet kota yang lampunya menyala atau padam, Memo besar di tengah, judul
+huruf piksel yang diketik, dan batang hitung mundur. Semua melangkah 12 kali
+per detik dan terkunci ke petak (±108 petak setinggi layar), gradasinya pakai
+dither Bayer — sama dengan aturan gerak piksel island.
 
-| Jenis | Kapan | Aksi gnome-session |
-|---|---|---|
-| `masuk` | autostart setelah login | — |
-| `keluar` | Log Out | `Logout(1)` (tanpa dialog) |
-| `restart` | Restart | `RequestReboot()` |
-| `matikan` | Power Off | `RequestShutdown()` |
-| `tidur` | Suspend | `Suspend()` |
+| Berkas | Isi |
+|---|---|
+| `sambutan/sambutan.js` | jendela GTK layar penuh transparan, input, aksi gnome-session |
+| `sambutan/layar.js` | adegan: murni Cairo + GdkPixbuf, bisa direkam tanpa GNOME |
+| `sambutan/hurufPiksel.js` | huruf piksel 5×7 |
 
-Esc membatalkan, klik atau tombol lain melanjutkan lebih cepat, dan tanpa
-apa-apa aksi berjalan sendiri setelah ±3 detik.
+Wajah Memo memakai langsung `extension/face.js` dan gerak
+`extension/gerakPola.js` (tidak disalin). Wajah dirender halus lalu dicuplik
+di tengah tiap petak, jadi LED mata tetap kotak tajam (bukan abu-abu belang
+hasil antialias yang diperbesar).
+
+| Jenis | Kapan | Adegan | Penutup | Aksi gnome-session |
+|---|---|---|---|---|
+| `masuk` | autostart setelah login | langit menurut jam (pagi fajar, siang biru berawan, sore matahari synthwave, malam bulan), Memo bangun, konfeti, jam & tanggal | mengecil kembali jadi island | — |
+| `keluar` | Log Out | ikon logout di mata Memo, Memo melambai, hati melayang | iris menutup ke Memo, Memo berkedip | `Logout(1)` (tanpa dialog) |
+| `restart` | Restart | ikon restart, cincin berputar, Memo oleng lalu pusing, lampu kota berkedip | glitch lalu layar CRT padam | `RequestReboot()` |
+| `matikan` | Power Off | ikon daya, Memo mengantuk lalu tidur, Z, bintang jatuh, lampu kota padam satu per satu | layar CRT padam: pita → garis → titik | `RequestShutdown()` |
+| `tidur` | Suspend | Memo tertidur, Z, lampu kota meredup | larut ke gelap, mata Memo terakhir | `Suspend()` |
+
+Esc membatalkan — juga selagi animasi penutup belum selesai (penutup apa pun
+berganti jadi island yang mengecil, desktop kembali). Klik atau tombol lain
+melanjutkan lebih cepat, dan tanpa apa-apa aksi berjalan sendiri setelah
+±3–4 detik. Sesudah Log Out / Restart / Power Off berhasil diminta, layar
+dibiarkan hitam (paling lama 8 detik, klik/tombol menutupnya) supaya desktop
+tidak sempat muncul lagi sebelum sesi padam. Suspend tidak ditahan, supaya
+sesudah bangun tidak ada layar hitam tersisa.
 
 ## Kenapa lewat D-Bus gnome-session
 
@@ -61,7 +78,13 @@ menulis penanda `tanpa-sambutan`.
 
 ```
 gjs -m sambutan/sambutan.js matikan --uji   # tampil, tapi tidak mematikan apa pun
+gjs -m sambutan/tests/test-layar.js         # rekam bingkai tanpa GNOME & periksa
 ```
+
+`test-layar.js` (ikut `tests/semua.sh`) merekam tiap jenis bingkai demi
+bingkai: island kecil di awal lalu layar penuh tanpa celah, langit terkunci ke
+petak, penutup berakhir hitam (atau kosong untuk login dan batal), Esc menyela
+penutup, dan semua teks untuk tiap jam/hari/bulan tertulis dengan huruf piksel.
 
 `tests/gnome/uji-island.sh` menjalankan kelima jenis di GNOME Shell headless,
 menekan Esc lewat keyboard virtual, dan memanggil `SystemActions` sungguhan
