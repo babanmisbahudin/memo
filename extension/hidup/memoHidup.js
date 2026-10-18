@@ -70,6 +70,8 @@ export class MemoHidup {
         this._simpanId = 0;
         this._sinyal = [];
         this._sinyalPijakan = null;
+        this._rectPijakan = null;
+        this._dihancurkan = false;
 
         this._face = new RobotFace();
         // Sentuhan ditangani badan; RobotFace sendiri menelan klik.
@@ -85,6 +87,12 @@ export class MemoHidup {
             layout_manager: new Clutter.BinLayout(),
         });
         this.actor.add_child(this._face.actor);
+        // Saat GNOME Shell dimatikan, aktor bisa dihancurkan tanpa disable():
+        // hentikan semua timer supaya tidak menyentuh aktor yang sudah hilang.
+        this.actor.connect('destroy', () => {
+            this._dihancurkan = true;
+            this._hentikanTimer();
+        });
         // Gerak menggerakkan seluruh badan, bertumpu di kaki (pivot bawah).
         this._gerak = new Gerak(this.actor, { skalaDasar: 1, amplitudo: 1, pivotY: 1, arahPartikel: -1, blokPartikel: 3 });
         Main.uiGroup.add_child(this.actor);
@@ -121,7 +129,7 @@ export class MemoHidup {
     // Galat tidak boleh merusak desktop: dicatat, dan sesudah tiga galat
     // beruntun Memo pulang dan jalan-jalan mati untuk sesi ini.
     _aman(fn) {
-        if (this._rusak)
+        if (this._rusak || this._dihancurkan)
             return undefined;
         try {
             const hasil = fn();
@@ -224,14 +232,26 @@ export class MemoHidup {
         if (!w)
             return;
         let r = w.get_frame_rect();
+        this._rectPijakan = { id, x: r.x, y: r.y };
         const sid = w.connect('position-changed', () => this._aman(() => {
             const baru = w.get_frame_rect();
             const g = this._gerakJendela.get(id) ?? { dx: 0, dy: 0 };
             this._gerakJendela.set(id, { dx: g.dx + baru.x - r.x, dy: g.dy + baru.y - r.y });
             r = baru;
+            this._rectPijakan = { id, x: baru.x, y: baru.y };
             this._bangunPeta();
         }));
         this._sinyalPijakan = { id, w, sid };
+    }
+
+    _catatGeserPijakan(persepsi) {
+        const id = this._badan.pijakan ?? null;
+        const w = id === null ? null : persepsi.jendela.find(x => x.id === id);
+        const lalu = this._rectPijakan;
+        this._rectPijakan = w ? { id, x: w.x, y: w.y } : null;
+        if (!w || lalu?.id !== id || (lalu.x === w.x && lalu.y === w.y) || this._gerakJendela.has(id))
+            return;
+        this._gerakJendela.set(id, { dx: w.x - lalu.x, dy: w.y - lalu.y });
     }
 
     _gambar() {
@@ -347,7 +367,8 @@ export class MemoHidup {
     }
 
     _pergiKe(tujuan) {
-        if (tujuan === undefined)
+        // Penerbangan pulang tidak boleh dibatalkan niat baru dari pikiran.
+        if (tujuan === undefined || this._antrean[0]?.jenis === 'pulang')
             return;
         this._antrean = [];
         if (tujuan === null)
@@ -374,9 +395,15 @@ export class MemoHidup {
                 this._keluar();
             return;
         }
+        if (this._antrean[0]?.jenis === 'pulang')
+            return;
         const persepsi = this._persepsi();
         this._peta = petaDari(persepsi, UKURAN);
         this._perbaruiSembunyi();
+        // Cadangan bila sinyal jendela terlewat: geseran jendela pijakan
+        // dicatat, dan fisika memeriksa ulang pijakan sekali per detik.
+        this._catatGeserPijakan(persepsi);
+        this._pastikanLangkah();
         // Activities / layar terkunci: berhenti berpikir sampai kembali.
         if (this._sembunyi && !this._peta.sembunyi)
             return;
@@ -499,6 +526,8 @@ export class MemoHidup {
         s.jejak = [...s.jejak.filter(([t]) => kini - t < 100000), [kini, x, y]];
         if (!s.aktif && Math.hypot(x - s.x0, y - s.y0) > AMBANG_SERET) {
             s.aktif = true;
+            if (this._antrean[0]?.jenis === 'pulang')
+                this._pulangTertunda = true;
             this._antrean = [];
             this.actor.scale_y = 1;
             this._gerak.main('kaget');
@@ -635,13 +664,18 @@ export class MemoHidup {
         }
     }
 
-    destroy() {
-        this.simpan();
+    _hentikanTimer() {
         for (const id of [this._detikId, this._tatapId, this._klikId, this._simpanId]) {
             if (id)
                 GLib.source_remove(id);
         }
+        this._detikId = this._tatapId = this._klikId = this._simpanId = 0;
         this._berhentiLangkah();
+    }
+
+    destroy() {
+        this.simpan();
+        this._hentikanTimer();
         for (const [obj, id] of this._sinyal)
             obj.disconnect(id);
         this._sinyal = [];
@@ -650,6 +684,7 @@ export class MemoHidup {
         this._sinyalPijakan = null;
         this._grab?.dismiss();
         this._gerak.destroy();
+        this._dihancurkan = true;
         this._face.destroy();
         this.actor.destroy();
     }

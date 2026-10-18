@@ -393,14 +393,26 @@ di_atas = ev(H + WJ + "const a = global.window_group.get_children(); "
 cek("Memo diselipkan tepat di atas jendela pijakannya", k.get("induk") == "jendela" and di_atas is True, (k, di_atas))
 potret("30-hidup-jendela", (0, 0, 1600, 900))
 ev(WJ + "w.move_frame(true, 340, 440); return true;")
+rj = None
+for _ in range(20):
+    rj = ev(WJ + "const r = w.get_frame_rect(); return [r.x, r.y];")
+    if rj == [340, 440]: break
+    time.sleep(0.1)
 k = tunggu_hidup(lambda k: k["pijakan"] == wid and k["y"] == 440, 4)
-cek("jendela digeser pelan -> Memo ikut terbawa", k.get("pijakan") == wid and k.get("y") == 440, k)
+cek("jendela digeser pelan -> Memo ikut terbawa", k.get("pijakan") == wid and k.get("y") == 440, (k, "jendela", rj))
 
 jm = subprocess.Popen(["gjs", "-m", JENDELA, "Jendela Maksimal", "--maksimal"], env=envG, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 k = tunggu_hidup(lambda k: k["keadaan"] == "ngintip" and k["tepi"] == "layar", 10)
 cek("jendela aktif dimaksimalkan -> Memo ngintip dari tepi layar", k.get("keadaan") == "ngintip" and k.get("tepi") == "layar", k)
 potret("31-hidup-ngintip", (0, 0, 1600, 900))
 jm.kill(); jm.wait(5)
+# Pikiran berjalan tiap detik; niat barunya tidak boleh membatalkan
+# penerbangan pulang yang sedang berlangsung.
+ev(H + "h.pulang(); h._pergiKe({jenis: 'titik', x: 500, y: 900, jendelaId: null}); return true;")
+k = tunggu_hidup(lambda k: not k["luar"], 3)
+cek("pulang tidak dibatalkan oleh niat baru dari pikiran", k.get("luar") is False, k)
+ev("const i = memoUji.island(); i._kabarTerakhir = 0; return true;")
+tunggu_hidup(lambda k: k["luar"] and k["keadaan"] in ("berdiri", "ngintip"), 10)
 
 pr = hook({**gb, "session_id": "ses-hidup", "hook_event_name": "PermissionRequest", "tool_name": "Bash",
            "tool_input": {"command": "ls"}}, latar=True)
