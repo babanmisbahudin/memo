@@ -33,6 +33,7 @@ bin/memo-pasang.py status
 tests/semua.sh                 # semua tes, tanpa GNOME/kamera/jaringan
 tests/gnome/uji-island.sh      # extension + sambutan di GNOME Shell headless (±4 menit)
 tests/gnome/uji-login.sh       # layar login GDM + layar kunci, bus sistem palsu (±2 menit)
+pratinjau/buat.sh              # galeri desain Memo di browser: http://127.0.0.1:8765
 ```
 
 Semuanya satu folder dan satu repo: extension ada di `extension/` dan

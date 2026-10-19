@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desain Memo</title>
+<style>
+  :root { --latar: #121316; --kartu: #1b1d22; --garis: #2c3038; --teks: #e9ecf2; --redup: #9aa3b2; --aksen: #7ee787; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--latar); color: var(--teks); font: 15px/1.5 system-ui, sans-serif; }
+  header { padding: 28px 16px 8px; max-width: 1100px; margin: 0 auto; }
+  h1 { margin: 0; font: 700 28px/1.2 monospace; letter-spacing: 1px; }
+  h1 span { color: var(--aksen); }
+  header p { color: var(--redup); margin: 6px 0 0; }
+  main { max-width: 1100px; margin: 0 auto; padding: 8px 16px 48px; }
+  h2 { font: 700 18px monospace; margin: 32px 0 12px; border-bottom: 1px solid var(--garis); padding-bottom: 6px; }
+  .kisi { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  figure { margin: 0; background: var(--kartu); border: 1px solid var(--garis); padding: 10px; }
+  figure.lebar { grid-column: 1 / -1; }
+  img { display: block; width: 100%; height: auto; image-rendering: pixelated; background: #2b2b2e; }
+  figcaption { margin-top: 8px; }
+  figcaption b { font-family: monospace; }
+  figcaption small { display: block; color: var(--redup); }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>&gt;</span> desain memo</h1>
+  <p>Dirender langsung dari modul extension (face.js, atraksi.js, fisika.js, hayat.js) — sama dengan yang tampil di desktop, 12 bingkai/detik.</p>
+</header>
+<main>
+  <h2>Avatar (dipilih sekali saat Memo lahir)</h2>
+  <div class="kisi">
+    <figure class="lebar"><img src="avatar.png" alt="6 warna badan kali 3 bentuk mata">
+      <figcaption><b>6 warna × 3 mata</b><small>baris: mata kotak, bulat, sipit · kolom: hitam, putih, pink, biru, kuning, hijau</small></figcaption></figure>
+  </div>
+
+  <h2>Siklus hidup</h2>
+  <div class="kisi">
+    <figure class="lebar"><img src="tahap.png" alt="telur, bayi, balita, anak, dewasa">
+      <figcaption><b>telur → bayi → balita → anak → remaja/dewasa</b><small>ukuran 60% · 70% · 85% · 100%</small></figcaption></figure>
+    <figure><img src="menetas.gif" alt="telur bergoyang, retak, menetas">
+      <figcaption><b>menetas</b><small>telur bergoyang, diklik, retak, Memo bayi melompat keluar</small></figcaption></figure>
+    <figure class="lebar"><img src="kebutuhan.png" alt="lapar, sakit, kotor, kotor parah">
+      <figcaption><b>lapar · sakit · kotor · kotor parah</b><small>noda makin banyak; lalat berdengung bila parah</small></figcaption></figure>
+  </div>
+
+  <h2>Menu rawat</h2>
+  <div class="kisi">
+    <figure><img src="makan.gif" alt="makanan jatuh, Memo mengunyah">
+      <figcaption><b>makan</b><small>nasi, kue, buah bergantian jatuh di samping Memo</small></figcaption></figure>
+    <figure><img src="mandi.gif" alt="pancuran, busa, mengibas">
+      <figcaption><b>mandi</b><small>pancuran, tetesan, busa, lalu mengibaskan badan</small></figcaption></figure>
+    <figure><img src="cebok.gif" alt="gulungan tisu dan kilau">
+      <figcaption><b>cebok</b><small>sesudah pup: tisu mengusap, lalu kilau bersih</small></figcaption></figure>
+    <figure><img src="tidur.gif" alt="kasur, bantal, selimut, Z">
+      <figcaption><b>tidur</b><small>kasur, bantal, selimut bernapas, Z melayang (aslinya ±1 menit)</small></figcaption></figure>
+    <figure class="lebar"><img src="pup-kotor.gif" alt="kotoran berserakan dan Memo kotor dengan lalat">
+      <figcaption><b>pup berserakan · Memo belum mandi</b><small>klik tiap kotoran untuk membersihkan</small></figcaption></figure>
+  </div>
+
+  <h2>Atraksi (dipilih Memo sendiri saat bosan)</h2>
+  <div class="kisi">
+    <figure><img src="ayunan.gif" alt="ayunan"><figcaption><b>ayunan</b><small>turun dari tepi atas, berayun ±30°, loncat turun</small></figcaption></figure>
+    <figure><img src="gelantungan.gif" alt="gelantungan"><figcaption><b>gelantungan</b><small>berayun, dua kali pull-up, lalu lepas</small></figcaption></figure>
+    <figure><img src="terjun.gif" alt="terjun payung"><figcaption><b>terjun payung</b><small>parasut mengembang, melayang ke lantai, kempis</small></figcaption></figure>
+    <figure><img src="mobil.gif" alt="naik mobil"><figcaption><b>naik mobil</b><small>muncul dari asap, menyetir ke ujung lantai</small></figcaption></figure>
+  </div>
+</main>
+</body>
+</html>
