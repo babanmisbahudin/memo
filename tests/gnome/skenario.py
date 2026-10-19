@@ -135,6 +135,15 @@ ev("const i = memoUji.island(); i._panel._kisi.get_children().find(b => b._memoI
 ev("const c = memoUji.island()._panel._chat; c.entri.set_text('halo memo'); c.entri.clutter_text.emit('activate'); return true;"); time.sleep(0.4)
 cek("tab Chat: ketikan terkirim ke memo-suara", open(f"{T}/shm/memo-ngobrol.teks").read() == "halo memo")
 cek("tab Chat: muncul di riwayat", any("halo memo" in x for x in ev("const c = memoUji.island()._panel._chat; return c.riwayat.get_children().map(b => b.get_children()[1].text);")))
+json.dump([{"peran": "kamu" if i % 2 == 0 else "memo", "teks": f"pesan {i}"} for i in range(8)],
+          open(f"{T}/shm/memo-ngobrol.riwayat.json", "w"))
+n = ev("const p = memoUji.island()._panel; p._chatTertunda = null; p._tandaChat = null; p.segarkanChat(); return p._chat.riwayat.get_children().length;")
+cek("Chat: semua obrolan tampil & bisa digulir (bukan hanya 4)", n == 8, n)
+ev("memoUji.island().menu.open(); memoUji.island()._panel.pilihTab('chat'); return true;"); time.sleep(0.6)
+g = ev("const a = memoUji.island()._panel._chat.gulir.vadjustment; return {nilai: Math.round(a.value), bawah: Math.round(a.upper - a.page_size)};")
+cek("Chat: tergulir ke pesan terbaru", g.get("bawah", 0) > 0 and abs(g.get("nilai", -1) - g.get("bawah", 0)) <= 2, g)
+potret("8b-chat-gulir", (300, 0, 1000, 480))
+ev("memoUji.island().menu.close(); return true;")
 potret("8-chat", (300, 0, 1000, 420))
 ev("const p = memoUji.island()._panel; p.pilihTab('atur'); p._tombolOtak.find(b => b._memoId === 'claude').emit('clicked', 1); return true;"); time.sleep(0.3)
 cek("Pengaturan: pilih Otak AI tersimpan", open(f"{T}/shm/memo-ngobrol.backend").read() == "claude")
@@ -150,10 +159,13 @@ cek("Beranda: pintasan bawaan + tambah", k.get("pin") == ["YouTube", "Obsidian",
 ev("memoUji.island().menu.open(); return true;"); time.sleep(0.6)
 j = ev("""const i = memoUji.island(); const p = i._panel; const dm = memoUji.Main.panel.statusArea.dateMenu;
           const [bx] = i.menu.box.get_transformed_position(); const [jx] = p._tombolJam.get_transformed_position();
-          return {jam: p._jam.text, asli: dm._clockDisplay.text, tengahPanel: Math.round(bx + i.menu.box.width / 2),
-                  tengahJam: Math.round(jx + p._tombolJam.width / 2), tampak: p._tombolJam.visible && p._tombolJam.mapped};""")
+          const t = p._tombolTab.atur; const [tx] = t.get_transformed_position();
+          return {jam: p._jam.text, asli: dm._clockDisplay.text, tabKanan: Math.round(tx + t.width), jamKiri: Math.round(jx),
+                  jamKanan: Math.round(jx + p._tombolJam.width), panelKanan: Math.round(bx + i.menu.box.width),
+                  tampak: p._tombolJam.visible && p._tombolJam.mapped, terpotong: p._jam.clutter_text.get_layout().is_ellipsized()};""")
 cek("jam bawaan Ubuntu tampil di panel, sama dengan jam bilah atas", j.get("jam") and j.get("jam") == j.get("asli") and j.get("tampak"), j)
-cek("jam tepat di tengah baris atas panel", abs(j.get("tengahPanel", 0) - j.get("tengahJam", 999)) <= 2, j)
+cek("jam tampil utuh (tidak terpotong)", j.get("terpotong") is False, j)
+cek("jam di kanan baris atas, tidak menabrak tab", j.get("jamKiri", 0) >= j.get("tabKanan", 999) + 4 and j.get("jamKanan", 9999) <= j.get("panelKanan", 0), j)
 potret("11-jam", (300, 0, 1000, 420))
 ev("memoUji.island()._panel._tombolJam.emit('clicked', 1); return true;"); time.sleep(0.9)
 k = ev("""const i = memoUji.island(); const dm = memoUji.Main.panel.statusArea.dateMenu;
@@ -275,6 +287,15 @@ s = sampel(POSE, 0.9)
 cek("pembayaran LebihTeratur -> Memo berjoget + koin", any(x.get("e") == "dansa" for x in s) and max(x.get("p", 0) for x in s) >= 2, [(x.get("e"), x.get("p")) for x in s][:5])
 k = tunggu_hidup(lambda k: not k["luar"], 4)
 cek("kabar datang -> Memo pulang ke island", k.get("luar") is False and k.get("redup") == 255, k)
+RW = "const p = memoUji.island()._panel; p.pilihTab('riwayat'); p._saringRiwayat = '%s'; p.segarkanRiwayat(); return p._riwayatTab.daftar.get_children().map(b => b._memoJudul ?? '');"
+k = ev(RW % "kabar")
+cek("Riwayat: kabar LebihTeratur tercatat", any("LebihTeratur" in x and "Pembayaran" in x for x in k), k)
+k = ev(RW % "agen")
+cek("Riwayat: agen selesai & izin tercatat", any("selesai" in x for x in k) and any("minta izin" in x for x in k), k)
+ev("memoUji.island().menu.open(); return true;"); time.sleep(0.5)
+ev(RW % "semua"); time.sleep(0.3)
+potret("12b-riwayat", (300, 0, 1000, 480))
+ev("const i = memoUji.island(); i._panel.pilihTab('beranda'); i.menu.close(); return true;")
 ev(H + "h.setAktif(false); return true;")
 potret("7-joget", (300, 0, 1300, 900))
 time.sleep(2)
@@ -405,9 +426,10 @@ ev(H + "h._pikiran = {...h._pikiran, kegiatan: 'melamun', sisaMs: 1e9}; "
    f"h._pergiKe({{jenis: 'titik', x: 600, y: 420, jendelaId: {wid}}}); return true;")
 k = tunggu_hidup(lambda k: k["keadaan"] == "berdiri" and k["pijakan"] == wid, 8)
 cek("Memo pindah ke atas jendela uji", k.get("keadaan") == "berdiri" and k.get("pijakan") == wid and k.get("y") == 420, k)
-di_atas = ev(H + WJ + "const a = global.window_group.get_children(); "
-             "return a.indexOf(h.actor) === a.indexOf(w.get_compositor_private()) + 1;")
-cek("Memo diselipkan tepat di atas jendela pijakannya", k.get("induk") == "jendela" and di_atas is True, (k, di_atas))
+di_atas = ev(H + WJ + "const a = global.window_group.get_children(); const im = a.indexOf(h.actor), iw = a.indexOf(w.get_compositor_private()); "
+             "const atasnya = global.get_window_actors().filter(x => x.meta_window !== w && a.indexOf(x) > iw).map(x => a.indexOf(x)); "
+             "return {im, iw, atasnya, ok: im > iw && atasnya.every(i => i > im)};")
+cek("Memo di atas jendela pijakannya, di bawah jendela yang lebih atas", k.get("induk") == "jendela" and di_atas.get("ok") is True, (k, di_atas))
 potret("30-hidup-jendela", (0, 0, 1600, 900))
 ev(WJ + "w.move_frame(true, 340, 440); return true;")
 rj = None
@@ -448,6 +470,7 @@ cek("kursor mendekat -> Memo menyingkir", ((k.get("x", mx) - mx) ** 2 + (k.get("
 ev(H + "h.setAktif(false); return true;")
 jw.kill(); jw.wait(5)
 daemon2.terminate(); daemon2.wait(5)
+cek("riwayat tersimpan di cache uji, bukan ~/.cache asli", os.path.exists(f"{T}/cache/memo/riwayat.json"))
 log = open(f"{T}/shell.log", errors="ignore").read()
 # "pakai dialog bawaan" sengaja dipicu uji cadangan menu daya di atas.
 galat = [b for b in log.splitlines() if ("JS ERROR" in b or ("dynamic-island" in b and "CRITICAL" in b)) and "pakai dialog bawaan" not in b]

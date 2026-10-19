@@ -18,6 +18,7 @@ import { Gerak } from './gerak.js';
 import { jalurRepo } from './jalur.js';
 import { LabelPiksel, LatarCrt } from './widgetCrt.js';
 import { WARNA_KEADAAN, warnaHue } from './crt.js';
+import { Riwayat } from './riwayatPola.js';
 import { SambutanSistem } from './sambutanSistem.js';
 import { DETIK_TIDUR, ISENG, ISENG_MAKS_S, ISENG_MIN_S, JARAK_BANGUN, bolehTidur } from './gerakPola.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
@@ -57,6 +58,8 @@ function tulisBerkas(path, isi) {
 const RECHECK_MS = 250;
 // Memo hidup baru keluar lagi sesudah sekian lama tanpa izin/kabar baru.
 const SEPI_SEBELUM_KELUAR_MS = 20000;
+// Riwayat kabar & agen hari ini (tab Riwayat panel).
+const BERKAS_RIWAYAT = () => `${GLib.get_user_cache_dir()}/memo/riwayat.json`;
 const POLL_NEAR_MS = 100;
 const POLL_FAR_MS = 400;
 const POINTER_NEAR_Y = 220;
@@ -79,6 +82,13 @@ class Island {
         this._service = null;
         this._hidup = null;
         this._kabarTerakhir = 0;
+        this._riwayat = new Riwayat();
+        try {
+            const [ok, isi] = GLib.file_get_contents(BERKAS_RIWAYAT());
+            if (ok)
+                this._riwayat = Riwayat.dariJson(JSON.parse(new TextDecoder().decode(isi)));
+        } catch (e) { /* belum ada riwayat */ }
+        this._riwayatId = null;
         this._tintHue = 120;
         this._tintGlow = 0;
         this._eventIsi = null;
@@ -298,13 +308,26 @@ class Island {
         const izin = store.izin[0] ?? null;
         const aktif = store.sesiAktif;
 
-        const izinBaru = store.izin.some(i => !this._izinLalu.has(i.id));
+        const izinTiba = store.izin.filter(i => !this._izinLalu.has(i.id));
+        const izinBaru = izinTiba.length > 0;
         this._izinLalu = new Set(store.izin.map(i => i.id));
+        for (const i of izinTiba) {
+            this.catat({ jenis: 'agen', judul: `${i.agen} · ${i.proyek || i.agen} minta izin`,
+                isi: i.perintah || i.aksi, warna: '#f0b429' });
+        }
         let emote = null;
         for (const s of store.sesi) {
             const lama = this._statusLalu.get(s.id);
             if (!lama || lama === s.status)
                 continue;
+            if (s.status === 'selesai' || s.status === 'galat') {
+                this.catat({
+                    jenis: 'agen', judul: `${s.agen} · ${s.proyek || s.agen} ${s.status === 'selesai' ? 'selesai' : 'gagal'}`,
+                    isi: s.tambah || s.kurang ? `+${s.tambah ?? 0} -${s.kurang ?? 0}` : '',
+                    warna: s.status === 'selesai' ? '#3fb950' : '#f85149',
+                    buka: s.cwd ? { jenis: 'folder', target: s.cwd } : null,
+                });
+            }
             if (s.status === 'galat')
                 emote = 'geleng';
             else if (s.status === 'selesai' && emote !== 'geleng')
@@ -368,6 +391,8 @@ class Island {
         else
             this.gerak('angguk', { partikel: 'ok', jumlah: keputusan === 'always' ? 2 : 1 });
         const kata = { allow: 'Diizinkan', deny: 'Ditolak', always: 'Selalu diizinkan' }[keputusan];
+        this.catat({ jenis: 'agen', judul: `${kata}: ${izin.agen} · ${izin.proyek || izin.agen}`, isi: izin.aksi,
+            warna: keputusan === 'deny' ? '#f85149' : '#3fb950' });
         this.trigger(keputusan === 'deny' ? 'action-unavailable-symbolic' : 'emblem-ok-symbolic',
             `${kata}: ${izin.aksi}`, 2000);
         if (this._agen.izin.length <= 1)
@@ -433,10 +458,41 @@ class Island {
         return this._tidur;
     }
 
-    // Notifikasi (termasuk kabar LebihTeratur) memanggil Memo pulang.
-    kabarDatang() {
+    // Notifikasi (termasuk kabar LebihTeratur): dicatat di riwayat dan
+    // memanggil Memo pulang.
+    kabarDatang(aplikasi = '', judul = '') {
         this._kabarTerakhir = Date.now();
+        this.catat({ jenis: /lebihteratur/i.test(aplikasi) ? 'kabar' : 'notifikasi',
+            judul: aplikasi || 'Notifikasi', isi: judul });
         this._hidup?.pulang();
+    }
+
+    get riwayat() {
+        return this._riwayat;
+    }
+
+    // Catat ke riwayat hari ini; disimpan tertunda 5 dtk supaya kabar
+    // beruntun tidak menulis berkas berkali-kali.
+    catat(entri) {
+        if (!this._riwayat.tambah(entri))
+            return;
+        this._panel?.segarkanRiwayat();
+        if (this._riwayatId)
+            return;
+        this._riwayatId = GLib.timeout_add_seconds(GLib.PRIORITY_LOW, 5, () => {
+            this._riwayatId = null;
+            this._simpanRiwayat();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _simpanRiwayat() {
+        try {
+            GLib.mkdir_with_parents(`${GLib.get_user_cache_dir()}/memo`, 0o700);
+            tulisBerkas(BERKAS_RIWAYAT(), JSON.stringify(this._riwayat.keJson()));
+        } catch (e) {
+            console.error(`[dynamic-island] simpan riwayat: ${e}`);
+        }
     }
 
     mulaiDemo() {
@@ -908,6 +964,11 @@ class Island {
         this._restoreAdopted();
         this._hidup?.destroy();
         this._hidup = null;
+        if (this._riwayatId) {
+            GLib.source_remove(this._riwayatId);
+            this._riwayatId = null;
+            this._simpanRiwayat();
+        }
         this._gerak.destroy();
         this._face.destroy();
         this._pill.destroy();
@@ -939,7 +1000,7 @@ class NotificationSource {
             const title = notification.title || source.title || 'Notifikasi';
             this._island.trigger('preferences-system-notifications-symbolic', title, 3500);
             this._island.reaksiNotifikasi(source.title, title);
-            this._island.kabarDatang();
+            this._island.kabarDatang(source.title, title);
         } catch (e) {
             console.error(`[dynamic-island] notification handler error: ${e}`);
         }

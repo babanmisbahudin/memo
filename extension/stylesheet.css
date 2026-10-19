@@ -558,7 +558,7 @@
 
 .memo-tab-crt {
     height: 28px;
-    padding: 0 8px;
+    padding: 0 5px;
     border-radius: 0;
     border: 1px solid transparent;
 }
@@ -650,4 +650,102 @@
     font-family: monospace;
     font-size: 10px;
     color: rgba(207, 233, 211, 0.85);
+}
+
+/* Tab Riwayat & Chat gaya CRT. */
+.memo-tab-isi {
+    spacing: 8px;
+}
+
+.memo-chip {
+    padding: 3px 8px;
+    font-size: 11px;
+}
+
+.memo-chip:checked {
+    background-color: rgba(126, 231, 135, 0.14);
+    border-color: rgba(126, 231, 135, 0.45);
+}
+
+.memo-gulir-riwayat {
+    height: 300px;
+}
+
+.memo-gulir-chat {
+    height: 240px;
+}
+
+.memo-daftar-riwayat {
+    spacing: 0;
+}
+
+.memo-baris-riwayat {
+    spacing: 8px;
+    padding: 6px 4px;
+    border-bottom: 1px solid rgba(126, 231, 135, 0.08);
+}
+
+.memo-riwayat-jam {
+    font-family: monospace;
+    font-size: 11px;
+    color: rgba(143, 181, 150, 0.8);
+    min-width: 40px;
+}
+
+.memo-riwayat-titik {
+    width: 10px;
+    height: 10px;
+}
+
+.memo-riwayat-teks {
+    font-size: 13px;
+    color: #d9f0dc;
+}
+
+.memo-riwayat {
+    spacing: 8px;
+    padding-right: 6px;
+}
+
+.memo-gelembung {
+    spacing: 3px;
+    padding: 8px 10px;
+    border: 1px solid rgba(126, 231, 135, 0.18);
+    background-color: rgba(11, 22, 14, 0.9);
+}
+
+.memo-gelembung-kamu {
+    border-color: rgba(140, 188, 255, 0.3);
+    background-color: rgba(19, 32, 43, 0.9);
+}
+
+.memo-gelembung-galat {
+    border-color: rgba(248, 81, 73, 0.4);
+}
+
+.memo-gelembung-teks {
+    font-size: 13px;
+    color: #e2f3e5;
+    max-width: 440px;
+}
+
+.memo-chat-entri {
+    border-radius: 0;
+    border: 1px solid rgba(126, 231, 135, 0.3);
+    background-color: #000000;
+    color: #e2f3e5;
+}
+
+.memo-bulat {
+    border-radius: 0;
+}
+
+/* Baris atas panel: tab huruf piksel + jam + ikon sistem + suara harus muat
+   dalam 612 px tanpa memotong jam. */
+.memo-jam {
+    padding: 0 6px;
+}
+
+.memo-sistem {
+    padding: 0 4px;
 }

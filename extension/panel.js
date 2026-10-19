@@ -1,7 +1,9 @@
 // Panel Memo gaya layar mini CRT: island yang membesar jadi layar retro
 // (latar LatarCrt) berisi tab huruf piksel. Beranda: Memo hidup (sedang
 // apa, kebutuhan, tombol), kartu yang butuh perhatian (izin/sesi/selesai/
-// layanan + kisi pill), dan pintasan cepat. Wajah tetap face.js/RobotFace.
+// layanan + kisi pill), dan pintasan cepat. Riwayat: kabar & agen hari
+// ini. Chat: obrolan bergulir, lampiran, tindakan cepat. Wajah tetap
+// face.js/RobotFace.
 
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
@@ -63,6 +65,7 @@ const KATA_KEGIATAN = {
 const BATANG = [['energi', [126, 231, 135]], ['bosan', [210, 153, 34]], ['penasaran', [88, 166, 255]],
     ['rindu', [255, 126, 182]]];
 const WARNA_PINTAS = { url: '#ff6b6b', aplikasi: '#d2a8ff', folder: '#58a6ff', terminal: '#cfd6dd' };
+const WARNA_JENIS = { agen: '#58a6ff', kabar: '#3fd9b8', notifikasi: '#d2a8ff' };
 const TAB_REDUP = [111, 138, 116];
 const TAB_TERANG = [184, 245, 192];
 
@@ -241,6 +244,10 @@ export class PanelMemo {
         this._memo = this._bangunKotakMemo();
         atasBeranda.add_child(this._memo.kotak);
         const kanan = new St.BoxLayout({ vertical: true, x_expand: true, style_class: 'memo-kolom-kanan' });
+        // Status agen ("2 berjalan", "memo-agen mati") di atas kartunya; baris
+        // atas panel terlalu sempit untuk tab huruf piksel + jam + status.
+        this._statusAtas = label('', 'memo-panel-status');
+        kanan.add_child(this._statusAtas);
         this._kartuUtama = new St.BoxLayout({ style_class: 'memo-kartu', x_expand: true });
         this._info = new St.BoxLayout({ vertical: true, style_class: 'memo-info', x_expand: true,
             y_align: Clutter.ActorAlign.CENTER });
@@ -259,10 +266,10 @@ export class PanelMemo {
         this._beranda.add_child(this._pintasan);
         this.segarkanPintasan();
 
+        this._riwayatTab = this._bangunRiwayat();
         this._chat = this._bangunChat();
-        this._tambah = this._bangunTambah();
         this._atur = this._bangunAtur();
-        for (const v of [this._beranda, this._chat.akar, this._tambah.akar, this._atur.akar])
+        for (const v of [this._beranda, this._riwayatTab.akar, this._chat.akar, this._atur.akar])
             this._isi.add_child(v);
         this.pilihTab('beranda');
     }
@@ -317,7 +324,7 @@ export class PanelMemo {
     _bangunAtas() {
         const atas = new St.BoxLayout({ style_class: 'memo-panel-atas', x_expand: true });
         this._tombolTab = {};
-        for (const [id, nama] of [['beranda', 'beranda'], ['chat', 'chat'], ['tambah', '+'], ['atur', 'atur']]) {
+        for (const [id, nama] of [['beranda', 'beranda'], ['riwayat', 'riwayat'], ['chat', 'chat'], ['atur', 'atur']]) {
             const teks = new LabelPiksel({ u: 2, warna: TAB_REDUP, cahaya: 0.2 });
             teks.text = nama;
             const b = new St.Button({ style_class: 'memo-tab-crt', can_focus: true, child: teks.actor,
@@ -327,8 +334,6 @@ export class PanelMemo {
             this._tombolTab[id] = b;
             atas.add_child(b);
         }
-        this._statusAtas = label('', 'memo-panel-status');
-        atas.add_child(this._statusAtas);
         atas.add_child(new St.Widget({ x_expand: true }));
         atas.add_child(this._bangunJam());
         atas.add_child(this._bangunIkonSistem());
@@ -365,7 +370,7 @@ export class PanelMemo {
                 this.segarkan();
                 return GLib.SOURCE_REMOVE;
             });
-        const view = { beranda: this._beranda, chat: this._chat.akar, tambah: this._tambah.akar, atur: this._atur.akar };
+        const view = { beranda: this._beranda, riwayat: this._riwayatTab.akar, chat: this._chat.akar, atur: this._atur.akar };
         for (const [k, v] of Object.entries(view))
             v.visible = k === id;
         for (const [k, b] of Object.entries(this._tombolTab)) {
@@ -377,7 +382,7 @@ export class PanelMemo {
         }
         // Wajah besar ikut pindah ke kartu yang sedang tampil.
         this._wajah.bingkai.get_parent()?.remove_child(this._wajah.bingkai);
-        const rumah = { beranda: this._memo.wadahWajah, chat: this._chat.kartu, tambah: this._tambah.kartu, atur: null }[id];
+        const rumah = id === 'beranda' ? this._memo.wadahWajah : null;
         if (rumah)
             rumah.insert_child_at_index(this._wajah.bingkai, 0);
         if (id !== 'beranda') {
@@ -388,10 +393,12 @@ export class PanelMemo {
             this.segarkanPintasan();
         }
         if (id === 'chat') {
+            this._tandaChat = null;
             this.segarkanChat();
-            global.stage.set_key_focus(this._chat.entri.clutter_text);
-        } else if (id === 'tambah') {
             this.segarkanLampiran();
+            global.stage.set_key_focus(this._chat.entri.clutter_text);
+        } else if (id === 'riwayat') {
+            this.segarkanRiwayat();
         } else if (id === 'atur') {
             this.segarkanAtur();
         }
@@ -752,13 +759,101 @@ export class PanelMemo {
         return this._kisi.get_children().map(b => b.get_child().get_children()[1].text);
     }
 
+    // --- Riwayat -----------------------------------------------------------
+    _bangunRiwayat() {
+        const akar = new St.BoxLayout({ vertical: true, style_class: 'memo-tab-isi', x_expand: true });
+        const saring = new St.BoxLayout({ style_class: 'memo-baris-tombol' });
+        const chip = {};
+        for (const id of ['semua', 'agen', 'kabar', 'notifikasi']) {
+            chip[id] = tombol(id, 'memo-btn-gelap memo-chip', () => {
+                this._saringRiwayat = id;
+                this.segarkanRiwayat();
+            });
+            saring.add_child(chip[id]);
+        }
+        akar.add_child(saring);
+        const daftar = new St.BoxLayout({ vertical: true, style_class: 'memo-daftar-riwayat', x_expand: true });
+        const gulir = new St.ScrollView({ style_class: 'memo-gulir memo-gulir-riwayat', x_expand: true,
+            hscrollbar_policy: St.PolicyType.NEVER, vscrollbar_policy: St.PolicyType.AUTOMATIC, child: daftar });
+        akar.add_child(gulir);
+        this._saringRiwayat = 'semua';
+        return { akar, daftar, chip };
+    }
+
+    // Dipanggil saat tab Riwayat dibuka dan tiap ada catatan baru.
+    segarkanRiwayat() {
+        const r = this._riwayatTab;
+        if (!r || this._tab !== 'riwayat')
+            return;
+        for (const [id, b] of Object.entries(r.chip)) {
+            if (id === this._saringRiwayat)
+                b.add_style_pseudo_class('checked');
+            else
+                b.remove_style_pseudo_class('checked');
+        }
+        r.daftar.destroy_all_children();
+        const entri = this._island.riwayat?.hariIni(this._saringRiwayat) ?? [];
+        if (!entri.length)
+            r.daftar.add_child(labelBungkus('Belum ada kabar hari ini.', 'memo-langkah'));
+        for (const e of entri)
+            r.daftar.add_child(this._barisRiwayat(e));
+    }
+
+    _barisRiwayat(e) {
+        const baris = new St.BoxLayout({ style_class: 'memo-baris-riwayat', x_expand: true });
+        const jam = GLib.DateTime.new_from_unix_local(Math.floor(e.waktu / 1000)).format('%H:%M');
+        baris.add_child(label(jam, 'memo-riwayat-jam'));
+        baris.add_child(new St.Widget({ style_class: 'memo-riwayat-titik', y_align: Clutter.ActorAlign.CENTER,
+            style: `background-color: ${e.warna ?? WARNA_JENIS[e.jenis]};` }));
+        baris.add_child(label(e.isi ? `${e.judul} — ${e.isi}` : e.judul, 'memo-riwayat-teks', { x_expand: true }));
+        if (e.buka) {
+            baris.add_child(tombol(e.buka.jenis === 'url' ? 'buka' : 'folder', 'memo-btn-gelap memo-chip', () => {
+                try {
+                    bukaLaptop(e.buka.jenis, e.buka.target);
+                } catch (err) {
+                    console.error(`[dynamic-island] buka riwayat: ${err}`);
+                }
+                this._island.menu.close();
+            }));
+        }
+        baris._memoJudul = e.isi ? `${e.judul} — ${e.isi}` : e.judul;
+        return baris;
+    }
+
     // --- Chat ------------------------------------------------------------
+    // Obrolan bergulir (50 terakhir), status, tindakan cepat, lampiran, masukan.
     _bangunChat() {
-        const akar = new St.BoxLayout({ style_class: 'memo-baris-kartu', x_expand: true });
-        const kartu = new St.BoxLayout({ style_class: 'memo-kartu memo-kartu-chat', x_expand: true });
-        const kanan = new St.BoxLayout({ vertical: true, x_expand: true, style_class: 'memo-info' });
-        const riwayat = new St.BoxLayout({ vertical: true, style_class: 'memo-riwayat' });
+        const akar = new St.BoxLayout({ vertical: true, style_class: 'memo-tab-isi', x_expand: true });
+        const riwayat = new St.BoxLayout({ vertical: true, style_class: 'memo-riwayat', x_expand: true });
+        const gulir = new St.ScrollView({ style_class: 'memo-gulir memo-gulir-chat', x_expand: true,
+            hscrollbar_policy: St.PolicyType.NEVER, vscrollbar_policy: St.PolicyType.AUTOMATIC, child: riwayat });
+        akar.add_child(gulir);
+        // Isi bertambah (pesan baru) -> gulir ke pesan terbaru. Menunggu
+        // ukuran isi berubah, bukan idle: saat idle tata letak belum selesai.
+        gulir.vadjustment.connect('notify::upper', adj => {
+            adj.value = adj.upper - adj.page_size;
+        });
         const status = label('', 'memo-langkah');
+        akar.add_child(status);
+        const tindakan = new St.BoxLayout({ style_class: 'memo-baris-tombol' });
+        for (const [teks, perintah] of TINDAKAN) {
+            tindakan.add_child(tombol(teks, 'memo-btn-gelap memo-chip', () => {
+                tulis(`${SHM}/memo-ngobrol.teks`, perintah);
+                this.segarkanChat({ kamu: perintah });
+            }));
+        }
+        akar.add_child(tindakan);
+        const lamp = new St.BoxLayout({ style_class: 'memo-baris-tombol' });
+        const teksLamp = label('', 'memo-kabar', { x_expand: true });
+        const lepas = tombol('lepas', 'memo-btn-gelap memo-chip', () => {
+            try {
+                GLib.unlink(`${SHM}/memo-lampiran.json`);
+            } catch (e) { /* tidak ada lampiran */ }
+            this.segarkanLampiran();
+        });
+        lamp.add_child(teksLamp);
+        lamp.add_child(lepas);
+        akar.add_child(lamp);
         const barisMasuk = new St.BoxLayout({ style_class: 'memo-chat-masuk', x_expand: true });
         const entri = new St.Entry({ style_class: 'memo-chat-entri', can_focus: true, x_expand: true,
             hint_text: 'Tanya Memo…' });
@@ -781,14 +876,11 @@ export class PanelMemo {
             child: ikonPanah() });
         btnKirim.connect('clicked', kirim);
         barisMasuk.add_child(entri);
+        barisMasuk.add_child(tombol('lampir', 'memo-btn-gelap', () => this._pilihBerkas(), { ikon: 'mail-attachment-symbolic' }));
         barisMasuk.add_child(mic);
         barisMasuk.add_child(btnKirim);
-        kanan.add_child(riwayat);
-        kanan.add_child(status);
-        kanan.add_child(barisMasuk);
-        kartu.add_child(kanan);
-        akar.add_child(kartu);
-        return { akar, kartu, riwayat, status, entri };
+        akar.add_child(barisMasuk);
+        return { akar, riwayat, gulir, status, entri, teksLamp, lepas };
     }
 
     segarkanChat({ kamu = null } = {}) {
@@ -805,60 +897,37 @@ export class PanelMemo {
             else
                 riwayat = [...riwayat, { peran: 'kamu', teks: t.teks }];
         }
-        c.riwayat.destroy_all_children();
-        if (!riwayat.length)
-            c.riwayat.add_child(labelBungkus('Halo! Ketik pertanyaan, atau tekan mikrofon untuk bicara.', 'memo-langkah'));
-        for (const g of riwayat.slice(-4)) {
-            const baris = new St.BoxLayout({ style_class: `memo-gelembung memo-gelembung-${g.peran}` });
-            baris.add_child(label({ kamu: 'Kamu', memo: 'Memo', galat: 'Galat', info: '·' }[g.peran] ?? g.peran,
-                'memo-gelembung-siapa'));
-            baris.add_child(labelBungkus(g.teks, 'memo-gelembung-teks'));
-            c.riwayat.add_child(baris);
-        }
         const st = (bacaTeks(`${SHM}/memo-ngobrol.status`) ?? '').trim();
         const otak = (bacaTeks(`${SHM}/memo-ngobrol.backend`) ?? '').trim() || 'otomatis';
         c.status.text = st && !st.startsWith('jawab:') ? `Memo ${st.split(':')[0]}… · otak: ${otak}` : `otak: ${otak}`;
-    }
-
-    // --- Tambah: tindakan cepat + lampiran -------------------------------
-    _bangunTambah() {
-        const akar = new St.BoxLayout({ style_class: 'memo-baris-kartu', x_expand: true });
-        const kartu = new St.BoxLayout({ style_class: 'memo-kartu', x_expand: true });
-        const kanan = new St.BoxLayout({ vertical: true, x_expand: true, style_class: 'memo-info' });
-        kanan.add_child(this._judul(WARNA.memo, 'Tindakan cepat', 'dikirim ke chat Memo'));
-        const baris1 = new St.BoxLayout({ style_class: 'memo-baris-tombol' });
-        const baris2 = new St.BoxLayout({ style_class: 'memo-baris-tombol' });
-        TINDAKAN.forEach(([teks, perintah], i) => {
-            (i < 2 ? baris1 : baris2).add_child(tombol(teks, 'memo-btn-gelap', () => {
-                tulis(`${SHM}/memo-ngobrol.teks`, perintah);
-                this.pilihTab('chat');
-                this.segarkanChat({ kamu: perintah });
-            }));
-        });
-        kanan.add_child(baris1);
-        kanan.add_child(baris2);
-        const lamp = new St.BoxLayout({ style_class: 'memo-baris-tombol' });
-        const teksLamp = label('', 'memo-langkah', { x_expand: true });
-        const lepas = tombol('Lepas', 'memo-btn-gelap', () => {
-            try {
-                GLib.unlink(`${SHM}/memo-lampiran.json`);
-            } catch (e) { /* tidak ada lampiran */ }
-            this.segarkanLampiran();
-        });
-        lamp.add_child(tombol('Lampirkan berkas…', 'memo-btn-terang', () => this._pilihBerkas(),
-            { ikon: 'mail-attachment-symbolic' }));
-        lamp.add_child(teksLamp);
-        lamp.add_child(lepas);
-        kanan.add_child(lamp);
-        kartu.add_child(kanan);
-        akar.add_child(kartu);
-        return { akar, kartu, teksLamp, lepas };
+        // Dipanggil tiap detik selama tab terbuka: bangun ulang hanya bila berubah.
+        const tanda = JSON.stringify(riwayat.slice(-50));
+        if (tanda === this._tandaChat)
+            return;
+        this._tandaChat = tanda;
+        c.riwayat.destroy_all_children();
+        if (!riwayat.length)
+            c.riwayat.add_child(labelBungkus('Halo! Ketik pertanyaan, atau tekan mikrofon untuk bicara.', 'memo-langkah'));
+        for (const g of riwayat.slice(-50)) {
+            const kamuBicara = g.peran === 'kamu';
+            const gel = new St.BoxLayout({ vertical: true, style_class: `memo-gelembung memo-gelembung-${g.peran}`,
+                x_align: kamuBicara ? Clutter.ActorAlign.END : Clutter.ActorAlign.START });
+            const siapa = new LabelPiksel({ u: 1, warna: kamuBicara ? [140, 188, 255] : [126, 231, 135], cahaya: 0 });
+            siapa.text = { kamu: 'kamu', memo: 'memo', galat: 'galat', info: 'info' }[g.peran] ?? String(g.peran);
+            gel.add_child(siapa.actor);
+            const teks = new St.Label({ text: g.teks ?? '', style_class: 'memo-gelembung-teks' });
+            teks.clutter_text.line_wrap = true;
+            teks.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+            teks.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+            gel.add_child(teks);
+            c.riwayat.add_child(gel);
+        }
     }
 
     segarkanLampiran() {
         const l = bacaJson(`${SHM}/memo-lampiran.json`);
-        this._tambah.teksLamp.text = l ? `📎 ${l.nama ?? l.path} — ikut ditanya` : 'belum ada lampiran';
-        this._tambah.lepas.visible = !!l;
+        this._chat.teksLamp.text = l ? `📎 ${l.nama ?? l.path} — ikut ditanya` : '';
+        this._chat.teksLamp.get_parent().visible = !!l;
     }
 
     _pilihBerkas() {

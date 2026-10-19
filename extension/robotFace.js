@@ -28,14 +28,16 @@ export class RobotFace {
             reactive: true,
         });
         this.actor.connect('repaint', () => this._onRepaint());
-        // Shell dimatikan tanpa destroy() dari kita: timer kedip berhenti
-        // sebelum menyentuh aktor yang sudah hilang.
+        // Shell dimatikan tanpa destroy() dari kita: timer & animasi wajah
+        // berhenti sebelum menyentuh aktor yang sudah hilang.
         this.actor.connect('destroy', () => {
             this._blinkEnabled = false;
             if (this._blinkId) {
                 GLib.source_remove(this._blinkId);
                 this._blinkId = null;
             }
+            for (const t of [this._timeline, this._blinkTimeline, this._hoverTimeline, this._pulseTimeline])
+                t?.stop();
         });
 
         // Ekspresi reaktif: kursor hover membuat mata melebar, klik kiri

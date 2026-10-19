@@ -49,7 +49,7 @@ chmod +x "$T/mulai.sh"
 # XDG_RUNTIME_DIR sendiri juga: shell menulis penanda
 # gnome-shell-disable-extensions di sana, dan bila penanda itu tertinggal di
 # runtime dir sesi asli, login berikutnya mematikan semua extension.
-env -u DISPLAY -u WAYLAND_DISPLAY XDG_CONFIG_HOME="$T/config" XDG_DATA_HOME="$T/data" XDG_RUNTIME_DIR="$RUN" \
+env -u DISPLAY -u WAYLAND_DISPLAY XDG_CONFIG_HOME="$T/config" XDG_DATA_HOME="$T/data" XDG_CACHE_HOME="$T/cache" XDG_RUNTIME_DIR="$RUN" \
     MEMO_SHM="$T/shm" MEMO_UJI_DIR="$T" MEMO_SAMBUTAN_UJI=1 dbus-run-session -- "$T/mulai.sh" > "$T/shell.log" 2>&1 &
 SHELL_PID=$!
 
