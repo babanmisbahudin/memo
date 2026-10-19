@@ -40,8 +40,10 @@ dan Memo tua tidak main atraksi.
 | Capek | — | **tidur** (kasur, bantal, selimut, napas, Z melayang ±1 menit) |
 | Sakit (lapar atau kotor penuh 3 jam) | wajah lesu, kabar di island | **obat**, lalu penuhi yang menyebabkannya |
 
-Tidur, mandi, dan cebok dimainkan di desktop (panel menutup sendiri); bila
-Memo sedang di island, cukup efeknya saja.
+Kotak Memo di Beranda adalah **panggung**: badan Memo utuh (warna, aksesori,
+noda, telur, tidur) dan semua animasi rawat dimainkan di sana — panel tetap
+terbuka. (Panel yang terbuka membuat Memo pulang ke island, jadi rawat tidak
+dimainkan di desktop.)
 
 **Rupa per tahap & jenis kelamin** (`extension/hidup/rupa.js`, murni, diuji
 `test-rupa.js`): laki-laki bertopi (merah; biru di badan pink/kuning),

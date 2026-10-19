@@ -19,7 +19,9 @@ import { Gerak } from './gerak.js';
 import { tickerSesi } from './agenStore.js';
 import { buka as bukaLaptop } from './bukaLaptop.js';
 import { BatangPiksel, LabelPiksel, LatarCrt } from './widgetCrt.js';
-import { BENTUK_MATA, KELAMIN, WARNA_BADAN } from './hidup/hayat.js';
+import { BENTUK_MATA, KELAMIN, WARNA_BADAN, tahapPada } from './hidup/hayat.js';
+import { P as P_ATRAKSI, bingkai as bingkaiAtraksi, lamaAtraksi, rencanaPerawatan } from './hidup/atraksi.js';
+import { gambarKotoran, gambarMakanan, gambarMemo, gambarPiksel, gambarTelur } from './hidup/gambarMemo.js';
 import { PINTASAN_BAWAAN, bacaPintasan, jalurPenuh } from './pintasanPola.js';
 
 const SHM = GLib.getenv('MEMO_SHM') || '/dev/shm';
@@ -384,7 +386,8 @@ export class PanelMemo {
         }
         // Wajah besar ikut pindah ke kartu yang sedang tampil.
         this._wajah.bingkai.get_parent()?.remove_child(this._wajah.bingkai);
-        const rumah = id === 'beranda' ? this._memo.wadahWajah : null;
+        // Beranda kini memakai panggung Memo; wajah besar tidak dipasang.
+        const rumah = null;
         if (rumah)
             rumah.insert_child_at_index(this._wajah.bingkai, 0);
         if (id !== 'beranda') {
@@ -411,6 +414,14 @@ export class PanelMemo {
         const kotak = new St.BoxLayout({ vertical: true, style_class: 'memo-kartu memo-kotak-memo' });
         const wadahWajah = new St.BoxLayout({ style_class: 'memo-wadah-wajah', x_expand: true });
         kotak.add_child(wadahWajah);
+        // Panggung: badan Memo utuh (warna, aksesori, noda, telur) dan
+        // animasi rawat. Panel terbuka = Memo di island, jadi rawat dimainkan
+        // di sini, bukan di desktop.
+        const panggung = new St.DrawingArea({ x_expand: true, height: 104, reactive: false });
+        panggung.connect('repaint', () => this._gambarPanggung(panggung));
+        panggung.connect('destroy', () => this._hentiPanggung());
+        wadahWajah.add_child(panggung);
+        this._panggung = panggung;
         const status = new LabelPiksel({ lebarMaks: 210, kelasBiasa: 'memo-langkah' });
         kotak.add_child(status.actor);
         const batang = {};
@@ -444,23 +455,22 @@ export class PanelMemo {
         const rawat = new St.BoxLayout({ style_class: 'memo-baris-tombol' });
         let makanKe = 0;
         rawat.add_child(tombol('makan', 'memo-btn-gelap', () => {
-            this._island.hidup?.beriMakan(MAKANAN_URUT[makanKe++ % MAKANAN_URUT.length]);
+            const jenis = MAKANAN_URUT[makanKe++ % MAKANAN_URUT.length];
+            if (this._island.hidup?.beriMakan(jenis))
+                this._mainPanggung('makan', { jenis });
             this.segarkanMemo();
         }));
-        // Animasi tidur, mandi, cebok dimainkan di desktop: panel ditutup dulu.
-        const diDesktop = aksi => () => {
-            this._island.menu.close();
-            aksi(this._island.hidup);
-        };
-        rawat.add_child(tombol('tidur', 'memo-btn-gelap', diDesktop(h => h?.suruhTidur())));
-        rawat.add_child(tombol('mandi', 'memo-btn-gelap', diDesktop(h => h?.mandikan())));
+        const rawatDi = (nama, aksi) => tombol(nama, 'memo-btn-gelap', () => {
+            if (aksi(this._island.hidup))
+                this._mainPanggung(nama);
+            this.segarkanMemo();
+        });
+        rawat.add_child(rawatDi('tidur', h => h?.suruhTidur()));
+        rawat.add_child(rawatDi('mandi', h => h?.mandikan()));
         kotak.add_child(rawat);
         const rawat2 = new St.BoxLayout({ style_class: 'memo-baris-tombol' });
-        rawat2.add_child(tombol('cebok', 'memo-btn-gelap', diDesktop(h => h?.cebok())));
-        rawat2.add_child(tombol('obat', 'memo-btn-gelap', () => {
-            this._island.hidup?.obati();
-            this.segarkanMemo();
-        }));
+        rawat2.add_child(rawatDi('cebok', h => h?.cebok()));
+        rawat2.add_child(rawatDi('obat', h => h?.obati()));
         kotak.add_child(rawat2);
         // Wizard Memo baru (pemasangan baru / sesudah Memo meninggal).
         const wizard = new St.BoxLayout({ vertical: true, style_class: 'memo-wizard', visible: false });
@@ -474,6 +484,91 @@ export class PanelMemo {
         kotak.add_child(wizard);
         const normal = kotak.get_children().filter(c => c !== wizard);
         return { kotak, wadahWajah, status, batang, jalan, rawat, wizard, judulWizard, identitas, normal };
+    }
+
+    // --- Panggung Memo di Beranda ----------------------------------------
+
+    _mainPanggung(nama, opsi = {}) {
+        this._hentiPanggung();
+        const lama = { makan: 24, obat: 20 }[nama];
+        const rencana = lama ? null : rencanaPerawatan(nama, { x: 0, y: 0 }, { lamaTidur: 48 });
+        this._animPanggung = { nama, f: 0, n: lama ?? lamaAtraksi(rencana), rencana, ekspresi: null, ...opsi };
+        this._animId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, Math.round(1000 / 12), () => {
+            const a = this._animPanggung;
+            if (!a)
+                return GLib.SOURCE_REMOVE;
+            a.f++;
+            this._panggung.queue_repaint();
+            if (a.f < a.n)
+                return GLib.SOURCE_CONTINUE;
+            this._animId = 0;
+            this._animPanggung = null;
+            this._panggung.queue_repaint();
+            return GLib.SOURCE_REMOVE;
+        });
+        this._panggung.queue_repaint();
+    }
+
+    _hentiPanggung() {
+        if (this._animId)
+            GLib.source_remove(this._animId);
+        this._animId = 0;
+        this._animPanggung = null;
+    }
+
+    _gambarPanggung(area) {
+        const cr = area.get_context();
+        try {
+            const l = area.width, t = area.height;
+            const h = this._island.hidup;
+            const hy = h?.hayat;
+            if (!hy)
+                return;
+            const s = 0.6;
+            cr.scale(s, s);
+            const cx = Math.round(l / 2 / s), lantai = Math.round((t - 8) / s);
+            cr.setSourceRGB(0.2, 0.22, 0.24);
+            cr.rectangle(0, lantai, l / s, 2);
+            cr.fill();
+            for (let i = 0; i < Math.min(3, hy.kotoran ?? 0); i++)
+                gambarKotoran(cr, cx + 110 + i * 34, lantai);
+            if (hy.tahap === 'telur') {
+                gambarTelur(cr, cx, lantai, hy.avatar.warna);
+                return;
+            }
+            const rupa = { warna: hy.avatar.warna, mata: hy.avatar.mata, kelamin: hy.kelamin, tahap: hy.tahap,
+                ukuran: tahapPada(hy, Date.now()).ukuran, kotor: hy.kotor, t: GLib.get_monotonic_time() / 1e6,
+                ekspresi: hy.sakit ? 'sakit' : h.kegiatan === 'tidur' ? 'tidur' : 'netral' };
+            const a = this._animPanggung;
+            if (!a) {
+                gambarMemo(cr, cx, lantai, rupa);
+            } else if (a.rencana) {
+                const b = bingkaiAtraksi(a.rencana, Math.min(a.f, a.n - 1));
+                if (b.ekspresi)
+                    a.ekspresi = b.ekspresi;
+                const badan = b.badan ?? { x: 0, y: 0, rz: 0, sy: 1 };
+                cr.save();
+                cr.translate(cx, lantai);
+                gambarMemo(cr, badan.x, badan.y, { ...rupa, ekspresi: a.ekspresi ?? rupa.ekspresi, rz: badan.rz, sy: badan.sy,
+                    gaze: b.mata ?? [0, 0], kotor: a.nama === 'mandi' ? 0 : rupa.kotor });
+                // Properti atraksi berkisi P dengan poros di kaki (0, 0).
+                gambarPiksel(cr, b.piksel);
+                cr.restore();
+            } else if (a.nama === 'makan') {
+                const k = a.f;
+                gambarMakanan(cr, cx + 66, Math.round(lantai - 100 + Math.min(1, k / 8) * (100 - 4 * P_ATRAKSI)), a.jenis);
+                gambarMemo(cr, cx, lantai, { ...rupa, ekspresi: k > 8 ? 'senang' : 'mendengar', sy: k > 8 && k % 2 ? 0.92 : 1, gaze: [0.6, 0.5] });
+            } else if (a.nama === 'obat') {
+                const k = a.f;
+                gambarMemo(cr, cx, lantai, { ...rupa, ekspresi: k > 8 ? 'senang' : 'sakit', sy: k === 9 ? 1.1 : 1 });
+                cr.setSourceRGB(1, 0.48, 0.45);
+                const y = Math.round(lantai - 130 + Math.min(1, k / 8) * 70);
+                cr.rectangle(cx - 6, y, 12, 6);
+                cr.fill();
+            }
+        } finally {
+            cr.$dispose();
+        }
     }
 
     // Nama, jenis kelamin, warna badan, bentuk mata: wizard lahir & Atur.
@@ -550,6 +645,8 @@ export class PanelMemo {
         const m = this._memo;
         const hy = h?.hayat;
         const nama = hy?.nama ?? 'memo';
+        if (!this._animPanggung)
+            this._panggung.queue_repaint();
         const baru = !!hy?.perluNama;
         for (const c of m.normal)
             c.visible = !baru;
@@ -849,7 +946,9 @@ export class PanelMemo {
                     this.segarkan();
                 }, this._pilihan?.id === s.id));
         }
-        for (const p of store.pills) {
+        // Layanan yang tidak jalan (mis. GitHub/Vercel/Notion belum
+        // tersambung) tidak ditampilkan.
+        for (const p of store.pills.filter(x => x.aktif)) {
             daftar.push(this._pill(p.id, p.judul, WARNA[p.id] ?? WARNA.lainnya, p.aktif ? null : '#6e7681', () => {
                 this._pilihan = this._pilihan?.id === p.id ? null : { jenis: 'layanan', id: p.id };
                 this.segarkan();
@@ -1215,6 +1314,7 @@ export class PanelMemo {
     }
 
     destroy() {
+        this._hentiPanggung();
         for (const b of this._ikatan ?? [])
             b.unbind();
         this._ikatan = [];

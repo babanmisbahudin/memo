@@ -11,12 +11,11 @@
 import Cairo from 'cairo';
 import GLib from 'gi://GLib';
 
-import { drawFace, resolveExpression } from '../extension/face.js';
 import { P, bingkai, lamaAtraksi, rencanaPerawatan, rencanakan } from '../extension/hidup/atraksi.js';
 import { petaDari } from '../extension/hidup/dunia.js';
 import { badanBaru, lempar, langkah } from '../extension/hidup/fisika.js';
 import { WARNA_BADAN, BENTUK_MATA } from '../extension/hidup/hayat.js';
-import { pikselRupa } from '../extension/hidup/rupa.js';
+import { gambarKotoran, gambarMakanan, gambarMemo, gambarPiksel, gambarTelur } from '../extension/hidup/gambarMemo.js';
 
 const KELUAR = ARGV[0];
 const UKURAN = { lebar: 120, tinggi: 72 };
@@ -44,127 +43,10 @@ function lantai(cr, y, x1, x2) {
     cr.fill();
 }
 
-// Badan Memo, kaki di (x, y). opsi: warna, mata, ekspresi, ukuran, rz, sy, gaze, kotor.
-function memo(cr, x, y, { warna = 'hitam', mata = 'kotak', ekspresi = 'netral', ukuran = 1, rz = 0, sy = 1,
-    gaze = [0, 0], kotor = 0, t = 0, kelamin = null, tahap = 'dewasa' } = {}) {
-    const w = WARNA_BADAN[warna];
-    if (ukuran * sy < 0.01)
-        return; // tenggelam penuh saat menyelinap
-    cr.save();
-    cr.translate(x, y);
-    cr.rotate(rz * Math.PI / 180);
-    cr.scale(ukuran, ukuran * sy);
-    cr.translate(-60, -72);
-    // Pil berbingkai tipis + bayangan.
-    const pil = (dx, dy) => {
-        const r = 30;
-        cr.newPath();
-        cr.arc(dx + r, dy + r, r, Math.PI / 2, 3 * Math.PI / 2);
-        cr.arc(dx + 120 - r, dy + r, r, -Math.PI / 2, Math.PI / 2);
-        cr.closePath();
-    };
-    cr.setSourceRGBA(0, 0, 0, 0.3);
-    pil(0, 4);
-    cr.fill();
-    cr.setSourceRGB(...hexRgb(w.badan));
-    pil(0, 0);
-    cr.fill();
-    cr.save();
-    cr.translate(60 - 22 * 2.6, 36 - 13 * 2.6);
-    cr.scale(2.6, 2.6);
-    const p = { ...resolveExpression(ekspresi), mata, warnaMata: w.mata };
-    p.gazeX += gaze[0];
-    p.gazeY += gaze[1];
-    drawFace(cr, 44, 26, p);
-    cr.restore();
-    if (kotor >= 0.3)
-        noda(cr, kotor, t);
-    for (const [x, y, [r, g, b]] of pikselRupa({ kelamin, tahap, warna })) {
-        cr.setSourceRGB(r / 255, g / 255, b / 255);
-        cr.rectangle(x * P, y * P, P, P);
-        cr.fill();
-    }
-    cr.restore();
-}
-
-function noda(cr, kotor, t) {
-    const tempat = [[8, 52], [22, 60], [96, 56], [108, 44], [14, 34], [102, 26], [40, 62], [80, 62], [6, 18], [112, 14]];
-    const n = Math.min(tempat.length, Math.max(1, Math.round((kotor - 0.2) * 12)));
-    cr.setSourceRGBA(0.45, 0.3, 0.16, 0.9);
-    for (const [x, y] of tempat.slice(0, n)) {
-        cr.rectangle(x, y, 3 * P, 2 * P);
-        cr.rectangle(x + P, y + 2 * P, P, P);
-        cr.fill();
-    }
-    if (kotor >= 0.85) {
-        for (let i = 0; i < 2; i++) {
-            const x = Math.round((60 + 46 * Math.cos(t * 2.3 + i * 3)) / P) * P;
-            const y = Math.round((12 + 8 * Math.sin(t * 3.1 + i)) / P) * P;
-            cr.setSourceRGB(0.62, 0.64, 0.6);
-            cr.rectangle(x, y, 2 * P, P);
-            cr.fill();
-            cr.setSourceRGBA(0.92, 0.95, 1, 0.95);
-            cr.rectangle(x + (Math.floor(t * 12) % 2 ? -P : P), y - P, P, P);
-            cr.fill();
-        }
-    }
-}
-
-function piksel(cr, daftar) {
-    for (const [gx, gy, [r, g, b]] of daftar) {
-        cr.setSourceRGB(r / 255, g / 255, b / 255);
-        cr.rectangle(gx * P, gy * P, P, P);
-        cr.fill();
-    }
-}
-
-function sprite(cr, x, y, pola, warna) {
-    pola.forEach((baris, j) => [...baris].forEach((c, i) => {
-        if (c !== '#')
-            return;
-        cr.setSourceRGB(...warna(i, j));
-        cr.rectangle(x + i * P, y + j * P, P, P);
-        cr.fill();
-    }));
-}
-
-function kotoran(cr, x, y) {
-    sprite(cr, x - 4 * P, y - 7 * P, ['...#....', '..##....', '.####...', '.#####..', '######..', '#######.', '.######.'],
-        (i, j) => ((i + j) % 3 === 0 ? [0.55, 0.36, 0.2] : [0.42, 0.26, 0.13]));
-}
-
-function telur(cr, x, y, warna, retak = 0, rz = 0) {
-    const bintik = hexRgb(WARNA_BADAN[warna].badan);
-    cr.save();
-    cr.translate(x, y);
-    cr.rotate(rz * Math.PI / 180);
-    cr.translate(-27, -66);
-    for (let j = 0; j < 22; j++) {
-        const t = (j - 13) / (j < 13 ? 13 : 9);
-        const setengah = Math.floor(8.5 * Math.sqrt(Math.max(0, 1 - t * t)) + 0.3);
-        for (let i = 9 - setengah; i < 9 + setengah; i++) {
-            const tepi = i === 9 - setengah || i === 8 + setengah;
-            const b = !tepi && [[5, 6], [11, 4], [7, 12], [12, 15], [4, 16], [9, 19], [13, 9]].some(([bx, by]) =>
-                (i === bx || i === bx + 1) && (j === by || j === by + 1));
-            cr.setSourceRGB(...(tepi ? [0.72, 0.68, 0.6] : b ? bintik : [0.96, 0.93, 0.86]));
-            cr.rectangle(i * P, j * P, P, P);
-            cr.fill();
-        }
-    }
-    const garis = [[4, 9], [5, 10], [6, 9], [7, 10], [8, 9], [9, 10], [10, 9], [11, 10], [12, 9], [13, 10]];
-    for (const [i, j] of garis.slice(0, retak * 4)) {
-        cr.setSourceRGB(0.25, 0.22, 0.2);
-        cr.rectangle(i * P, j * P, P, P);
-        cr.fill();
-    }
-    cr.restore();
-}
-
-const MAKANAN = {
-    nasi: [['.####.', '######', '#....#', '.####.'], [[250, 250, 245], [160, 110, 70]]],
-    kue: [['..#...', '.####.', '######', '######'], [[255, 140, 180], [200, 140, 80]]],
-    buah: [['...#..', '.####.', '######', '.####.'], [[110, 200, 90], [235, 70, 70]]],
-};
+const memo = gambarMemo;
+const piksel = gambarPiksel;
+const kotoran = gambarKotoran;
+const telur = gambarTelur;
 
 // --- Gambar diam ---------------------------------------------------------
 
@@ -242,9 +124,8 @@ animasi('pup-kotor', 24, 560, 150, (cr, f) => {
 // Makan: makanan jatuh, Memo mengunyah.
 animasi('makan', 30, 300, 180, (cr, f) => {
     lantai(cr, 160, 10, 290);
-    const [pola, w] = MAKANAN[['nasi', 'kue', 'buah'][Math.floor(f / 10)]];
     const k = f % 10;
-    sprite(cr, 196, 40 + Math.min(1, k / 6) * (120 - 4 * P - 0), pola, (i, j) => w[j === 0 ? 0 : 1].map(v => v / 255));
+    gambarMakanan(cr, 196, 40 + Math.min(1, k / 6) * (120 - 4 * P), ['nasi', 'kue', 'buah'][Math.floor(f / 10)]);
     memo(cr, 120, 160, { ekspresi: k > 6 ? 'senang' : 'mendengar', sy: k > 6 && k % 2 ? 0.92 : 1 });
 });
 
@@ -309,11 +190,8 @@ for (const [nama, opsi] of [['mandi', {}], ['cebok', {}], ['tidur', { lamaTidur:
         lantai(cr, 200, 0, 600);
         const badan = b.badan ?? (nama === 'bintang' ? null : { x: tengah.x, y: tengah.y, rz: 0, sy: 1 });
         if (badan) {
-            cr.pushGroup();
             memo(cr, badan.x, badan.y, { warna: 'putih', mata: 'bulat', ekspresi, rz: badan.rz, sy: badan.sy, gaze: b.mata ?? [0, 0],
-                kelamin: 'perempuan', tahap: nama === 'bintang' ? 'tua' : 'dewasa' });
-            cr.popGroupToSource();
-            cr.paintWithAlpha((badan.opacity ?? 255) / 255);
+                kelamin: 'perempuan', tahap: nama === 'bintang' ? 'tua' : 'dewasa', opacity: (badan.opacity ?? 255) / 255 });
         } else if (nama === 'bintang' && f >= 49) {
             telur(cr, tengah.x, Math.min(200, -40 + (f - 49) * 40), 'putih');
         }

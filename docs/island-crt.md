@@ -20,7 +20,7 @@ huruf piksel tampil dengan huruf biasa.
 
 | Tab | Isi |
 |---|---|
-| **beranda** | kotak Memo hidup (sedang apa, batang energi/bosan/penasaran/rindu, panggil · pulang · jalan), status agen + kartu izin/sesi/selesai/layanan + pill, pintasan cepat |
+| **beranda** | panggung Memo (badan utuh + animasi rawat), nama · tahap · kegiatan, batang lapar/kotor/energi/bosan, panggil · pulang · jalan, makan · tidur · mandi · cebok · obat; status agen + kartu izin/sesi/selesai/layanan + pill (hanya layanan yang aktif), pintasan cepat |
 | **riwayat** | semua kabar & agen hari ini, terbaru di atas; saring semua/agen/kabar/notifikasi; tombol folder untuk sesi agen |
 | **chat** | obrolan bergulir (50 terakhir), status & otak AI, tindakan cepat, lampiran, mikrofon, kirim |
 | **atur** | otak AI, wardrobe, jalan-jalan, sifat Memo, demo, folder suara |

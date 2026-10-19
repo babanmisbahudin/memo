@@ -22,7 +22,9 @@ import { Gerak } from '../gerak.js';
 import { FPS_PIKSEL } from '../gerakPola.js';
 import { P, bingkai, rencanaPerawatan, rencanakan } from './atraksi.js';
 import { LINGKAR_KURSOR, bolehDi, petaDari } from './dunia.js';
-import { RUPA_BARIS, RUPA_KOLOM, pikselRupa } from './rupa.js';
+import { RUPA_BARIS, RUPA_KOLOM } from './rupa.js';
+import { KOTORAN_L, KOTORAN_T, MAKANAN_L, MAKANAN_T, TELUR_L, TELUR_T, gambarKotoran, gambarMakanan, gambarNoda,
+    gambarRupa, gambarTelur } from './gambarMemo.js';
 import { angkat, badanBaru, langkah, langkahJalan, lempar, mulaiLompat, ngintip, rute, titikDi } from './fisika.js';
 import { dariJson, keJson, pikir } from './pikiran.js';
 import {
@@ -110,7 +112,7 @@ export class MemoHidup {
         });
         this.actor.add_child(this._face.actor);
         // Telur: digambar sendiri, menggantikan wajah sampai menetas.
-        this._telur = new St.DrawingArea({ width: 54, height: 66, visible: false, reactive: false,
+        this._telur = new St.DrawingArea({ width: TELUR_L, height: TELUR_T, visible: false, reactive: false,
             x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.END });
         this._telur.connect('repaint', () => this._gambarTelur());
         this.actor.add_child(this._telur);
@@ -1014,12 +1016,8 @@ export class MemoHidup {
         const cr = this._rupa.get_context();
         try {
             const h = this._hayat;
-            const tahap = tahapPada(h, Date.now()).tahap;
-            for (const [x, y, [r, g, b]] of pikselRupa({ kelamin: h.kelamin, tahap, warna: h.avatar.warna })) {
-                cr.setSourceRGB(r / 255, g / 255, b / 255);
-                cr.rectangle((x - RUPA_KOLOM[0]) * P, (y - RUPA_BARIS[0]) * P, P, P);
-                cr.fill();
-            }
+            gambarRupa(cr, { kelamin: h.kelamin, tahap: tahapPada(h, Date.now()).tahap, warna: h.avatar.warna },
+                -RUPA_KOLOM[0] * P, -RUPA_BARIS[0] * P);
         } finally {
             cr.$dispose();
         }
@@ -1064,31 +1062,7 @@ export class MemoHidup {
     _gambarNoda() {
         const cr = this._noda.get_context();
         try {
-            const h = this._hayat;
-            const P = 3;
-            // Tepi badan saja: mata di tengah tetap terlihat.
-            const tempat = [[8, 52], [22, 60], [96, 56], [108, 44], [14, 34], [102, 26], [40, 62], [80, 62], [6, 18], [112, 14]];
-            const n = Math.min(tempat.length, Math.max(1, Math.round((h.kotor - 0.2) * 12)));
-            cr.setSourceRGBA(0.45, 0.3, 0.16, 0.9);
-            for (const [x, y] of tempat.slice(0, n)) {
-                cr.rectangle(x, y, 3 * P, 2 * P);
-                cr.rectangle(x + P, y + 2 * P, P, P);
-                cr.fill();
-            }
-            if (h.kotor >= 0.85) {
-                const t = GLib.get_monotonic_time() / 1e6;
-                for (let i = 0; i < 2; i++) {
-                    const x = Math.round((60 + 46 * Math.cos(t * 2.3 + i * 3)) / P) * P;
-                    const y = Math.round((12 + 8 * Math.sin(t * 3.1 + i)) / P) * P;
-                    // Lalat abu-abu terang supaya tampak di badan gelap.
-                    cr.setSourceRGB(0.62, 0.64, 0.6);
-                    cr.rectangle(x, y, 2 * P, P);
-                    cr.fill();
-                    cr.setSourceRGBA(0.92, 0.95, 1, 0.95);
-                    cr.rectangle(x + (Math.floor(t * 12) % 2 ? -P : P), y - P, P, P);
-                    cr.fill();
-                }
-            }
+            gambarNoda(cr, this._hayat.kotor, GLib.get_monotonic_time() / 1e6);
         } finally {
             cr.$dispose();
         }
@@ -1098,28 +1072,7 @@ export class MemoHidup {
     _gambarTelur() {
         const cr = this._telur.get_context();
         try {
-            const P = 3;
-            const w = WARNA_BADAN[this._hayat.avatar.warna] ?? WARNA_BADAN.hitam;
-            const titik = (x, y, rgb) => {
-                cr.setSourceRGB(...rgb);
-                cr.rectangle(x * P, y * P, P, P);
-                cr.fill();
-            };
-            const bintik = w.badan.match(/\w\w/g).map(x => parseInt(x, 16) / 255);
-            for (let y = 0; y < 22; y++) {
-                const t = (y - 13) / (y < 13 ? 13 : 9);
-                const setengah = Math.floor(8.5 * Math.sqrt(Math.max(0, 1 - t * t)) + 0.3);
-                for (let x = 9 - setengah; x < 9 + setengah; x++) {
-                    const tepi = x === 9 - setengah || x === 8 + setengah;
-                    const bintikIni = !tepi && [[5, 6], [11, 4], [7, 12], [12, 15], [4, 16], [9, 19], [13, 9]].some(([bx, by]) =>
-                        (x === bx || x === bx + 1) && (y === by || y === by + 1));
-                    titik(x, y, tepi ? [0.72, 0.68, 0.6] : bintikIni ? bintik : [0.96, 0.93, 0.86]);
-                }
-            }
-            // Retak: garis zig-zag yang makin panjang.
-            const retak = [[4, 9], [5, 10], [6, 9], [7, 10], [8, 9], [9, 10], [10, 9], [11, 10], [12, 9], [13, 10]];
-            for (const [x, y] of retak.slice(0, this._fraseTelur * 4))
-                titik(x, y, [0.25, 0.22, 0.2]);
+            gambarTelur(cr, TELUR_L / 2, TELUR_T, this._hayat.avatar.warna, this._fraseTelur);
         } finally {
             cr.$dispose();
         }
@@ -1181,19 +1134,11 @@ export class MemoHidup {
     // --- Kotoran & makanan di desktop -------------------------------------
 
     _aktorKotoran(x, y) {
-        const P = 3;
-        const pola = ['...#....', '..##....', '.####...', '.#####..', '######..', '#######.', '.######.'];
-        const a = new St.DrawingArea({ width: 8 * P, height: 7 * P, reactive: true, visible: this._aktif && !this._sembunyi });
+        const a = new St.DrawingArea({ width: KOTORAN_L, height: KOTORAN_T, reactive: true, visible: this._aktif && !this._sembunyi });
         a.connect('repaint', () => {
             const cr = a.get_context();
             try {
-                pola.forEach((baris, j) => [...baris].forEach((c, i) => {
-                    if (c !== '#')
-                        return;
-                    cr.setSourceRGB(...((i + j) % 3 === 0 ? [0.55, 0.36, 0.2] : [0.42, 0.26, 0.13]));
-                    cr.rectangle(i * P, j * P, P, P);
-                    cr.fill();
-                }));
+                gambarKotoran(cr, KOTORAN_L / 2, KOTORAN_T);
             } finally {
                 cr.$dispose();
             }
@@ -1203,7 +1148,7 @@ export class MemoHidup {
             return Clutter.EVENT_STOP;
         });
         Main.uiGroup.add_child(a);
-        a.set_position(Math.round(x - 4 * P), Math.round(y - 7 * P));
+        a.set_position(Math.round(x - KOTORAN_L / 2), Math.round(y - KOTORAN_T));
         this._kotoranAktor.push(a);
         return a;
     }
@@ -1239,24 +1184,12 @@ export class MemoHidup {
 
     // Makanan piksel jatuh di samping Memo, Memo mengunyah.
     _jatuhkanMakanan(jenis) {
-        const P = 3;
-        const pola = {
-            nasi: [['.####.', '######', '#....#', '.####.'], [[250, 250, 245], [160, 110, 70]]],
-            kue: [['..#...', '.####.', '######', '######'], [[255, 140, 180], [200, 140, 80]]],
-            buah: [['...#..', '.####.', '######', '.####.'], [[110, 200, 90], [235, 70, 70]]],
-        }[jenis];
         this._makanan?.destroy();
-        const a = new St.DrawingArea({ width: 6 * P, height: 4 * P, reactive: false });
+        const a = new St.DrawingArea({ width: MAKANAN_L, height: MAKANAN_T, reactive: false });
         a.connect('repaint', () => {
             const cr = a.get_context();
             try {
-                pola[0].forEach((baris, j) => [...baris].forEach((c, i) => {
-                    if (c !== '#')
-                        return;
-                    cr.setSourceRGB(...pola[1][j === 0 ? 0 : 1].map(v => v / 255));
-                    cr.rectangle(i * P, j * P, P, P);
-                    cr.fill();
-                }));
+                gambarMakanan(cr, 0, 0, jenis);
             } finally {
                 cr.$dispose();
             }
@@ -1271,7 +1204,7 @@ export class MemoHidup {
         this._makanId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, Math.round(1000 / 12), () => {
             f++;
             const ok = this._aman(() => {
-                a.set_position(x, Math.round(b.y - 120 + Math.min(1, f / 8) * (120 - 4 * P)));
+                a.set_position(x, Math.round(b.y - 120 + Math.min(1, f / 8) * (120 - MAKANAN_T)));
                 if (f === 8) {
                     this._gerak.main('angguk', { kali: 3 });
                     this._gerak.partikel('hati', 2);
