@@ -1,6 +1,6 @@
 # Island & Panel Gaya CRT — Desain
 
-Tanggal: 2026-10-18 · Status: desain disetujui (mockup di sesi rancang), belum ada kode.
+Tanggal: 2026-10-18 · Status: diimplementasikan — pemakaian di [docs/island-crt.md](../../island-crt.md).
 
 Island Memo dan tampilan penuhnya (panel) dirombak ke **gaya C: layar mini
 CRT** — layar retro kecil bersudut bertangga piksel, garis scanline tipis,

@@ -17,6 +17,7 @@ LebihTeratur ke laptop.
 | Kelola laptop | "buka youtube / terminal / folder memo" dari chat & suara | [kelola-laptop.md](docs/kelola-laptop.md) |
 | Sambutan | `sambutan/` — animasi piksel layar penuh saat login, Log Out, Restart, Power Off, Suspend | [sambutan.md](docs/sambutan.md) |
 | Memo hidup | `extension/hidup/` — Memo keluar dari island, hidup di desktop ala NPC (lompat, ngintip, sifat) | [memo-hidup.md](docs/memo-hidup.md) |
+| Island & panel CRT | `extension/crt.js`, `widgetCrt.js` — island & panel gaya layar mini CRT: beranda, riwayat, chat, atur, pintasan | [island-crt.md](docs/island-crt.md) |
 | Layar login & kunci | `login/` — tema GDM + extension `memo-kunci@local` | [layar-login.md](docs/layar-login.md) |
 
 ## Mulai cepat
