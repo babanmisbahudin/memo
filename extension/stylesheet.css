@@ -775,3 +775,20 @@
 .memo-sistem {
     padding: 0 4px;
 }
+
+/* --- Studio Memo (popup rupa saat lahir) ------------------------------ */
+.memo-studio-dialog .modal-dialog-content-box { padding: 0; }
+.memo-studio {
+    background-color: #050608;
+    border: 2px solid #2c5a36;
+    padding: 14px;
+    spacing: 10px;
+    font-family: monospace;
+}
+.memo-studio-judul { color: #b8f5c0; font-weight: 700; font-size: 16px; }
+.memo-studio-isi { spacing: 14px; }
+.memo-studio-pratinjau { border: 1px solid #2c5a36; }
+.memo-studio-kanan { spacing: 8px; min-width: 360px; }
+.memo-studio-tab { spacing: 6px; min-height: 96px; }
+.memo-studio-label { min-width: 70px; }
+.memo-studio-nilai { color: #ffffff; min-width: 170px; text-align: center; }

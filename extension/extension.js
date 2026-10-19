@@ -13,6 +13,7 @@ import { RobotService } from './robotService.js';
 import { AgenStore, tickerSesi } from './agenStore.js';
 import { MemoShortcuts } from './shortcut.js';
 import { MemoHidup } from './hidup/memoHidup.js';
+import { StudioMemo } from './studioDialog.js';
 import { OUTFITS, PanelMemo, avatarPiksel } from './panel.js';
 import { Gerak } from './gerak.js';
 import { jalurRepo } from './jalur.js';
@@ -453,6 +454,20 @@ class Island {
     memoKembali() {
         this._face.actor.opacity = 255;
         this.gerak('sapa', { diam: true });
+    }
+
+    // Studio Memo (wizard lahir): popup rupa ala layar karakter game.
+    bukaStudio() {
+        const h = this._hidup;
+        if (!h || !h.hayat.perluNama)
+            return null;
+        this.menu.close();
+        this._studio = new StudioMemo({ hayat: h.hayat, onSimpan: ident => h.lahirkan(ident) });
+        this._studio.dialog.connect('destroy', () => {
+            this._studio = null;
+        });
+        this._studio.open();
+        return this._studio;
     }
 
     get sedangTidur() {

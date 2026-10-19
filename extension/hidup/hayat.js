@@ -65,6 +65,7 @@ export function hayatBaru({ nama, kelamin, avatar } = {}, sekarangMs) {
         penuhMs: 0, sakit: false, sakitMs: 0, peringatan: [],
         mati: false, sebab: null,
         album: [],
+        terbuka: [],         // item istimewa Studio yang sudah dibuka ("kategori:id"), diwariskan
     };
 }
 
@@ -175,7 +176,7 @@ export function ubahIdentitas(h, { nama, kelamin, avatar } = {}) {
 
 // Sesudah meninggal: telur baru, album kenangan tetap.
 export function telurBaru(h, sekarangMs) {
-    return { ...hayatBaru({}, sekarangMs), album: [...h.album] };
+    return { ...hayatBaru({}, sekarangMs), album: [...h.album], terbuka: [...(h.terbuka ?? [])] };
 }
 
 // Cebok sesudah pup.
@@ -194,7 +195,7 @@ export function obati(h) {
 // --- Simpan / muat (bagian `hayat` di ~/.config/memo/hidup.json) -----------
 
 const DISIMPAN = ['nama', 'kelamin', 'avatar', 'dibuatMs', 'lahirMs', 'tahap', 'lapar', 'kotor', 'kotoran', 'perluCebok',
-    'pupDalamMs', 'penuhMs', 'sakit', 'sakitMs', 'peringatan', 'mati', 'sebab', 'album'];
+    'pupDalamMs', 'penuhMs', 'sakit', 'sakitMs', 'peringatan', 'mati', 'sebab', 'album', 'terbuka'];
 
 export function keJson(h) {
     const hayat = {};
@@ -226,6 +227,7 @@ export function dariJson(data, sekarangMs) {
         mati: d?.mati === true,
         sebab: ['tua', 'ditelantarkan'].includes(d?.sebab) ? d.sebab : null,
         album: Array.isArray(d?.album) ? d.album.filter(x => x && typeof x === 'object') : [],
+        terbuka: Array.isArray(d?.terbuka) ? d.terbuka.filter(x => typeof x === 'string' && /^\w+:\w+$/.test(x)) : [],
     };
     k.tahap = tahapPada(k, sekarangMs).tahap;
     return k;

@@ -117,6 +117,8 @@ cek('bersihkan satu kotoran', bersihkanN({ ...h, kotoran: 3 }, 1).kotoran === 2 
 cek('setiap warna badan punya warna mata', Object.values(WARNA_BADAN).every(w => /^#[0-9a-f]{6}$/.test(w.badan) && w.mata.length === 3));
 const baru = telurBaru({ ...h, album: [{ nama: 'Lama' }], mati: true }, T0);
 cek('telur baru: album tetap, belum menetas', baru.album.length === 1 && baru.lahirMs === null && !baru.mati);
+cek('item Studio terbuka diwariskan ke telur baru', telurBaru({ ...h, terbuka: ['bentuk:awan'] }, T0).terbuka.join() === 'bentuk:awan');
+cek('item terbuka tersimpan & dirapikan', dariJson({ hayat: { terbuka: ['mata:hati', 'x y', 3] } }, T0).terbuka.join() === 'mata:hati');
 
 // --- simpan & muat ---
 const j = keJson(h);

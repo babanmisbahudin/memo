@@ -1,6 +1,6 @@
 # Studio Memo — Desain
 
-Tanggal: 2026-10-20 · Status: rancangan disetujui, belum diimplementasikan.
+Tanggal: 2026-10-20 · Status: diimplementasikan (koin menunggu tahap 2b) — pemakaian di [docs/memo-hidup.md](../../memo-hidup.md).
 
 Penyesuaian rupa Memo bergaya layar karakter game, menggantikan pilihan
 warna & mata sederhana di wizard Memo baru (siklus hidup tahap 2).

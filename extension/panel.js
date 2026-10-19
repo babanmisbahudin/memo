@@ -19,7 +19,7 @@ import { Gerak } from './gerak.js';
 import { tickerSesi } from './agenStore.js';
 import { buka as bukaLaptop } from './bukaLaptop.js';
 import { BatangPiksel, LabelPiksel, LatarCrt } from './widgetCrt.js';
-import { BENTUK_MATA, KELAMIN, WARNA_BADAN, tahapPada } from './hidup/hayat.js';
+import { tahapPada } from './hidup/hayat.js';
 import { P as P_ATRAKSI, bingkai as bingkaiAtraksi, lamaAtraksi, rencanaPerawatan } from './hidup/atraksi.js';
 import { gambarKotoran, gambarMakanan, gambarMemo, gambarPiksel, gambarTelur } from './hidup/gambarMemo.js';
 import { PINTASAN_BAWAAN, bacaPintasan, jalurPenuh } from './pintasanPola.js';
@@ -476,14 +476,12 @@ export class PanelMemo {
         const wizard = new St.BoxLayout({ vertical: true, style_class: 'memo-wizard', visible: false });
         const judulWizard = label('Memo baru! beri nama & pilih rupanya', 'memo-langkah');
         wizard.add_child(judulWizard);
-        const identitas = this._bangunIdentitas('tetaskan', ident => {
-            this._island.hidup?.lahirkan(ident);
-            this._island.menu.close();
-        });
-        wizard.add_child(identitas.aktor);
+        // Rupa dipilih di Studio Memo (popup layar karakter).
+        const tombolStudio = tombol('buka studio', 'memo-btn-terang', () => this._island.bukaStudio());
+        wizard.add_child(tombolStudio);
         kotak.add_child(wizard);
         const normal = kotak.get_children().filter(c => c !== wizard);
-        return { kotak, wadahWajah, status, batang, jalan, rawat, wizard, judulWizard, identitas, normal };
+        return { kotak, wadahWajah, status, batang, jalan, rawat, wizard, judulWizard, tombolStudio, normal };
     }
 
     // --- Panggung Memo di Beranda ----------------------------------------
@@ -536,7 +534,7 @@ export class PanelMemo {
                 gambarTelur(cr, cx, lantai, hy.avatar.warna);
                 return;
             }
-            const rupa = { warna: hy.avatar.warna, mata: hy.avatar.mata, kelamin: hy.kelamin, tahap: hy.tahap,
+            const rupa = { ...hy.avatar, kelamin: hy.kelamin, tahap: hy.tahap,
                 ukuran: tahapPada(hy, Date.now()).ukuran, kotor: hy.kotor, t: GLib.get_monotonic_time() / 1e6,
                 ekspresi: hy.sakit ? 'sakit' : h.kegiatan === 'tidur' ? 'tidur' : 'netral' };
             const a = this._animPanggung;
@@ -571,74 +569,6 @@ export class PanelMemo {
         }
     }
 
-    // Nama, jenis kelamin, warna badan, bentuk mata: wizard lahir & Atur.
-    _bangunIdentitas(teksTombol, aksi) {
-        const kotak = new St.BoxLayout({ vertical: true, style_class: 'memo-identitas' });
-        const entri = new St.Entry({ style_class: 'memo-chat-entri memo-entri-nama', can_focus: true, hint_text: 'Memo' });
-        entri.clutter_text.max_length = 16;
-        kotak.add_child(entri);
-        const pilih = { kelamin: null, warna: 'hitam', mata: 'kotak' };
-        const tandai = (daftar, nilai) => {
-            for (const b of daftar) {
-                if (b._memoId === nilai)
-                    b.add_style_pseudo_class('checked');
-                else
-                    b.remove_style_pseudo_class('checked');
-            }
-        };
-        const baris = () => {
-            const b = new St.BoxLayout({ style_class: 'memo-segmen' });
-            kotak.add_child(b);
-            return b;
-        };
-        const bKelamin = baris();
-        const tKelamin = KELAMIN.map(k => {
-            const t = tombol(k, 'memo-btn-gelap memo-pilihan', () => {
-                pilih.kelamin = k;
-                tandai(tKelamin, k);
-            });
-            t._memoId = k;
-            bKelamin.add_child(t);
-            return t;
-        });
-        const bWarna = baris();
-        const tWarna = Object.entries(WARNA_BADAN).map(([id, w]) => {
-            const t = new St.Button({ style_class: 'memo-baju', can_focus: true, accessible_name: id,
-                style: `background-color: ${w.badan};` });
-            t._memoId = id;
-            t.connect('clicked', () => {
-                pilih.warna = id;
-                tandai(tWarna, id);
-            });
-            bWarna.add_child(t);
-            return t;
-        });
-        const bMata = baris();
-        const tMata = BENTUK_MATA.map(m => {
-            const t = tombol(`mata ${m}`, 'memo-btn-gelap memo-pilihan', () => {
-                pilih.mata = m;
-                tandai(tMata, m);
-            });
-            t._memoId = m;
-            bMata.add_child(t);
-            return t;
-        });
-        kotak.add_child(tombol(teksTombol, 'memo-btn-terang', () => {
-            aksi({ nama: entri.get_text() || 'Memo', kelamin: pilih.kelamin ?? undefined,
-                avatar: { warna: pilih.warna, mata: pilih.mata } });
-        }));
-        const isi = h => {
-            if (!h || entri.clutter_text.has_key_focus())
-                return;
-            entri.set_text(h.nama ?? 'Memo');
-            Object.assign(pilih, { kelamin: h.kelamin, warna: h.avatar?.warna ?? 'hitam', mata: h.avatar?.mata ?? 'kotak' });
-            tandai(tKelamin, pilih.kelamin);
-            tandai(tWarna, pilih.warna);
-            tandai(tMata, pilih.mata);
-        };
-        return { aktor: kotak, isi, entri, tombolAksi: kotak.get_children().at(-1) };
-    }
-
     // Dipanggil saat tab Beranda dibuka dan tiap detik selama panel terbuka.
     segarkanMemo() {
         const h = this._island.hidup;
@@ -652,11 +582,9 @@ export class PanelMemo {
             c.visible = !baru;
         m.wizard.visible = baru;
         if (baru) {
-            m.identitas.isi(hy);
             // Memo lama tidak menetas lagi, cukup berkenalan.
-            const telur = hy.tahap === 'telur';
-            m.judulWizard.text = telur ? 'Memo baru! beri nama & pilih rupanya' : 'Kenalan dulu: nama, jenis kelamin, rupa Memo';
-            m.identitas.tombolAksi.get_child().get_children().at(-1).text = telur ? 'tetaskan' : 'simpan';
+            m.judulWizard.text = hy.tahap === 'telur' ? 'Memo baru! beri nama & pilih rupanya di Studio'
+                : 'Kenalan dulu: nama, jenis kelamin, rupa Memo di Studio';
         }
         m.status.text = !h ? 'memo: -' : hy?.tahap === 'telur' ? `${nama}: telur, klik untuk menetas`
             : hy?.sakit ? `${nama}: sakit!` : !h.aktif ? `${nama}: jalan-jalan mati`

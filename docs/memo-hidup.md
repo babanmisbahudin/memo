@@ -71,15 +71,18 @@ jalan-jalan di desktop, island kosong hitam.
 jalan-jalan nyala. Laptop mati, tidur, atau jalan-jalan dimatikan = Memo
 berhenti lapar. Umur tetap berjalan menurut kalender.
 
-**Memo baru** (pemasangan baru / sesudah meninggal): Beranda menampilkan
-wizard — nama (bawaan "Memo"), jenis kelamin, warna badan (6), bentuk mata
-(kotak, bulat, sipit) → **tetaskan** → telur muncul di desktop → klik untuk
-menetas. Jenis kelamin & rupa **hanya dipilih di awal ini**, bukan di
-pengaturan; **atur → Nama Memo** hanya untuk mengganti nama. Suara ikut
-jenis kelamin (laki-laki Ardi, perempuan Gadis, efek tiny robot sama).
-Memo yang sudah ada sebelum fitur ini dianggap baru menjadi dewasa hari
-ini, dan sekali menampilkan wizard "kenalan" (tanpa jadi telur) supaya
-jenis kelamin & rupanya bisa dipilih.
+**Memo baru** (pemasangan baru / sesudah meninggal): klik telur atau
+Beranda → **buka studio**. **Studio Memo** (popup ala layar karakter game,
+[spec](superpowers/specs/2026-10-20-studio-memo-design.md)): nama, jenis
+kelamin, lalu tab badan (bentuk, 12 warna, pola) · mata (bentuk, warna) ·
+mulut (bawaan tanpa; ikut ekspresi) & pipi · kepala · ekstra, dengan
+pratinjau Memo besar yang melompat tiap berganti dan tombol **acak**. Item
+istimewa (bergembok, harga koin) belum bisa disimpan sampai dibuka dengan
+koin; yang sudah dibuka diwariskan ke Memo berikutnya. **tetaskan** →
+telur di desktop → klik untuk menetas. Rupa & jenis kelamin hanya dipilih
+saat lahir; **atur → Nama Memo** hanya mengganti nama. Suara ikut jenis
+kelamin (laki-laki Ardi, perempuan Gadis). Memo lama sekali diminta
+"kenalan" lewat Studio yang sama (tanpa jadi telur).
 
 ## Atraksi
 

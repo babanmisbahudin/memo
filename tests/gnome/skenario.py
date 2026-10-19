@@ -400,23 +400,29 @@ cek("hayat: makam bernama tetap di desktop ±3 hari", k == [True, "Memo", "ditel
 k = ev(H + "const y = h.hayat; return [y.tahap, y.perluNama, y.album.length, h._telur.visible, h._face.actor.visible];")
 cek("hayat: sesudah meninggal -> telur baru, album tetap", k == ["telur", True, 1, True, False], k)
 potret("34-hayat-telur", (0, 0, 1600, 900))
-ev("const i = memoUji.island(); i.menu.open(); i._panel.pilihTab('beranda'); const w = i._panel._memo.identitas; "
-   "w.entri.set_text('Mochi'); const k = w.aktor.get_children(); k[1].get_children()[1].emit('clicked', 1); "
-   "k[2].get_children().find(b => b._memoId === 'pink').emit('clicked', 1); k[3].get_children()[1].emit('clicked', 1); return true;")
-time.sleep(0.5)
-potret("35-hayat-wizard", (300, 0, 1000, 460))
-ev("const w = memoUji.island()._panel._memo.identitas; w.aktor.get_children().at(-1).emit('clicked', 1); return true;")
+# Studio Memo: popup rupa saat lahir.
+k = ev("const d = memoUji.island().bukaStudio(); return [!!d, d?.dialog.visible ?? false];")
+cek("hayat: Memo baru -> Studio Memo terbuka", k[0] is True, k)
+ev("const d = memoUji.island()._studio; d.entri.set_text('Mochi'); d._tombolKelamin.find(b => b._memoId === 'perempuan').emit('clicked', 1); "
+   "d.pilih('warna', 'pink'); d.pilih('bentuk', 'bulat'); d.pilihTab('mata'); d.pilih('mata', 'bulat'); d.pilih('mulut', 'senyum'); "
+   "d.pilih('pipi', 'merona'); d.pilih('kepala', 'antena'); return true;")
+time.sleep(0.8)
+potret("35-hayat-studio", (0, 0, 1600, 900))
+k = ev("const d = memoUji.island()._studio; d.pilih('bentuk', 'kucing'); const ok = d.simpan(); const kunci = d.terkunci; "
+       "d.pilih('bentuk', 'bulat'); return [ok, kunci];")
+cek("hayat: Studio menolak item terkunci tanpa koin", k == [False, ["bentuk"]], k)
+k = ev("return memoUji.island()._studio.simpan();")
 time.sleep(1)
-k = ev(H + "const y = h.hayat; return [y.nama, y.kelamin, y.avatar.warna, y.avatar.mata, y.perluNama, h.actor.style];")
-cek("hayat: wizard menyimpan nama, kelamin, warna, mata", k[:5] == ["Mochi", "perempuan", "pink", "bulat", False] and "#ff8fb8" not in str(k[5]), k)
+k = ev(H + "const y = h.hayat; const a = y.avatar; return [y.nama, y.kelamin, a.warna, a.bentuk, a.mata, a.mulut, a.kepala, y.perluNama, !!memoUji.island()._studio];")
+cek("hayat: Studio menyimpan nama, kelamin, warna, bentuk, mata, mulut, kepala", k == ["Mochi", "perempuan", "pink", "bulat", "bulat", "senyum", "antena", False, False], k)
 tunggu_hidup(lambda k: k["luar"] and k["keadaan"] == "berdiri", 10)
 ev(H + "h._elus(); return true;")
 time.sleep(1.8)
-k = ev(H + "const y = h.hayat; return [y.tahap, h._telur.visible, h._face.actor.visible, Math.round(h.actor.scale_x * 10) / 10, h.actor.style];")
-cek("hayat: telur diklik -> menetas jadi bayi kecil berbadan pink", k[:4] == ["bayi", False, True, 0.6] and "#ff8fb8" in str(k[4]), k)
+k = ev(H + "const y = h.hayat; return [y.tahap, h._telur.visible, h._face.actor.visible, Math.round(h.actor.scale_x * 10) / 10, h._badanKanvas.visible, h._face._mulut];")
+cek("hayat: telur diklik -> menetas jadi bayi kecil, badan bulat pink bermulut", k == ["bayi", False, True, 0.6, True, "senyum"], k)
 potret("36-hayat-bayi", (0, 0, 1600, 900))
 k = ev(H + "return [h._rupa.visible, h._rupa.width > 120, h._hayat.kelamin];")
-cek("hayat: rupa (pita perempuan + empeng bayi) di atas badan", k == [True, True, "perempuan"], k)
+cek("hayat: rupa (antena + empeng bayi) di atas badan", k == [True, True, "perempuan"], k)
 # Panggung Memo di Beranda: badan utuh + animasi rawat di panel.
 ev("const i = memoUji.island(); i.menu.open(); i._panel.pilihTab('beranda'); return true;")
 time.sleep(0.8)

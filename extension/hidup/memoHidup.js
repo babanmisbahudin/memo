@@ -24,7 +24,8 @@ import { P, bingkai, pikselMakam, rencanaPerawatan, rencanakan } from './atraksi
 import { LINGKAR_KURSOR, bolehDi, petaDari } from './dunia.js';
 import { RUPA_BARIS, RUPA_KOLOM } from './rupa.js';
 import { KOTORAN_L, KOTORAN_T, MAKANAN_L, MAKANAN_T, TELUR_L, TELUR_T, gambarKotoran, gambarMakanan, gambarNoda,
-    gambarPiksel, gambarRupa, gambarTelur } from './gambarMemo.js';
+    gambarBadan, gambarPiksel, gambarRupa, gambarTelur } from './gambarMemo.js';
+import { warnaMataDipakai } from './studio.js';
 import { angkat, badanBaru, langkah, langkahJalan, lempar, mulaiLompat, ngintip, rute, titikDi } from './fisika.js';
 import { dariJson, keJson, pikir } from './pikiran.js';
 import {
@@ -110,6 +111,20 @@ export class MemoHidup {
             width: UKURAN.lebar, height: UKURAN.tinggi,
             layout_manager: new Clutter.BinLayout(),
         });
+        // Badan: bentuk, warna & pola dari Studio (gambarMemo.js); kanvas
+        // 18 px lebih tinggi di atas untuk telinga kucing / ujung tetes.
+        this._badanKanvas = new St.DrawingArea({ reactive: false, width: UKURAN.lebar, height: UKURAN.tinggi + 18 });
+        this._badanKanvas.set_position(0, -18);
+        this._badanKanvas.connect('repaint', () => {
+            const cr = this._badanKanvas.get_context();
+            try {
+                cr.translate(0, 18);
+                gambarBadan(cr, this._hayat.avatar);
+            } finally {
+                cr.$dispose();
+            }
+        });
+        this.actor.add_child(this._badanKanvas);
         this.actor.add_child(this._face.actor);
         // Telur: digambar sendiri, menggantikan wajah sampai menetas.
         this._telur = new St.DrawingArea({ width: TELUR_L, height: TELUR_T, visible: false, reactive: false,
@@ -823,7 +838,7 @@ export class MemoHidup {
         if (this._hayat.lahirMs === null && !this._hayat.mati) {
             // Telur: belum bernama -> panel (wizard); sudah -> menetas.
             if (this._perluNama)
-                this._island.bukaMenu();
+                this._island.bukaStudio?.() ?? this._island.bukaMenu();
             else
                 this._tetaskan();
             return;
@@ -1129,16 +1144,17 @@ export class MemoHidup {
     _terapkanAvatar() {
         const h = this._hayat;
         const telur = h.lahirMs === null && !h.mati;
-        const w = WARNA_BADAN[h.avatar.warna] ?? WARNA_BADAN.hitam;
-        this.actor.style = telur ? 'background-color: transparent; border: 0; box-shadow: none;'
-            : `background-color: ${w.badan};`;
+        // Badan digambar kanvas; aktor sendiri tanpa latar CSS.
+        this.actor.style = 'background-color: transparent; border: 0; box-shadow: none;';
+        this._badanKanvas.visible = !telur && !h.mati;
+        this._badanKanvas.queue_repaint();
         this._face.actor.visible = !telur && !h.mati;
         this._telur.visible = telur;
         this._telur.queue_repaint();
         this._segarkanNoda();
         this._rupa.visible = !telur && !h.mati;
         this._rupa.queue_repaint();
-        this._face.setAvatar({ mata: h.avatar.mata, warnaMata: w.mata });
+        this._face.setAvatar({ mata: h.avatar.mata, warnaMata: warnaMataDipakai(h.avatar), mulut: h.avatar.mulut, pipi: h.avatar.pipi });
         this._island._face?.setAvatar?.({ mata: h.avatar.mata });
         this._u = telur ? 1 : tahapPada(h, Date.now()).ukuran;
         this._gerak.setSkala(this._u);
@@ -1150,7 +1166,8 @@ export class MemoHidup {
         const cr = this._rupa.get_context();
         try {
             const h = this._hayat;
-            gambarRupa(cr, { kelamin: h.kelamin, tahap: tahapPada(h, Date.now()).tahap, warna: h.avatar.warna },
+            gambarRupa(cr, { kelamin: h.kelamin, tahap: tahapPada(h, Date.now()).tahap, warna: h.avatar.warna,
+                kepala: h.avatar.kepala, ekstra: h.avatar.ekstra },
                 -RUPA_KOLOM[0] * P, -RUPA_BARIS[0] * P);
         } finally {
             cr.$dispose();

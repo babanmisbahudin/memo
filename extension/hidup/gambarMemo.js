@@ -139,6 +139,16 @@ export function gambarRupa(cr, opsi, ox = 0, oy = 0) {
     }
 }
 
+// Badan saja (bentuk + warna + pola + bayangan) di kotak 120 x 72 mulai
+// (0, 0): untuk kanvas badan Memo di desktop.
+export function gambarBadan(cr, { bentuk = 'pil', warna = 'hitam', pola = 'polos' } = {}) {
+    const w = WARNA[warna] ?? WARNA.hitam;
+    cr.setSourceRGB(...hexRgb(w.badan));
+    jalurBadan(cr, bentuk);
+    cr.fill();
+    gambarPola(cr, pola, hexRgb(w.badan), bentuk);
+}
+
 // Badan Memo lengkap, kaki di (x, y).
 export function gambarMemo(cr, x, y, { warna = 'hitam', mata = 'kotak', ekspresi = 'netral', ukuran = 1, rz = 0, sy = 1,
     gaze = [0, 0], kotor = 0, t = 0, kelamin = null, tahap = 'dewasa', opacity = 1,
