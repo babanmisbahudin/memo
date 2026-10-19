@@ -19,6 +19,7 @@
 
 import { bolehDi } from './dunia.js';
 import { titikDi } from './fisika.js';
+import { HURUF } from '../hurufPiksel.js';
 
 export const P = 3;
 export const ATRAKSI = ['ayunan', 'gelantungan', 'terjun', 'mobil'];
@@ -38,6 +39,12 @@ const W = {
     tisu: [250, 250, 245], tisuBayang: [210, 212, 205], kilau: [255, 220, 90],
     kasur: [90, 120, 200], kasurTerang: [130, 160, 230], bantal: [245, 240, 230], selimut: [255, 150, 120],
     selimutPola: [255, 205, 150], zz: [200, 220, 255],
+    tanah: [110, 80, 55], tanahGelap: [80, 58, 40], batu: [150, 155, 165], batuGelap: [105, 110, 120], tulisan: [60, 62, 70],
+    bunga: [255, 110, 140], bungaKuning: [255, 215, 80], batang: [80, 170, 90],
+    hantu: [236, 242, 255], hantuBayang: [190, 205, 230], mataHantu: [40, 45, 60],
+    awan: [245, 248, 255], emas: [255, 205, 70], emasGelap: [200, 145, 30], cahaya: [255, 245, 190],
+    batuMerah: [125, 35, 35], batuMerahGelap: [80, 20, 20], api: [255, 120, 30], apiKuning: [255, 210, 60], apiMerah: [210, 40, 30],
+    lubang: [25, 5, 5], asapGelap: [90, 90, 95],
 };
 
 export const snap10 = d => Math.round(d / 10) * 10 || 0;
@@ -536,18 +543,224 @@ function bintang(r, f) {
     };
 }
 
+// --- Meninggal: makam, hantu, lalu gerbang surga atau neraka --------------
+// r.tujuan 'surga' (meninggal karena tua) | 'neraka' (ditelantarkan),
+// r.nama untuk batu nisan. Sesudah dilepas, memoHidup memasang makam tetap
+// (pikselMakam) dan telur baru jatuh dari atas. r.namaMemo untuk batu nisan.
+
+function teksPiksel(g, teks, x0, y0, w) {
+    let x = x0;
+    for (const c of teks) {
+        const baris = HURUF[c] ?? HURUF['?'];
+        baris.forEach((isi, j) => [...isi].forEach((t, i) => {
+            if (t === '#')
+                titik(g, x + i, y0 + j, w);
+        }));
+        x += baris[0].length + 1;
+    }
+}
+
+// Makam: gundukan tanah, batu nisan bertulisan RIP + nama (5 huruf), bunga.
+// `naik` 0..1 = batu muncul dari tanah. Poros = tengah alas makam.
+export function pikselMakam(nama = 'Memo', naik = 1) {
+    const g = new Map();
+    for (let y = -3; y <= -1; y++) {
+        const lebar = 17 - (y + 3) * 0 - (y === -3 ? 3 : 0);
+        kotak(g, -lebar, y, lebar - 1, y, y === -3 ? W.tanahGelap : W.tanah);
+    }
+    const tinggi = Math.round(24 * naik);
+    if (tinggi > 0) {
+        const atas = -3 - tinggi;
+        const batu = new Map();
+        kotak(batu, -15, -27, 14, -4, W.batu);
+        kotak(batu, -13, -28, 12, -28, W.batu);
+        kotak(batu, -15, -27, -15, -4, W.batuGelap);
+        kotak(batu, 14, -27, 14, -4, W.batuGelap);
+        teksPiksel(batu, 'RIP', -8, -25, W.tulisan);
+        const n = String(nama ?? 'Memo').toUpperCase().normalize('NFD').replace(/[^A-Z0-9]/g, '').slice(0, 5) || 'MEMO';
+        teksPiksel(batu, n, -Math.floor((n.length * 6 - 1) / 2), -15, W.tulisan);
+        for (const [k, w] of batu) {
+            const y = Number(k.split(',')[1]);
+            if (y >= atas)
+                g.set(k, w);
+        }
+    }
+    for (const [x, w] of [[-14, W.bunga], [-11, W.bungaKuning], [12, W.bunga]]) {
+        titik(g, x, -5, w);
+        titik(g, x, -4, W.batang);
+    }
+    return keDaftar(0, 0, g);
+}
+
+const HANTU = ['....######....', '..##########..', '.############.', '##############', '###..####..###', '###..####..###',
+    '##############', '##############', '##############'];
+const EKOR_HANTU = [['###..###..###.', '.###..###..###'], ['.##..##..##..#', '#..##..##..##.']];
+
+function hantu(g, cx, cy, f, panik = false) {
+    HANTU.forEach((baris, j) => [...baris].forEach((c, i) => {
+        if (c === '#')
+            titik(g, cx + i - 7, cy + j - 12, i === 0 || i === 13 ? W.hantuBayang : W.hantu);
+        else if (j >= 4 && j <= 5 && (i === 3 || i === 4 || i === 9 || i === 10))
+            titik(g, cx + i - 7, cy + j - 12, W.mataHantu);
+    }));
+    if (panik) {
+        // Mata membelalak & mulut "o".
+        kotak(g, cx - 4, cy - 9, cx - 3, cy - 6, W.mataHantu);
+        kotak(g, cx + 2, cy - 9, cx + 3, cy - 6, W.mataHantu);
+        kotak(g, cx - 1, cy - 4, cx, cy - 3, W.mataHantu);
+    }
+    for (const [j, baris] of EKOR_HANTU[f % 2].entries()) {
+        [...baris].forEach((c, i) => {
+            if (c === '#')
+                titik(g, cx + i - 7, cy - 3 + j, W.hantu);
+        });
+    }
+}
+
+function gerbangSurga(g, cx, cy, buka, f) {
+    // Awan di kaki gerbang.
+    for (const [dx, r] of [[-20, 4], [-12, 5], [-3, 6], [7, 5], [16, 5], [22, 3]]) {
+        for (let y = -r; y <= 0; y++) {
+            const l = Math.round(Math.sqrt(r * r - y * y));
+            kotak(g, cx + dx - l, cy + y, cx + dx + l, cy + y, W.awan);
+        }
+    }
+    // Tiang & lengkung emas.
+    kotak(g, cx - 16, cy - 26, cx - 13, cy - 4, W.emas);
+    kotak(g, cx + 12, cy - 26, cx + 15, cy - 4, W.emas);
+    for (let x = -16; x <= 15; x++) {
+        const y = cy - 27 - Math.round(5 * Math.sqrt(Math.max(0, 1 - (x / 16) ** 2)));
+        kotak(g, cx + x, y, cx + x, y + 1, W.emas);
+    }
+    // Cahaya dari dalam saat terbuka.
+    if (buka > 0) {
+        const lebar = Math.round(12 * buka);
+        kotak(g, cx - lebar, cy - 25, cx + lebar - 1, cy - 4, W.cahaya);
+    }
+    // Daun pintu jeruji bergeser ke samping.
+    const geser = Math.round(11 * buka);
+    for (const s of [-1, 1]) {
+        for (let k = 0; k < 12; k += 2) {
+            const x = s < 0 ? cx - 12 + k - geser : cx + k + geser;
+            if ((s < 0 && x > cx - 13 && x < cx) || (s > 0 && x >= cx && x < cx + 12))
+                kotak(g, x, cy - 24, x, cy - 4, W.emasGelap);
+        }
+        kotak(g, s < 0 ? cx - 12 - geser : cx + geser, cy - 15, s < 0 ? cx - 1 - geser : cx + 11 + geser, cy - 15, W.emasGelap);
+    }
+    if (buka >= 1 && f % 4 < 2) {
+        for (const [dx, dy] of [[-18, -32], [18, -30], [0, -36]])
+            titik(g, cx + dx, cy + dy, W.cahaya);
+    }
+}
+
+function gerbangNeraka(g, cx, cy, naik, buka, f) {
+    const tinggi = Math.round(26 * naik);
+    if (tinggi > 0) {
+        const atas = cy - tinggi;
+        const gb = new Map();
+        kotak(gb, cx - 12, cy - 26, cx - 9, cy - 1, W.batuMerah);
+        kotak(gb, cx + 8, cy - 26, cx + 11, cy - 1, W.batuMerah);
+        kotak(gb, cx - 12, cy - 28, cx + 11, cy - 26, W.batuMerahGelap);
+        kotak(gb, cx - 8, cy - 25, cx + 7, cy - 1, buka > 0 ? W.lubang : W.batuMerahGelap);
+        if (buka > 0) {
+            const l = Math.round(8 * (1 - buka));
+            if (l > 0) {
+                kotak(gb, cx - 8, cy - 25, cx - 9 + l, cy - 1, W.batuMerahGelap);
+                kotak(gb, cx + 8 - l, cy - 25, cx + 7, cy - 1, W.batuMerahGelap);
+            }
+            // Kilau api di dalam.
+            for (let k = 0; k < 4; k++)
+                titik(gb, cx - 3 + ((f + k * 3) % 7), cy - 3 - k * 2, k % 2 ? W.api : W.apiMerah);
+        }
+        for (const [k, w] of gb) {
+            if (Number(k.split(',')[1]) >= atas)
+                g.set(k, w);
+        }
+    }
+    // Api menari di kaki gerbang.
+    for (let i = 0; i < 9; i++) {
+        const x = cx - 18 + i * 4 + (i % 2);
+        const h = 2 + ((f + i * 5) % 4);
+        for (let y = 0; y < h; y++)
+            titik(g, x, cy - 1 - y, y === h - 1 ? W.apiKuning : y > 0 ? W.api : W.apiMerah);
+    }
+}
+
+function wafat(r, f) {
+    const g = new Map();
+    const neraka = r.tujuan === 'neraka';
+    const SELESAI = 114;
+    if (f > SELESAI)
+        return { badan: null, lepas: null, piksel: [], mata: null, selesai: true };
+    if (f === SELESAI)
+        return { badan: null, lepas: { vx: 0, vy: 0 }, piksel: [], mata: null, selesai: false };
+    // Makam: gundukan sejak 12, batu naik 18-29.
+    const ox = Math.round(r.asal.x / P), oy = Math.round(r.asal.y / P);
+    const makam = f >= 12 ? pikselMakam(r.namaMemo, Math.min(1, Math.max(0, (f - 17) / 12))) : [];
+    let badan = { x: r.asal.x, y: r.asal.y, rz: 0, sy: 1 };
+    let ekspresi = null;
+    if (f === 0)
+        ekspresi = 'tidur';
+    else if (f === 6)
+        ekspresi = 'error';
+    if (f >= 12)
+        badan = { ...badan, sy: [0.8, 0.6, 0.4, 0.2, 0.1][f - 12] ?? 0 };
+    // Hantu naik dari makam 30-65, bergoyang.
+    let hx = 0, hy = null, panik = false;
+    if (f >= 30 && f < 66) {
+        const k = f - 30;
+        hx = Math.round(3 * Math.sin(k / 4));
+        hy = -6 - Math.round(k * 44 / 35);
+    }
+    const GX = 0, GY = -56; // gerbang surga di atas makam
+    const NX = 40, NY = 0; // gerbang neraka di samping makam
+    if (!neraka && f >= 66) {
+        const buka = f < 72 ? 0 : f < 84 ? (f - 72) / 12 : f < 96 ? 1 : f < 108 ? 1 - (f - 96) / 12 : 0;
+        gerbangSurga(g, GX, GY, buka, f);
+        if (f < 96) {
+            const k = Math.min(1, Math.max(0, (f - 84) / 11));
+            hx = Math.round((GX - hx) * k + hx);
+            hy = Math.round(-50 + (GY - 10 + 50) * k);
+        }
+    } else if (neraka && f >= 66) {
+        const naik = f < 72 ? 0 : Math.min(1, (f - 72) / 12);
+        const buka = f < 84 ? 0 : f < 90 ? (f - 84) / 6 : f < 100 ? 1 : f < 108 ? 1 - (f - 100) / 8 : 0;
+        gerbangNeraka(g, NX, NY, naik, buka, f);
+        panik = true;
+        if (f < 100) {
+            const k = Math.min(1, Math.max(0, (f - 90) / 9));
+            hx = Math.round(hx + (NX - hx) * k);
+            hy = Math.round(-50 + (NY - 6 + 50) * k);
+        }
+        if (f >= 108) {
+            for (let i = 0; i < 4; i++)
+                kotak(g, NX - 6 + i * 4, NY - 30 - (f - 108) * 2 - i, NX - 5 + i * 4, NY - 29 - (f - 108) * 2 - i, W.asapGelap);
+        }
+    }
+    if (hy !== null && (neraka ? f < 100 : f < 96))
+        hantu(g, hx, hy, f, panik);
+    // Akhir: badan (tak tampak) dipindah ke atas samping makam, lalu dilepas
+    // jadi telur yang jatuh.
+    if (f >= SELESAI - 1)
+        badan = { x: r.asal.x + 90, y: r.asal.y - 260, rz: 0, sy: 0 };
+    return {
+        badan, lepas: null, piksel: [...makam.map(([x, y, w]) => [x + ox, y + oy, w]), ...keDaftar(ox, oy, g)],
+        mata: null, ekspresi, selesai: false,
+    };
+}
+
 export const PERAWATAN = ['mandi', 'cebok', 'tidur'];
 
 // Rencana perawatan (atau 'bintang') di tempat Memo berdiri sekarang.
 export function rencanaPerawatan(nama, posisi, opsi = {}) {
-    if (!PERAWATAN.includes(nama) && nama !== 'bintang')
+    if (!PERAWATAN.includes(nama) && nama !== 'bintang' && nama !== 'wafat')
         return null;
     return { jenis: 'atraksi', nama, asal: { x: posisi.x, y: posisi.y }, x: posisi.x, y: posisi.y, jendelaId: null, ...opsi };
 }
 
 // --- Rencana & bingkai ----------------------------------------------------
 
-const PENGGAMBAR = { ayunan, gelantungan, terjun, mobil, mandi, cebok, tidur, bintang };
+const PENGGAMBAR = { ayunan, gelantungan, terjun, mobil, mandi, cebok, tidur, bintang, wafat };
 
 export function bingkai(r, f) {
     return PENGGAMBAR[r.nama](r, f);
@@ -570,6 +783,8 @@ export function lamaAtraksi(r) {
         return 6 + (r.lamaTidur ?? 720) + 7;
     case 'bintang':
         return 49;
+    case 'wafat':
+        return 115;
     default:
         return 6 + mobilJalan(r) + 6;
     }

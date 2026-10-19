@@ -53,9 +53,19 @@ Memo lama yang belum memilih jenis kelamin tidak memakai topi/pita. Naik
 tahap: badan membesar bertahap dengan kilau, kabar di island.
 
 Sakit yang dibiarkan **24 jam** membuat Memo meninggal (peringatan saat 12
-dan 2 jam tersisa); di akhir masa tua Memo meninggal dengan tenang. Memo
-"kembali ke bintang" — tertidur, melayang naik sambil memudar dengan jejak
-bintang — tercatat di album kenangan, lalu **telur baru** jatuh dari atas.
+dan 2 jam tersisa); di akhir masa tua Memo meninggal dengan tenang.
+Rangkaiannya: Memo tertidur, matanya jadi ✕, tenggelam ke tanah; **makam**
+muncul (batu nisan "RIP" + nama, bunga); **hantu** Memo keluar dan melayang
+naik; lalu **gerbang surga** emas terbuka bila meninggal karena tua, atau
+**gerbang neraka** (api, batu merah, hantu panik tersedot) bila meninggal
+karena ditelantarkan. Sesudahnya **telur baru** jatuh di samping makam.
+Makam tetap di lantai ±3 hari (klik = kenangan singkatnya). Animasi ini
+tidak bisa diputus kursor.
+
+**Efek:** bayangan piksel di lantai di bawah Memo (mengecil saat melompat
+atau bergantung tinggi); ganti ekspresi memunculkan efek kecil (senang
+hati, kaget "!", bingung "?", sakit keringat, galat "x"). Saat Memo
+jalan-jalan di desktop, island kosong hitam.
 
 **Adil:** kebutuhan & sakit hanya berjalan selama kamu login **dan**
 jalan-jalan nyala. Laptop mati, tidur, atau jalan-jalan dimatikan = Memo

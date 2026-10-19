@@ -266,4 +266,23 @@ for (const [nama, opsi] of [['mandi', {}], ['cebok', {}], ['tidur', { lamaTidur:
         piksel(cr, b.piksel);
     });
 }
+// Meninggal: makam, hantu, lalu gerbang surga (tua) atau neraka (ditelantarkan).
+for (const tujuan of ['surga', 'neraka']) {
+    const asal = { x: 260, y: 420 };
+    const r = rencanaPerawatan('wafat', asal, { tujuan, namaMemo: 'Mochi' });
+    const n = lamaAtraksi(r);
+    let ekspresi = 'netral';
+    animasi(`wafat-${tujuan}`, n + 18, 560, 440, (cr, f) => {
+        const b = bingkai(r, Math.min(f, n - 1));
+        if (b.ekspresi)
+            ekspresi = b.ekspresi;
+        lantai(cr, 420, 0, 560);
+        if (b.badan && f < n - 2)
+            memo(cr, b.badan.x, b.badan.y, { warna: 'pink', mata: 'bulat', kelamin: 'perempuan', tahap: tujuan === 'surga' ? 'tua' : 'dewasa',
+                ekspresi, sy: b.badan.sy });
+        piksel(cr, f < n ? b.piksel : bingkai(r, n - 2).piksel.filter(([x, y]) => y * 3 >= 420 - 30 * 3 && Math.abs(x * 3 - 260) < 60));
+        if (f >= n)
+            telur(cr, 350, Math.min(420, 150 + (f - n) * 30), 'putih');
+    });
+}
 print('selesai');

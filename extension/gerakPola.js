@@ -170,6 +170,7 @@ export const SPRITE = {
     bau: { warna: '#9bc53d', baris: ['.#..#', '#..#.', '.#..#', '#..#.'] },
     gelembung: { warna: '#a8e6ff', baris: ['.##.', '#..#', '#..#', '.##.'] },
     obat: { warna: '#ff7b72', baris: ['.##.', '####', '####', '.##.'] },
+    keringat: { warna: '#7cc8ff', baris: ['..#', '.##', '###', '###', '.#.'] },
 };
 
 export const LANGKAH_PARTIKEL = 10;

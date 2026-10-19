@@ -445,8 +445,9 @@ class Island {
     }
 
     // Selagi Memo di desktop, mata di island redup (Memo sedang keluar).
+    // Memo sedang jalan-jalan di desktop: island kosong, hitam saja.
     memoKeluar() {
-        this._face.actor.opacity = 70;
+        this._face.actor.opacity = 0;
     }
 
     memoKembali() {
@@ -598,6 +599,13 @@ class Island {
 
         this._panel?.sync(name);
         this._segarkanLatar();
+        // Efek kecil ekspresi di island (bila Memo ada di island).
+        const efek = { senang: 'hati', bingung: 'tanya', error: 'tidak', berpikir: null }[name];
+        const kini = GLib.get_monotonic_time();
+        if (efek && this._face.actor.opacity > 0 && kini - (this._efekTerakhir ?? 0) > 3e6) {
+            this._efekTerakhir = kini;
+            this._gerak.partikel(efek, 1);
+        }
 
         if (this._expressionHoldId) {
             GLib.source_remove(this._expressionHoldId);
