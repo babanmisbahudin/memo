@@ -27,6 +27,7 @@ import GdkPixbuf from 'gi://GdkPixbuf';
 import { drawFace, lerpParams, resolveExpression } from '../extension/face.js';
 import { DASAR, EASE, FPS_PIKSEL, POSE_TIDUR, SPRITE, durasi, poseEmote } from '../extension/gerakPola.js';
 import { HURUF, TINGGI_BARIS, lebarTeks, tulisTeks } from '../extension/hurufPiksel.js';
+import { bagianHari } from '../extension/waktuPola.js';
 
 export const NAMA_JENIS = ['masuk', 'keluar', 'restart', 'matikan', 'tidur'];
 export const MS_LANGKAH = 1000 / FPS_PIKSEL;
@@ -70,15 +71,7 @@ const LANGIT = {
         awan: null, bintang: 1, bayangan: 0.55 },
 };
 
-export function bagianHari(jam) {
-    if (jam >= 4 && jam < 11)
-        return 'pagi';
-    if (jam >= 11 && jam < 15)
-        return 'siang';
-    if (jam >= 15 && jam < 18)
-        return 'sore';
-    return 'malam';
-}
+export { bagianHari };
 
 export function waktuSekarang() {
     const d = GLib.DateTime.new_now_local();
@@ -262,7 +255,9 @@ function tempelPetak(cr, surface, S, dx = 0, dy = 0) {
 
 export class Layar {
     // `dari`: Layar lama (ukuran jendela berubah) — keadaan penutupnya dibawa.
-    constructor(jenis, { lebar, tinggi, waktu = waktuSekarang(), benih = 20261018, dari = null }) {
+    // `tinggiMemo`: pusat wajah Memo sebagai bagian tinggi layar (latar
+    // layar login menaruhnya lebih tinggi, di atas kartu sandi & jam).
+    constructor(jenis, { lebar, tinggi, waktu = waktuSekarang(), benih = 20261018, dari = null, tinggiMemo = 0.4 }) {
         this.jenis = jenis;
         this.J = buatJenis(jenis, waktu);
         if (!this.J)
@@ -278,7 +273,7 @@ export class Layar {
 
         // Memo: pusat wajah (petak) dan ukuran satu piksel wajah (petak).
         this.mx = Math.round(this.kol / 2);
-        this.my = Math.round(this.bar * 0.4);
+        this.my = Math.round(this.bar * tinggiMemo);
         const M = this.M = 3;
         // Setengah lebar & tinggi sepasang mata Memo (petak), patokan efek di sekitarnya.
         this.mataL = Math.round(10.7 * M);

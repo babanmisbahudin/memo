@@ -1,4 +1,5 @@
-/* Layar login (GDM) & layar kunci ala Memo / Coucou.
+/* Layar login (GDM) & layar kunci ala Memo: pemandangan piksel menurut
+ * jam, kartu sandi bergaya layar mini CRT seperti island & panel Memo.
  *
  * Satu berkas untuk dua tempat:
  * - extension memo-kunci@local (folder ini) memuatnya selama sesi, termasuk
@@ -6,9 +7,11 @@
  * - bangun-gdm.sh menempelkannya di belakang gdm.css Yaru untuk tema GDM.
  * Gambar memo-*.png dicari relatif terhadap berkas ini, di kedua tempat.
  *
- * Gaya: hitam pekat, kartu #16171b berbingkai tipis, tombol pil, tanpa
- * aksen oranye; Memo piksel (pecah piksel disengaja) menggantikan avatar
- * bawaan dan menemani jam layar kunci. */
+ * Gaya: kartu hitam fosfor bersudut siku dengan bingkai & pendar dalam,
+ * huruf monospace, tanpa aksen oranye; Memo piksel (pecah piksel disengaja)
+ * menggantikan avatar bawaan. Warna fosfor netral di GDM (CSS tidak tahu
+ * jam); di layar kunci kelas memo-<bagian> dari extension.js mewarnainya
+ * menurut langit. */
 
 /* --- Latar ------------------------------------------------------------ */
 
@@ -23,18 +26,13 @@
   font-weight: 700;
 }
 
-/* --- Layar kunci: peredup + Memo tidur di atas jam --------------------
-       (aktor ditambahkan extension.js; di GDM keduanya tidak ada) */
+/* --- Layar kunci: pemandangan piksel menurut jam ----------------------
+       (aktor ditambahkan extension.js; gambarnya latar-<bagian>.png. Di GDM
+       latarnya dipasang gdm-latar.css pada .login-dialog.) */
 
-.memo-kunci-redup {
-  background-color: rgba(0, 0, 0, 0.6);
-}
-
-.memo-kunci-wajah {
-  width: 264px;
-  height: 156px;
-  background-image: url("memo-tidur.png");
-  background-size: 264px 156px;
+.memo-kunci-langit {
+  background-color: #000000;
+  background-size: cover;
 }
 
 .unlock-dialog-clock .unlock-dialog-clock-time {
@@ -51,17 +49,22 @@
   font-size: 0.9em;
 }
 
-/* --- Avatar: Memo piksel (hanya bila tidak ada foto profil; foto
-       dipasang GNOME sebagai gaya inline dan tetap menang). ------------ */
+/* --- Avatar: Memo piksel di layar mini (hanya bila tidak ada foto
+       profil; foto dipasang GNOME sebagai gaya inline dan tetap menang). */
 
 .login-dialog .user-widget .user-icon,
 .unlock-dialog .user-widget .user-icon {
   background-color: #000000;
   background-image: url("memo-avatar.png");
   background-size: contain;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 22px;
+  border: 2px solid #4a5370;
+  border-radius: 0;
   box-shadow: none;
+}
+
+.login-dialog .user-widget.vertical .user-icon,
+.unlock-dialog .user-widget.vertical .user-icon {
+  icon-size: 96px;
 }
 
 .login-dialog .user-widget .user-icon StIcon,
@@ -75,42 +78,56 @@
 .unlock-dialog .user-widget .user-widget-label,
 .login-dialog .user-widget.vertical .user-widget-label,
 .unlock-dialog .user-widget.vertical .user-widget-label {
-  color: #ffffff;
+  color: #eef2ff;
+  font-family: monospace;
   font-weight: 700;
 }
 
-/* --- Daftar pengguna GDM: kartu Coucou -------------------------------- */
+/* --- Kartu CRT: daftar pengguna GDM & kotak sandi ---------------------
+       hitam fosfor, sudut siku, bingkai 2px, pendar dalam. Kotak sandi =
+       login-dialog-prompt-layout bagian dalam (kolom sandi + pesan); yang
+       luar memuat avatar & nama, dibiarkan di atas pemandangan supaya
+       kartunya ringkas dan tidak menutupi Memo. */
+
+.login-dialog-user-list-view .login-dialog-user-list .login-dialog-user-list-item,
+.login-dialog-prompt-layout .login-dialog-prompt-layout {
+  color: #eef2ff;
+  background-color: rgba(5, 6, 8, 0.9);
+  border: 2px solid #4a5370;
+  border-radius: 0;
+  box-shadow: inset 0 0 22px rgba(160, 180, 255, 0.16);
+}
 
 .login-dialog-user-list-view .login-dialog-user-list .login-dialog-user-list-item {
-  color: #ffffff;
-  background-color: #16171b;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 22px;
   padding: 12px 16px;
 }
 
+.login-dialog-prompt-layout .login-dialog-prompt-layout {
+  padding: 16px;
+}
+
 .login-dialog-user-list-view .login-dialog-user-list .login-dialog-user-list-item:hover {
-  background-color: #1d1e23;
+  background-color: rgba(14, 16, 22, 0.92);
 }
 
 .login-dialog-user-list-view .login-dialog-user-list .login-dialog-user-list-item:selected,
 .login-dialog-user-list-view .login-dialog-user-list .login-dialog-user-list-item:focus {
   color: #ffffff;
-  background-color: #1d1e23;
-  border-color: rgba(255, 255, 255, 0.4);
-  box-shadow: none !important;
+  background-color: rgba(14, 16, 22, 0.92);
+  border-color: #aab4e0;
+  box-shadow: inset 0 0 22px rgba(160, 180, 255, 0.28) !important;
 }
 
 .login-dialog-user-list-view .login-dialog-user-list .login-dialog-user-list-item .user-icon {
-  border-radius: 14px;
+  border-radius: 0;
 }
 
 .login-dialog-user-list-view .login-dialog-user-list .login-dialog-user-list-item:logged-in .user-icon {
-  border-color: #3fb950;
+  border-color: #7ee787;
 }
 
 .login-dialog-user-list-view .login-dialog-user-list .login-dialog-user-list-item .login-dialog-timed-login-indicator {
-  background-color: #3fb950;
+  background-color: #7ee787;
 }
 
 .login-dialog-not-listed-button,
@@ -118,7 +135,8 @@
 .login-dialog-not-listed-button:focus {
   background-color: transparent;
   box-shadow: none !important;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(238, 242, 255, 0.6);
+  font-family: monospace;
 }
 
 .login-dialog-not-listed-button:hover,
@@ -126,45 +144,50 @@
   color: #ffffff;
 }
 
-/* --- Kolom sandi: pil gelap, fokus putih tipis ------------------------ */
+/* --- Kolom sandi: baris terminal hitam, kursor & teks fosfor ---------- */
 
 .login-dialog .login-dialog-prompt-entry,
 .unlock-dialog .login-dialog-prompt-entry {
-  color: #ffffff;
-  background-color: rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  padding: 10px 18px;
-  caret-color: #ffffff;
-  selection-background-color: rgba(255, 255, 255, 0.3);
+  color: #eef2ff;
+  background-color: #000000;
+  border: 1px solid #4a5370;
+  border-radius: 0;
+  padding: 9px 12px;
+  font-family: monospace;
+  caret-color: #eef2ff;
+  selection-background-color: rgba(238, 242, 255, 0.3);
 }
 
 .login-dialog .login-dialog-prompt-entry:hover,
 .unlock-dialog .login-dialog-prompt-entry:hover {
-  background-color: rgba(255, 255, 255, 0.11);
+  background-color: #05060a;
 }
 
 .login-dialog .login-dialog-prompt-entry:focus,
 .unlock-dialog .login-dialog-prompt-entry:focus {
   color: #ffffff;
-  background-color: rgba(255, 255, 255, 0.11);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45) !important;
+  background-color: #000000;
+  border-color: #aab4e0;
+  box-shadow: 0 0 8px rgba(160, 180, 255, 0.35) !important;
 }
 
 .login-dialog .login-dialog-prompt-entry StLabel.hint-text,
 .unlock-dialog .login-dialog-prompt-entry StLabel.hint-text {
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(238, 242, 255, 0.4);
 }
 
-/* --- Tombol bulat (kembali, sesi, aksesibilitas, ganti pengguna) ------ */
+/* --- Tombol (kembali, sesi, aksesibilitas, ganti pengguna): kotak
+       kecil berbingkai, bukan pil. ------------------------------------- */
 
 .login-dialog-button.cancel-button,
 .login-dialog-button.switch-user-button,
 .login-dialog-button.a11y-button,
 .login-dialog-button.login-dialog-session-list-button,
 .login-dialog-button.login-dialog-auth-menu-button {
-  color: #ffffff;
-  background-color: rgba(255, 255, 255, 0.09);
-  border-radius: 999px;
+  color: #eef2ff;
+  background-color: rgba(5, 6, 8, 0.85);
+  border: 1px solid #4a5370;
+  border-radius: 0;
 }
 
 .login-dialog-button.cancel-button:hover,
@@ -172,7 +195,7 @@
 .login-dialog-button.a11y-button:hover,
 .login-dialog-button.login-dialog-session-list-button:hover,
 .login-dialog-button.login-dialog-auth-menu-button:hover {
-  background-color: rgba(255, 255, 255, 0.16);
+  background-color: rgba(20, 22, 30, 0.92);
 }
 
 .login-dialog-button.cancel-button:focus,
@@ -180,15 +203,80 @@
 .login-dialog-button.a11y-button:focus,
 .login-dialog-button.login-dialog-session-list-button:focus,
 .login-dialog-button.login-dialog-auth-menu-button:focus {
-  background-color: rgba(255, 255, 255, 0.16);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45) !important;
+  background-color: rgba(20, 22, 30, 0.92);
+  border-color: #aab4e0;
+  box-shadow: none !important;
+}
+
+/* --- Layar kunci: fosfor mengikuti langit (kelas memo-<bagian> dipasang
+       extension.js pada dialog kunci). -------------------------------- */
+
+.unlock-dialog.memo-pagi .login-dialog-prompt-layout .login-dialog-prompt-layout,
+.unlock-dialog.memo-pagi .login-dialog-prompt-entry,
+.unlock-dialog.memo-pagi .user-widget .user-icon {
+  border-color: #7a5a3a;
+}
+
+.unlock-dialog.memo-pagi .login-dialog-prompt-layout .login-dialog-prompt-layout {
+  box-shadow: inset 0 0 22px rgba(255, 170, 90, 0.18);
+}
+
+.unlock-dialog.memo-pagi .user-widget .user-widget-label,
+.unlock-dialog.memo-pagi .login-dialog-prompt-entry {
+  color: #ffd7a0;
+}
+
+.unlock-dialog.memo-siang .login-dialog-prompt-layout .login-dialog-prompt-layout,
+.unlock-dialog.memo-siang .login-dialog-prompt-entry,
+.unlock-dialog.memo-siang .user-widget .user-icon {
+  border-color: #2f5a85;
+}
+
+.unlock-dialog.memo-siang .login-dialog-prompt-layout .login-dialog-prompt-layout {
+  box-shadow: inset 0 0 22px rgba(110, 170, 240, 0.18);
+}
+
+.unlock-dialog.memo-siang .user-widget .user-widget-label,
+.unlock-dialog.memo-siang .login-dialog-prompt-entry {
+  color: #cfe6ff;
+}
+
+.unlock-dialog.memo-sore .login-dialog-prompt-layout .login-dialog-prompt-layout,
+.unlock-dialog.memo-sore .login-dialog-prompt-entry,
+.unlock-dialog.memo-sore .user-widget .user-icon {
+  border-color: #7a3a46;
+}
+
+.unlock-dialog.memo-sore .login-dialog-prompt-layout .login-dialog-prompt-layout {
+  box-shadow: inset 0 0 22px rgba(255, 120, 90, 0.18);
+}
+
+.unlock-dialog.memo-sore .user-widget .user-widget-label,
+.unlock-dialog.memo-sore .login-dialog-prompt-entry {
+  color: #ffc0b0;
+}
+
+.unlock-dialog.memo-malam .login-dialog-prompt-layout .login-dialog-prompt-layout,
+.unlock-dialog.memo-malam .login-dialog-prompt-entry,
+.unlock-dialog.memo-malam .user-widget .user-icon {
+  border-color: #4a3f7a;
+}
+
+.unlock-dialog.memo-malam .login-dialog-prompt-layout .login-dialog-prompt-layout {
+  box-shadow: inset 0 0 22px rgba(150, 120, 255, 0.18);
+}
+
+.unlock-dialog.memo-malam .user-widget .user-widget-label,
+.unlock-dialog.memo-malam .login-dialog-prompt-entry {
+  color: #d8ccff;
 }
 
 /* --- Pesan ------------------------------------------------------------ */
 
 .login-dialog-message,
 .login-dialog-message-hint {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(238, 242, 255, 0.6);
+  font-family: monospace;
 }
 
 .caps-lock-warning-label,
@@ -198,5 +286,5 @@
 }
 
 .login-dialog-banner-view .login-dialog-banner {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(238, 242, 255, 0.6);
 }

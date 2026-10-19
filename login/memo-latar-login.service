@@ -1,0 +1,14 @@
+[Unit]
+Description=Memo: latar layar login menurut jam
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/memo/latar-login.sh
+# Hanya mengganti satu tautan di /var/lib/memo.
+ProtectSystem=strict
+ReadWritePaths=/var/lib/memo
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+NoNewPrivileges=yes

@@ -11,7 +11,7 @@ for t in tests/test_*.py; do
         grep -E 'GAGAL|Error|Traceback' <<<"$keluar" | head -10 | sed 's/^/         /'
     fi
 done
-for t in extension/tests/test-*.js sambutan/tests/test-*.js; do
+for t in extension/tests/test-*.js sambutan/tests/test-*.js login/tests/test-*.js; do
     if keluar=$(timeout 60 gjs -m "$t" 2>&1); then
         printf '  ok     %-28s %s\n' "$(basename "$t")" "$(grep -E 'lolos|passed' <<<"$keluar" | tail -1 | sed 's/^Gjs-Console-Message: [0-9:.]*: //')"
     else

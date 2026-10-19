@@ -1,0 +1,12 @@
+[Unit]
+Description=Memo: ganti latar layar login tiap pergantian bagian hari
+
+[Timer]
+# pagi 04.00 · siang 11.00 · sore 15.00 · malam 18.00 (extension/waktuPola.js)
+OnCalendar=*-*-* 04,11,15,18:00:00
+OnBootSec=5s
+Persistent=true
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

@@ -7,24 +7,30 @@
 # GDM mendaftarkan diri ke GDM bila bisa).
 #
 # 1. Mode GDM: mode turunan "gdm" dari XDG_DATA_DIRS uji, datadir shell
-#    diarahkan (GNOME_SHELL_DATADIR) ke salinan berisi login/build/
-#    gdm-theme.gresource. Dilewati bila tema tidak bisa dibangun
-#    (glib-compile-resources tidak ada).
+#    diarahkan (GNOME_SHELL_DATADIR) ke salinan berisi tema Memo yang
+#    dibangun khusus uji: latarnya merujuk tautan di folder uji, yang dibuat
+#    login/latar-login.sh (bukan /var/lib/memo; login/build tidak disentuh).
+#    Dilewati bila tema tidak bisa dibangun.
 # 2. Mode user + extension memo-kunci@local: layar dikunci, dibangunkan,
 #    prompt sandi ditampilkan, lalu dibuka.
 #
 #   tests/gnome/uji-login.sh
 #   UJI_SIMPAN=1 tests/gnome/uji-login.sh   simpan folder & tangkapan layar
+#   UJI_JAM=21 tests/gnome/uji-login.sh     latar GDM untuk jam tertentu
 set -u
 DI="$(cd "$(dirname "$0")" && pwd)"
 LOGIN="$(cd "$DI/../../login" && pwd)"
-TEMA="$LOGIN/build/gdm-theme.gresource"
 HASIL=0
 
-if ! "$LOGIN/bangun-gdm.sh" >/dev/null; then
+BANGUN="$(mktemp -d -t memo-login-tema-XXXXXX)"
+TEMA="$BANGUN/gdm-theme.gresource"
+if ! MEMO_LATAR="$BANGUN/latar-login.png" MEMO_GDM_KELUAR="$BANGUN" "$LOGIN/bangun-gdm.sh" >/dev/null 2>&1; then
     echo "LEWAT mode GDM: tema tidak bisa dibangun (GLIB_COMPILE_RESOURCES=...)"
     TEMA=""
 fi
+export UJI_BAGIAN
+UJI_BAGIAN="$(MEMO_JAM="${UJI_JAM:-}" MEMO_LATAR_SUMBER="$LOGIN" MEMO_LATAR_TUJUAN="$BANGUN/latar-login.png" sh "$LOGIN/latar-login.sh")"
+export UJI_LATAR="$BANGUN/latar-login.png"
 
 jalankan() {
     local MODE="$1"
@@ -83,4 +89,5 @@ SKRIP
 
 [ -n "$TEMA" ] && jalankan memo-uji-gdm
 jalankan user
+rm -rf "$BANGUN"
 exit $HASIL

@@ -72,6 +72,7 @@ cek('teks: jauh dari huruf tetap gelap', terang(p(35, 25)) === 0);
 
 // --- normalkan & muatkan ---
 cek('normalkan: tanda pisah & elipsis', normalkan('Kopi — 3 cangkir…') === 'Kopi - 3 cangkir...');
+cek('normalkan: jam GNOME (rasio U+2236, spasi tipis)', normalkan('08\u{2236}23') === '08:23' && normalkan('8\u{2236}23\u{202f}AM') === '8:23 AM');
 cek('normalkan: minus & tanda kutip', normalkan('+2 −1 “ok” ‘ya’') === '+2 -1 "ok" \'ya\'');
 cek('normalkan: huruf beraksen jadi dasar', normalkan('café Ñandú') === 'cafe Nandu');
 cek('normalkan: tanda baca umum dikenal', normalkan('50% @memo #1 [a] {b} a=b <> | * & ; ~ $ ^ _ \\') !== null);

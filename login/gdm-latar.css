@@ -1,0 +1,11 @@
+/* Hanya untuk tema GDM (ditempel bangun-gdm.sh sesudah stylesheet.css):
+ * pemandangan piksel layar login. CSS tidak bisa membaca jam, jadi gambarnya
+ * satu tautan tetap yang diarahkan memo-latar-login.timer ke
+ * latar-<bagian>.png sesuai jam (lihat latar-login.sh). Penanda jalur di
+ * url() diganti bangun-gdm.sh (bawaan /var/lib/memo/latar-login.png). Bila
+ * berkasnya tidak ada, layar login tetap hitam. */
+
+.login-dialog {
+  background-image: url("file://@LATAR@");
+  background-size: cover;
+}

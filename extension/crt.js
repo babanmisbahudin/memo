@@ -87,6 +87,8 @@ export function tulisBercahaya(cr, teks, x, y, u, warna, { cahaya = 0.35 } = {})
 const GANTI = {
     '—': '-', '–': '-', '−': '-', '…': '...', '“': '"', '”': '"', '„': '"', '‘': "'", '’': "'",
     '×': 'x', '•': '·', ' ': ' ', '\t': ' ',
+    // Jam GNOME: rasio U+2236 sebagai titik dua, spasi tipis sebelum AM/PM.
+    '∶': ':', '\u2009': ' ', '\u202f': ' ',
 };
 
 // Teks siap ditulis huruf piksel (aksen dibuang, tanda baca tipografis

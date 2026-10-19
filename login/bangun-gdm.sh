@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Bangun tema layar login (GDM) Memo: isi gresource Yaru apa adanya, lalu
-# stylesheet.css ditempel di belakang gdm.css dan gambar memo-*.png ikut
-# masuk. Hasil: login/build/gdm-theme.gresource (tidak di-git).
+# stylesheet.css dan gdm-latar.css ditempel di belakang gdm.css dan gambar
+# memo-*.png ikut masuk. Hasil: login/build/gdm-theme.gresource (tidak di-git).
 #
 #   login/bangun-gdm.sh [sumber.gresource]
 #
@@ -9,18 +9,36 @@
 # gdm-theme.gresource (alternatif itu bisa saja sudah menunjuk tema Memo).
 # Bangun ulang setelah pembaruan besar GNOME/Yaru.
 #
-# Butuh glib-compile-resources (paket libgio-2.0-dev-bin); jalur lain bisa
-# diberikan lewat GLIB_COMPILE_RESOURCES.
+# Butuh glib-compile-resources (paket libgio-2.0-dev-bin; bila tidak ada,
+# salinan di snap core dipakai); jalur lain lewat GLIB_COMPILE_RESOURCES.
+#
+# MEMO_LATAR: berkas latar layar login yang dirujuk tema (bawaan
+# /var/lib/memo/latar-login.png, diurus memo-latar-login.timer).
+# MEMO_GDM_KELUAR: folder hasil (bawaan login/build) — uji memakai folder
+# sendiri supaya tema yang akan dipasang tidak tertimpa.
 set -euo pipefail
 DI="$(cd "$(dirname "$0")" && pwd)"
 SUMBER="${1:-/usr/share/gnome-shell/theme/Yaru/gnome-shell-theme.gresource}"
-KOMPILER="${GLIB_COMPILE_RESOURCES:-glib-compile-resources}"
+LATAR="${MEMO_LATAR:-/var/lib/memo/latar-login.png}"
+KELUAR="${MEMO_GDM_KELUAR:-$DI/build}"
 TANDA="=== Memo: login/stylesheet.css ==="
 
-command -v "$KOMPILER" >/dev/null || {
+KOMPILER="${GLIB_COMPILE_RESOURCES:-}"
+if [ -z "$KOMPILER" ]; then
+    KOMPILER="$(command -v glib-compile-resources || true)"
+    for k in /snap/core*/current/usr/lib/x86_64-linux-gnu/glib-2.0/glib-compile-resources; do
+        [ -z "$KOMPILER" ] && [ -x "$k" ] && KOMPILER="$k"
+    done
+fi
+[ -n "$KOMPILER" ] && [ -x "$KOMPILER" ] || {
     echo "glib-compile-resources tidak ada: sudo apt install libgio-2.0-dev-bin" >&2
     exit 1
 }
+case "$LATAR" in
+    *[\#\&\"\\\ ]*) echo "MEMO_LATAR tidak boleh memuat # & \" \\ atau spasi: $LATAR" >&2; exit 1 ;;
+    /*) ;;
+    *) echo "MEMO_LATAR harus jalur mutlak: $LATAR" >&2; exit 1 ;;
+esac
 KERJA="$(mktemp -d)"
 trap 'rm -rf "$KERJA"' EXIT
 
@@ -38,7 +56,11 @@ if grep -q "$TANDA" "$TEMA/gdm.css"; then
     exit 1
 fi
 
-{ printf '\n/* %s */\n' "$TANDA"; cat "$DI/stylesheet.css"; } >> "$TEMA/gdm.css"
+{
+    printf '\n/* %s */\n' "$TANDA"
+    cat "$DI/stylesheet.css"
+    sed "s#@LATAR@#$LATAR#" "$DI/gdm-latar.css"
+} >> "$TEMA/gdm.css"
 cp "$DI"/memo-*.png "$TEMA/"
 
 {
@@ -48,6 +70,6 @@ cp "$DI"/memo-*.png "$TEMA/"
     echo '</gresource></gresources>'
 } > "$KERJA/tema.gresource.xml"
 
-mkdir -p "$DI/build"
-"$KOMPILER" --sourcedir="$KERJA" --target="$DI/build/gdm-theme.gresource" "$KERJA/tema.gresource.xml"
-echo "$DI/build/gdm-theme.gresource"
+mkdir -p "$KELUAR"
+"$KOMPILER" --sourcedir="$KERJA" --target="$KELUAR/gdm-theme.gresource" "$KERJA/tema.gresource.xml"
+echo "$KELUAR/gdm-theme.gresource"
