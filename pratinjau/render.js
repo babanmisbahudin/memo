@@ -16,6 +16,7 @@ import { P, bingkai, lamaAtraksi, rencanaPerawatan, rencanakan } from '../extens
 import { petaDari } from '../extension/hidup/dunia.js';
 import { badanBaru, lempar, langkah } from '../extension/hidup/fisika.js';
 import { WARNA_BADAN, BENTUK_MATA } from '../extension/hidup/hayat.js';
+import { pikselRupa } from '../extension/hidup/rupa.js';
 
 const KELUAR = ARGV[0];
 const UKURAN = { lebar: 120, tinggi: 72 };
@@ -45,7 +46,7 @@ function lantai(cr, y, x1, x2) {
 
 // Badan Memo, kaki di (x, y). opsi: warna, mata, ekspresi, ukuran, rz, sy, gaze, kotor.
 function memo(cr, x, y, { warna = 'hitam', mata = 'kotak', ekspresi = 'netral', ukuran = 1, rz = 0, sy = 1,
-    gaze = [0, 0], kotor = 0, t = 0 } = {}) {
+    gaze = [0, 0], kotor = 0, t = 0, kelamin = null, tahap = 'dewasa' } = {}) {
     const w = WARNA_BADAN[warna];
     if (ukuran * sy < 0.01)
         return; // tenggelam penuh saat menyelinap
@@ -78,6 +79,11 @@ function memo(cr, x, y, { warna = 'hitam', mata = 'kotak', ekspresi = 'netral', 
     cr.restore();
     if (kotor >= 0.3)
         noda(cr, kotor, t);
+    for (const [x, y, [r, g, b]] of pikselRupa({ kelamin, tahap, warna })) {
+        cr.setSourceRGB(r / 255, g / 255, b / 255);
+        cr.rectangle(x * P, y * P, P, P);
+        cr.fill();
+    }
     cr.restore();
 }
 
@@ -179,6 +185,18 @@ const MAKANAN = {
     simpan(c, 'tahap');
 }
 
+// Rupa per tahap & jenis kelamin.
+{
+    const tahap = [['bayi', 0.6], ['balita', 0.7], ['anak', 0.85], ['remaja', 1], ['dewasa', 1], ['tua', 1]];
+    const c = kanvas(tahap.length * 150 + 20, 2 * 140 + 20);
+    ['laki-laki', 'perempuan'].forEach((kelamin, j) => {
+        lantai(c.cr, 130 + j * 140, 10, tahap.length * 150 + 10);
+        tahap.forEach(([t, u], i) => memo(c.cr, 85 + i * 150, 130 + j * 140,
+            { warna: j ? 'pink' : 'biru', mata: j ? 'bulat' : 'kotak', ukuran: u, kelamin, tahap: t, ekspresi: t === 'tua' ? 'senang' : 'netral' }));
+    });
+    simpan(c, 'rupa');
+}
+
 // Ekspresi kebutuhan: lapar, sakit, kotor, kotor parah.
 {
     const c = kanvas(4 * 160 + 20, 140);
@@ -278,10 +296,10 @@ for (const nama of ['ayunan', 'gelantungan', 'terjun', 'mobil']) {
     mainkan(nama, { ...r, asal: { x: 200, y: bawah } }, { skala: 0.6 });
 }
 const tengah = { x: 300, y: 200 };
-for (const [nama, opsi] of [['mandi', {}], ['cebok', {}], ['tidur', { lamaTidur: 72 }]]) {
+for (const [nama, opsi] of [['mandi', {}], ['cebok', {}], ['tidur', { lamaTidur: 72 }], ['bintang', {}]]) {
     const r = rencanaPerawatan(nama, tengah, opsi);
     const n = lamaAtraksi(r);
-    const daftar = Array.from({ length: n + 6 }, (_, f) => bingkai(r, Math.min(f, n)));
+    const daftar = Array.from({ length: n + (nama === 'bintang' ? 14 : 6) }, (_, f) => bingkai(r, Math.min(f, n)));
     let ekspresi = 'netral';
     animasi(nama, daftar.length, 600, 230, (cr, f) => {
         const b = daftar[f];
@@ -289,8 +307,16 @@ for (const [nama, opsi] of [['mandi', {}], ['cebok', {}], ['tidur', { lamaTidur:
             ekspresi = b.ekspresi;
         cr.translate(0, 20);
         lantai(cr, 200, 0, 600);
-        const badan = b.badan ?? { x: tengah.x, y: tengah.y, rz: 0, sy: 1 };
-        memo(cr, badan.x, badan.y, { warna: 'putih', mata: 'bulat', ekspresi, rz: badan.rz, sy: badan.sy, gaze: b.mata ?? [0, 0] });
+        const badan = b.badan ?? (nama === 'bintang' ? null : { x: tengah.x, y: tengah.y, rz: 0, sy: 1 });
+        if (badan) {
+            cr.pushGroup();
+            memo(cr, badan.x, badan.y, { warna: 'putih', mata: 'bulat', ekspresi, rz: badan.rz, sy: badan.sy, gaze: b.mata ?? [0, 0],
+                kelamin: 'perempuan', tahap: nama === 'bintang' ? 'tua' : 'dewasa' });
+            cr.popGroupToSource();
+            cr.paintWithAlpha((badan.opacity ?? 255) / 255);
+        } else if (nama === 'bintang' && f >= 49) {
+            telur(cr, tengah.x, Math.min(200, -40 + (f - 49) * 40), 'putih');
+        }
         piksel(cr, b.piksel);
     });
 }

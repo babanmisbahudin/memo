@@ -1,6 +1,6 @@
 # Siklus Hidup Memo — Desain
 
-Tanggal: 2026-10-19 · Status: tahap 1–2 diimplementasikan (pemakaian di [docs/memo-hidup.md](../../memo-hidup.md)); tahap 2b dst. belum.
+Tanggal: 2026-10-19 · Status: tahap 1, 2, dan 3 diimplementasikan (pemakaian di [docs/memo-hidup.md](../../memo-hidup.md)); tahap 2b dst. belum.
 
 Memo hidup (extension/hidup/) dikembangkan jadi makhluk dengan siklus hidup
 ala Tamagotchi: lahir dari telur, tumbuh dari bayi sampai tua, punya

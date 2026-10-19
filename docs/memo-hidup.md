@@ -43,9 +43,17 @@ dan Memo tua tidak main atraksi.
 Tidur, mandi, dan cebok dimainkan di desktop (panel menutup sendiri); bila
 Memo sedang di island, cukup efeknya saja.
 
+**Rupa per tahap & jenis kelamin** (`extension/hidup/rupa.js`, murni, diuji
+`test-rupa.js`): laki-laki bertopi (merah; biru di badan pink/kuning),
+perempuan berpita; bayi berempeng; remaja ber-headphone; Memo tua beralis
+putih, berjanggut (laki-laki) atau berkacamata (perempuan), dan bertongkat.
+Memo lama yang belum memilih jenis kelamin tidak memakai topi/pita. Naik
+tahap: badan membesar bertahap dengan kilau, kabar di island.
+
 Sakit yang dibiarkan **24 jam** membuat Memo meninggal (peringatan saat 12
 dan 2 jam tersisa); di akhir masa tua Memo meninggal dengan tenang. Memo
-"kembali ke bintang", tercatat di album kenangan, lalu **telur baru** muncul.
+"kembali ke bintang" — tertidur, melayang naik sambil memudar dengan jejak
+bintang — tercatat di album kenangan, lalu **telur baru** jatuh dari atas.
 
 **Adil:** kebutuhan & sakit hanya berjalan selama kamu login **dan**
 jalan-jalan nyala. Laptop mati, tidur, atau jalan-jalan dimatikan = Memo

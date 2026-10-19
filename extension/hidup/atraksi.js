@@ -509,18 +509,45 @@ function tidur(r, f) {
         lepas: null, piksel: keDaftar(Math.round(r.asal.x / P), Math.round(r.asal.y / P), g), mata: null, ekspresi, selesai: false };
 }
 
+// Kembali ke bintang (Memo meninggal): tertidur, lalu melayang naik sambil
+// memudar bertingkat, meninggalkan jejak bintang. Sesudah dilepas,
+// memoHidup menukar badan dengan telur baru yang jatuh dari atas.
+function bintang(r, f) {
+    const DIAM = 12, NAIK = 36;
+    if (f > DIAM + NAIK)
+        return { badan: null, lepas: null, piksel: [], mata: null, selesai: true };
+    if (f === DIAM + NAIK)
+        return { badan: null, lepas: { vx: 0, vy: 0 }, piksel: [], mata: null, selesai: false };
+    const k = Math.max(0, f - DIAM);
+    const y = r.asal.y - 4 * k;
+    const g = new Map();
+    for (let i = 1; i <= Math.min(5, Math.floor(k / 3)); i++) {
+        const sx = (i % 2 ? -14 : 12) + (i * 5) % 7, sy = i * 5 - 4; // jejak di bawah kaki
+        titik(g, sx, sy, W.kilau);
+        if ((f + i) % 2) {
+            for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]])
+                titik(g, sx + dx, sy + dy, W.kilau);
+        }
+    }
+    return {
+        badan: { x: r.asal.x, y, rz: 0, sy: 1, opacity: [255, 204, 153, 102, 51, 51][Math.min(5, Math.floor(k / 7))] },
+        lepas: null, piksel: keDaftar(Math.round(r.asal.x / P), Math.round(y / P), g), mata: null,
+        ekspresi: f === 0 ? 'tidur' : null, selesai: false,
+    };
+}
+
 export const PERAWATAN = ['mandi', 'cebok', 'tidur'];
 
-// Rencana perawatan di tempat Memo berdiri sekarang.
+// Rencana perawatan (atau 'bintang') di tempat Memo berdiri sekarang.
 export function rencanaPerawatan(nama, posisi, opsi = {}) {
-    if (!PERAWATAN.includes(nama))
+    if (!PERAWATAN.includes(nama) && nama !== 'bintang')
         return null;
     return { jenis: 'atraksi', nama, asal: { x: posisi.x, y: posisi.y }, x: posisi.x, y: posisi.y, jendelaId: null, ...opsi };
 }
 
 // --- Rencana & bingkai ----------------------------------------------------
 
-const PENGGAMBAR = { ayunan, gelantungan, terjun, mobil, mandi, cebok, tidur };
+const PENGGAMBAR = { ayunan, gelantungan, terjun, mobil, mandi, cebok, tidur, bintang };
 
 export function bingkai(r, f) {
     return PENGGAMBAR[r.nama](r, f);
@@ -541,6 +568,8 @@ export function lamaAtraksi(r) {
         return 29;
     case 'tidur':
         return 6 + (r.lamaTidur ?? 720) + 7;
+    case 'bintang':
+        return 49;
     default:
         return 6 + mobilJalan(r) + 6;
     }

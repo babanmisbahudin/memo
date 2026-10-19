@@ -22,6 +22,7 @@ import { Gerak } from '../gerak.js';
 import { FPS_PIKSEL } from '../gerakPola.js';
 import { P, bingkai, rencanaPerawatan, rencanakan } from './atraksi.js';
 import { LINGKAR_KURSOR, bolehDi, petaDari } from './dunia.js';
+import { RUPA_BARIS, RUPA_KOLOM, pikselRupa } from './rupa.js';
 import { angkat, badanBaru, langkah, langkahJalan, lempar, mulaiLompat, ngintip, rute, titikDi } from './fisika.js';
 import { dariJson, keJson, pikir } from './pikiran.js';
 import {
@@ -117,6 +118,14 @@ export class MemoHidup {
         this._noda = new St.DrawingArea({ width: UKURAN.lebar, height: UKURAN.tinggi, reactive: false, visible: false });
         this._noda.connect('repaint', () => this._gambarNoda());
         this.actor.add_child(this._noda);
+        // Rupa per tahap & jenis kelamin (topi/pita, empeng, headphone, alis,
+        // janggut/kacamata, tongkat), boleh menjulur di luar badan.
+        this._rupa = new St.DrawingArea({ reactive: false, x_align: Clutter.ActorAlign.START, y_align: Clutter.ActorAlign.START,
+            width: (RUPA_KOLOM[1] - RUPA_KOLOM[0] + 1) * P, height: (RUPA_BARIS[1] - RUPA_BARIS[0] + 1) * P });
+        // Posisi tetap: BinLayout memberinya ukuran asli, tidak dipotong selebar badan.
+        this._rupa.set_position(RUPA_KOLOM[0] * P, RUPA_BARIS[0] * P);
+        this._rupa.connect('repaint', () => this._gambarRupa());
+        this.actor.add_child(this._rupa);
         // Saat GNOME Shell dimatikan, aktor bisa dihancurkan tanpa disable():
         // hentikan semua timer supaya tidak menyentuh aktor yang sudah hilang.
         this.actor.connect('destroy', () => {
@@ -397,6 +406,7 @@ export class MemoHidup {
             this.actor.rotation_angle_z = b.badan.rz;
             this.actor.scale_x = this._u;
             this.actor.scale_y = b.badan.sy * this._u;
+            this.actor.opacity = b.badan.opacity ?? 255;
             this._gambar();
         }
         if (b.mata)
@@ -406,6 +416,8 @@ export class MemoHidup {
         this._pasangProperti(b.piksel);
         if (b.lepas || b.selesai || a.f > 2000) {
             this._antrean.shift();
+            if (a.rencana.nama === 'bintang')
+                this._jadiTelur();
             this._sisa = b.selesai ? null : a;
             this._lepasBadan(b.lepas ?? { vx: 0, vy: 0 });
             if (b.selesai)
@@ -424,6 +436,7 @@ export class MemoHidup {
     }
 
     _lepasBadan({ vx, vy }) {
+        this.actor.opacity = 255;
         this.actor.rotation_angle_z = 0;
         this.actor.scale_y = this._u;
         this._gerak.lepas();
@@ -569,6 +582,15 @@ export class MemoHidup {
         if (!this._aktif)
             return;
         this._majukanHayat(dt);
+        // Pengaman: Memo yang sudah meninggal (animasi bintang terputus, atau
+        // dimuat dari hidup.json) selalu berlanjut ke telur baru.
+        if (this._hayat.mati && !this._wafatId && this._antrean[0]?.rencana?.nama !== 'bintang') {
+            this._wafatId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 4000, () => {
+                this._wafatId = 0;
+                this._aman(() => this._hayat.mati && this._jadiTelur());
+                return GLib.SOURCE_REMOVE;
+            });
+        }
         if (!this._diLuar) {
             if (this._island.bolehKeluar())
                 this._keluar();
@@ -922,9 +944,9 @@ export class MemoHidup {
         const nama = this._hayat.nama;
         for (const e of r.kejadian) {
             if (e.jenis === 'tumbuh') {
+                const dariU = this._u;
                 this._terapkanAvatar();
-                this._gerak.main('lompat');
-                this._gerak.partikel('bintang', 3);
+                this._tumbuhkan(dariU);
                 this._kabar(`${nama} sekarang ${e.tahap}!`, 'starred-symbolic');
             } else if (e.jenis === 'pup') {
                 // Gumpal pertama di samping Memo, sisanya berserakan di lantai bawah.
@@ -978,12 +1000,53 @@ export class MemoHidup {
         this._telur.visible = telur;
         this._telur.queue_repaint();
         this._segarkanNoda();
+        this._rupa.visible = !telur && !h.mati;
+        this._rupa.queue_repaint();
         this._face.setAvatar({ mata: h.avatar.mata, warnaMata: w.mata });
         this._island._face?.setAvatar?.({ mata: h.avatar.mata });
         this._u = telur ? 1 : tahapPada(h, Date.now()).ukuran;
         this._gerak.setSkala(this._u);
         if (!this._gerak.emoteAktif)
             this.actor.scale_y = this._u;
+    }
+
+    _gambarRupa() {
+        const cr = this._rupa.get_context();
+        try {
+            const h = this._hayat;
+            const tahap = tahapPada(h, Date.now()).tahap;
+            for (const [x, y, [r, g, b]] of pikselRupa({ kelamin: h.kelamin, tahap, warna: h.avatar.warna })) {
+                cr.setSourceRGB(r / 255, g / 255, b / 255);
+                cr.rectangle((x - RUPA_KOLOM[0]) * P, (y - RUPA_BARIS[0]) * P, P, P);
+                cr.fill();
+            }
+        } finally {
+            cr.$dispose();
+        }
+    }
+
+    // Naik tahap: badan membesar bertahap 6 langkah dengan kilau.
+    _tumbuhkan(dariU) {
+        const keU = this._u;
+        if (this._tumbuhId)
+            GLib.source_remove(this._tumbuhId);
+        this._gerak.partikel('bintang', 4);
+        let i = 0;
+        this._tumbuhId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, MS_LANGKAH * 2, () => {
+            i++;
+            this._aman(() => {
+                const u = Math.round((dariU + (keU - dariU) * i / 6) * 100) / 100;
+                this._gerak.setSkala(u);
+                if (!this._gerak.emoteAktif && !this._gerak.dikunci)
+                    this.actor.scale_y = u;
+                if (i === 6)
+                    this._gerak.main('lompat');
+            });
+            if (i < 6)
+                return GLib.SOURCE_CONTINUE;
+            this._tumbuhId = 0;
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     // Noda tampak mulai kotor 0,3, makin banyak; lalat mulai 0,85.
@@ -1092,21 +1155,27 @@ export class MemoHidup {
         this._gerak.partikel('bintang', 5);
         this._kabar(sebab === 'tua' ? `${nama} kembali ke bintang dengan tenang`
             : `${nama} kembali ke bintang karena tidak dirawat`, 'starred-symbolic');
-        // Sebentar kemudian: telur baru untuk Memo berikutnya (album tetap).
+        // Tampak: melayang ke bintang, lalu telur baru jatuh dari atas
+        // (_langkahAtraksi). Tidak tampak: telur baru sebentar kemudian.
+        if (this._rawat('bintang'))
+            return;
         this._wafatId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 4000, () => {
             this._wafatId = 0;
-            this._aman(() => {
-                this._hayat = telurBaru(this._hayat, Date.now());
-                this._perluNama = true;
-                for (const k of this._kotoranAktor)
-                    k.destroy();
-                this._kotoranAktor = [];
-                this._tanda = { lapar: false, kotor: false };
-                this._terapkanAvatar();
-                this.simpan();
-            });
+            this._aman(() => this._jadiTelur());
             return GLib.SOURCE_REMOVE;
         });
+    }
+
+    // Telur baru untuk Memo berikutnya (album tetap).
+    _jadiTelur() {
+        this._hayat = telurBaru(this._hayat, Date.now());
+        this._perluNama = true;
+        for (const k of this._kotoranAktor)
+            k.destroy();
+        this._kotoranAktor = [];
+        this._tanda = { lapar: false, kotor: false };
+        this._terapkanAvatar();
+        this.simpan();
     }
 
     // --- Kotoran & makanan di desktop -------------------------------------
@@ -1323,12 +1392,12 @@ export class MemoHidup {
 
     _hentikanTimer() {
         for (const id of [this._detikId, this._tatapId, this._klikId, this._simpanId, this._atraksiId, this._telurId,
-            this._wafatId, this._makanId]) {
+            this._wafatId, this._makanId, this._tumbuhId]) {
             if (id)
                 GLib.source_remove(id);
         }
         this._detikId = this._tatapId = this._klikId = this._simpanId = this._atraksiId = this._telurId = 0;
-        this._wafatId = this._makanId = 0;
+        this._wafatId = this._makanId = this._tumbuhId = 0;
         this._berhentiLangkah();
     }
 

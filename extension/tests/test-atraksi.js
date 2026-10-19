@@ -89,6 +89,12 @@ for (const nama of PERAWATAN) {
     cek(`${nama}: ada properti`, semua.some(b => b.piksel.length > 10));
     cek(`${nama}: putaran per 10 derajat`, semua.every(b => !b.badan || b.badan.rz % 10 === 0));
 }
+const bt = rencanaPerawatan('bintang', { x: 700, y: bawah });
+const btB = Array.from({ length: lamaAtraksi(bt) + 1 }, (_, f) => bingkai(bt, f));
+const naik = btB.filter(b => b.badan);
+cek('bintang: tertidur, naik, memudar bertingkat, lalu dilepas', btB[0].ekspresi === 'tidur' && naik.at(-1).badan.y < bawah - 100 &&
+    naik.every((b, i) => i === 0 || (b.badan.y <= naik[i - 1].badan.y && b.badan.opacity <= naik[i - 1].badan.opacity)) &&
+    naik.at(-1).badan.opacity < 100 && btB.filter(b => b.lepas).length === 1 && btB.at(-1).selesai);
 cek('perawatan asing ditolak', rencanaPerawatan('terbang', { x: 0, y: 0 }) === null);
 cek('perawatan tidak ikut dipilih sendiri', !ATRAKSI.some(n => PERAWATAN.includes(n)));
 const td = rencanaPerawatan('tidur', { x: 700, y: bawah }, { lamaTidur: 48 });
