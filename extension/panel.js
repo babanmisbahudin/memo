@@ -1116,15 +1116,6 @@ export class PanelMemo {
         }));
         barisHidup.add_child(tombol('Pulang', 'memo-btn-gelap', () => this._island.hidup?.pulang()));
         bagian('Jalan-jalan', barisHidup);
-        // Atraksi: Memo main sekarang juga (biasanya dipilih sendiri saat bosan).
-        const barisAtraksi = new St.BoxLayout({ style_class: 'memo-segmen' });
-        for (const [nama, teks] of [['ayunan', 'Ayunan'], ['gelantungan', 'Gelantungan'], ['terjun', 'Terjun payung'], ['mobil', 'Naik mobil']]) {
-            barisAtraksi.add_child(tombol(teks, 'memo-btn-gelap', () => {
-                this._island.menu.close();
-                this._island.hidup?.mainAtraksi(nama);
-            }));
-        }
-        bagian('Atraksi', barisAtraksi);
         const kolomSifat = new St.BoxLayout({ vertical: true, x_expand: true, style_class: 'memo-sifat' });
         this._sliderSifat = SIFAT_MEMO.map(([nama, kiri, kanan]) => {
             const baris = new St.BoxLayout({ style_class: 'memo-sifat-baris' });

@@ -57,21 +57,52 @@ ada sebelum fitur ini dianggap baru menjadi dewasa hari ini.
 
 ## Atraksi
 
-Saat bosan (makin sering bila slider iseng & aktif tinggi), Memo memilih
-sendiri salah satu atraksi yang muat di layar, berganti-ganti:
+Atraksi adalah perilaku **bawaan** Memo, tanpa tombol atau pengaturan: saat
+bosan (makin sering bila slider iseng & aktif tinggi), Memo memilih sendiri
+satu atraksi yang muat di layar, berganti-ganti, tidak mengulang yang
+terakhir bila ada pilihan lain.
 
-| Atraksi | Yang terjadi |
-|---|---|
-| **Ayunan** | ayunan kayu turun dari tepi atas layar, Memo duduk & berayun sampai ±30°, lalu loncat turun |
-| **Gelantungan** | dua tangan mencengkeram tepi atas, badan berayun pelan, dua kali pull-up, lalu lepas & jatuh |
-| **Terjun payung** | parasut merah-putih mengembang di atas, Memo melayang turun sambil bergoyang ke sebuah lantai, parasut kempis |
-| **Naik mobil** | mobil merah muncul dari kepulan asap, Memo naik & menyetir ke ujung lantai (roda berputar, asap knalpot), lalu turun |
+Aturannya:
 
-Panel → **Atur** → **Atraksi** memainkannya sekarang juga. Atraksi tidak
-dimainkan di atas jendela yang sedang kamu pakai atau di dekat kursor;
-kursor yang mendekat membuat Memo kaget dan melepas atraksinya. Semua
-bergaya piksel: 12 langkah/detik, putaran per 10°, properti digambar per
-kotak 3 px (`extension/hidup/atraksi.js`, murni & diuji `test-atraksi.js`).
+- tidak dimainkan di atas jendela yang sedang kamu pakai, tidak di dekat
+  kursor, dan tidak saat jendela aktif dimaksimalkan atau layar penuh;
+- kursor yang mendekat membuat Memo kaget dan melepas atraksinya;
+- bayi, balita, Memo tua, dan Memo yang sakit tidak main atraksi;
+- semua bergaya piksel: 12 langkah/detik, putaran per 10°, properti digambar
+  per kotak 3 px (`extension/hidup/atraksi.js`, murni & diuji
+  `test-atraksi.js`).
+
+### Yang sudah ada
+
+| Atraksi | Yang terjadi | Syarat tempat |
+|---|---|---|
+| **Ayunan** | ayunan kayu turun dari tepi atas layar, Memo duduk & berayun sampai ±30°, lalu loncat turun | tepi atas bebas selebar ±280 px |
+| **Gelantungan** | dua tangan mencengkeram tepi atas, badan berayun pelan, dua kali pull-up, lalu lepas & jatuh | tepi atas bebas selebar ±140 px |
+| **Terjun payung** | parasut merah-putih mengembang di atas, Memo melayang turun sambil bergoyang ke sebuah lantai, parasut kempis | jalur tegak dari atas ke lantai tujuan bebas |
+| **Naik mobil** | mobil merah muncul dari kepulan asap, Memo naik & menyetir ke ujung lantai (roda berputar, asap knalpot), lalu turun | Memo berdiri di lantai yang panjangnya ≥ ±400 px |
+
+### Catatan: atraksi berikutnya (belum dibuat)
+
+Ide yang cocok dengan mesin yang sama (bingkai murni + properti piksel +
+badan diserahkan ke fisika di akhir):
+
+| Atraksi | Gambaran | Syarat / catatan |
+|---|---|---|
+| **Skateboard** | meluncur di lantai, ollie melompati celah antar jendela | lantai panjang; mirip mobil, tapi bisa melompat ke lantai berikutnya |
+| **Balon** | memegang balon, melayang naik pelan dari lantai, balon meletus di atas lalu jatuh | jalur tegak ke atas bebas |
+| **Trampolin** | trampolin muncul, Memo memantul makin tinggi, salto di pantulan terakhir | ruang di atas lantai ±300 px |
+| **Pancing** | duduk di tepi atas jendela, melempar kail ke bawah, menarik ikan piksel (kadang sepatu) | lantai berupa tepi atas jendela dengan ruang di bawahnya |
+| **Roket** | roket kardus, hitung mundur 3-2-1, meluncur ke atas keluar layar, kembali dengan parasut | gabungan dengan terjun payung |
+| **Tali luncur (flying fox)** | tali dibentang antara dua jendela, Memo meluncur bergantung | dua lantai berbeda tinggi berjauhan |
+| **Lompat tali** | tali diputar sendiri, Memo melompat berirama | lantai mana saja; cocok untuk anak & remaja |
+| **Main bola** | bola memantul, Memo menyundul & menendang | lantai lebar |
+| **Payung hujan** | hujan piksel turun sebentar, Memo membuka payung | hanya tampilan; cocok saat bosan di sore hari |
+| **Sepeda roda satu** | menjaga keseimbangan, oleng, kadang jatuh lucu | lantai panjang |
+| **Tidur di hammock** | hammock dibentang antara dua tepi, Memo bergoyang tidur | pengganti kegiatan tidur sesekali |
+
+Atraksi baru ditambahkan ke `ATRAKSI` di `atraksi.js` dengan fungsi
+`bingkai` & `rencanakan` sendiri, plus uji di `test-atraksi.js`. Tetap
+tanpa tombol: Memo yang memilih.
 
 ## Berkas & privasi
 

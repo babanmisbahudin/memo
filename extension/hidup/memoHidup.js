@@ -1165,7 +1165,7 @@ export class MemoHidup {
         this._pergiKe({ jenis: 'titik', x: terbaik.x, y: terbaik.y, jendelaId: terbaik.jendelaId });
     }
 
-    // Mainkan satu atraksi sekarang (panel Atur & uji). false bila tidak
+    // Mainkan satu atraksi sekarang (uji; Memo biasanya memilih sendiri). false bila tidak
     // muat di layar saat ini (jendela aktif, kursor, tidak berdiri).
     // Memo yang masih di island / sedang melayang dikeluarkan dulu, lalu
     // dicoba sekali lagi sesudah mendarat.
