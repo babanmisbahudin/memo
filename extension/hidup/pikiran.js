@@ -7,8 +7,10 @@
 //   tujuan null       diam di tempat
 //   tujuan {jenis: 'titik', x, y, jendelaId}   titik pijak di lantai
 //   tujuan {jenis: 'tepi', x, y, jendelaId, tepi}  menempel/ngintip di tepi
+//   tujuan {jenis: 'atraksi', nama, ...}      ayunan, gelantungan, terjun, mobil (atraksi.js)
 // Kegiatan khusus 'sembunyi' (aplikasi layar penuh) tidak punya tujuan.
 
+import { rencanaAtraksi } from './atraksi.js';
 import { bolehDi } from './dunia.js';
 import { titikDi } from './fisika.js';
 import { kenali } from './kenalAplikasi.js';
@@ -17,9 +19,9 @@ import { kenali } from './kenalAplikasi.js';
 
 export const SIFAT_BAWAAN = { penasaran: 0.7, aktif: 0.5, iseng: 0.4, manja: 0.6 };
 export const KEBUTUHAN_BAWAAN = { energi: 0.8, bosan: 0.2, penasaran: 0.5, rindu: 0.3 };
-export const KEGIATAN = ['jelajah', 'ngintip', 'nonton', 'temani', 'joget', 'iseng', 'tidur', 'sambut', 'melamun'];
+export const KEGIATAN = ['jelajah', 'ngintip', 'nonton', 'temani', 'joget', 'iseng', 'tidur', 'sambut', 'melamun', 'main'];
 
-const BERGERAK = new Set(['jelajah', 'iseng', 'joget', 'ngintip']);
+const BERGERAK = new Set(['jelajah', 'iseng', 'joget', 'ngintip', 'main']);
 
 const batas = v => Math.min(1, Math.max(0, v));
 
@@ -101,14 +103,14 @@ export function dariJson(data, sekarangMs) {
 // Lama tiap kegiatan [min, maks] detik sebelum dipilih ulang.
 const LAMA = {
     jelajah: [20, 40], ngintip: [6, 12], nonton: [30, 90], temani: [30, 60], joget: [15, 30],
-    iseng: [5, 10], tidur: [60, 60], sambut: [3, 3], melamun: [10, 25],
+    iseng: [5, 10], tidur: [60, 60], sambut: [3, 3], melamun: [10, 25], main: [14, 20],
 };
 const EKSPRESI = {
     jelajah: 'netral', ngintip: 'mendengar', nonton: 'mendengar', temani: 'netral', joget: 'senang',
-    iseng: 'senang', tidur: 'tidur', sambut: 'senang', melamun: 'netral',
+    iseng: 'senang', tidur: 'tidur', sambut: 'senang', melamun: 'netral', main: 'senang',
 };
 const EMOTE = { sambut: 'lompat', joget: 'dansa', iseng: 'putar', ngintip: 'kaget' };
-const IKON = { ngintip: 'tanya', sambut: 'hati', joget: 'musik' };
+const IKON = { ngintip: 'tanya', sambut: 'hati', joget: 'musik', main: 'bintang' };
 
 const kunci = w => `${w.id}:${w.judul ?? ''}`;
 
@@ -126,6 +128,9 @@ function skor(c) {
             (c.kegiatan === 'tidur' && k.energi < 0.9 ? 0.8 : 0),
         sambut: c.kembali ? 4 : 0,
         melamun: 0.3,
+        // Atraksi (ayunan, gelantungan, terjun payung, mobil): saat bosan,
+        // makin iseng & aktif makin sering; hanya bila ada yang muat.
+        main: c.atraksi && k.energi > 0.4 ? (0.2 + 0.5 * k.bosan) * (0.5 + s.iseng) * (0.6 + s.aktif) : 0,
     };
 }
 
@@ -193,6 +198,9 @@ function pilihTujuan(kegiatan, c) {
         t = tepiBoleh(tepi.filter(e => baru.has(e.jendelaId)), c) ?? tepiBoleh(tepi, c) ?? tepiBoleh(tepiLayar, c);
         break;
     }
+    case 'main':
+        t = c.atraksi;
+        break;
     case 'nonton': {
         const ids = new Set(c.video.map(w => w.id));
         t = dariLantai(peta.lantai.filter(L => ids.has(L.jendelaId)), L => ({ x: (L.x1 + L.x2) / 2 }));
@@ -226,7 +234,8 @@ function pilihTujuan(kegiatan, c) {
 //   persepsi, peta, ukuran, posisi {x, y}, tepi (tepi tempat Memo menempel
 //   atau null), dtMs, acak (fungsi -> [0,1))
 //   pergi (bolehTidur island), kembali (baru saja pergi -> ada lagi)
-//   dielus, sampai (tiba di tujuan)
+//   dielus, sampai (tiba di tujuan), berdiri (di lantai; syarat atraksi mobil)
+//   main (false = jangan pilih atraksi sendiri; dipakai uji)
 // Mengembalikan { keadaan, niat } (niat null bila tidak ada yang berubah).
 export function pikir(keadaan, ctx) {
     const { persepsi, peta, posisi, ukuran, acak } = ctx;
@@ -282,6 +291,7 @@ export function pikir(keadaan, ctx) {
     const harusPilih = k.sisaMs <= 0 || menoleh || k.kegiatan === 'sembunyi' || c.kembali ||
         (c.pergi && k.kegiatan !== 'tidur') || (k.kegiatan === 'tidur' && !c.pergi && k.kebutuhan.energi >= 0.95);
     if (harusPilih) {
+        c.atraksi = c.diTepi || ctx.main === false ? null : rencanaAtraksi({ peta, ukuran, posisi, acak, berdiri: !!ctx.berdiri }, k.atraksiTerakhir);
         const nilai = skor(c);
         let pilihan = 'melamun', terbaik = -1;
         for (const n of KEGIATAN) {
@@ -301,6 +311,8 @@ export function pikir(keadaan, ctx) {
                 k.dilihat = [...k.dilihat, kunci(w)];
         }
         k = { ...k, kegiatan: pilihan, sisaMs: (a + acak() * (b - a)) * 1000 };
+        if (tujuan?.jenis === 'atraksi')
+            k.atraksiTerakhir = tujuan.nama;
         return {
             keadaan: k,
             niat: { kegiatan: pilihan, tujuan, ekspresi: EKSPRESI[pilihan], emote: EMOTE[pilihan] ?? null, ikon: IKON[pilihan] ?? null },

@@ -37,6 +37,7 @@ export class Gerak {
         this._mulai = 0;
         this._partikel = [];
         this.emoteAktif = null;
+        this._dikunci = false;
         // Pivot di bawah tengah: gepeng-melar bertumpu di "kaki".
         actor.set_pivot_point(0.5, pivotY);
         this._terapkan(DASAR);
@@ -51,6 +52,8 @@ export class Gerak {
     }
 
     _terapkan(p) {
+        if (this._dikunci)
+            return;
         const a = this._actor;
         const v = keAktor(p, { lebar: a.width || 44, tinggi: a.height || 26, skala: this._skala, amplitudo: this._amp });
         a.translation_x = v.translation_x;
@@ -115,7 +118,7 @@ export class Gerak {
 
     // Mainkan emote `kali` kali; `antre: true` menunggu emote yang sedang jalan.
     main(nama, { kali = 1, antre = false } = {}) {
-        if (!durasi(nama))
+        if (!durasi(nama) || this._dikunci)
             return false;
         const ulang = Array(Math.max(0, kali - 1)).fill(nama);
         if (antre && this._emote) {
@@ -168,6 +171,27 @@ export class Gerak {
             this._partikel.push({ aktor, x: px, y: py, i: -1 - n * 2, simpang: n % 2 ? 1 : -1 });
         }
         this._pastikanTimer();
+    }
+
+    // Atraksi Memo hidup memegang aktor sendiri (posisi, putaran, skala):
+    // selama dikunci tidak ada emote yang menimpanya. Partikel tetap jalan.
+    kunci() {
+        this._emote = null;
+        this.emoteAktif = null;
+        this._antre = [];
+        this._terapkan(this._poseDiam());
+        this._dikunci = true;
+    }
+
+    lepas() {
+        if (!this._dikunci)
+            return;
+        this._dikunci = false;
+        this._terapkan(this._poseDiam());
+    }
+
+    get dikunci() {
+        return this._dikunci;
     }
 
     tidurkan() {

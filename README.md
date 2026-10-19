@@ -17,7 +17,7 @@ LebihTeratur ke laptop.
 | Suara | `bin/memo` — edge-tts Gadis + efek "tiny robot" (imut, speaker mungil), cache, cadangan espeak | [suara-memo.md](docs/suara-memo.md) |
 | Kelola laptop | "buka youtube / terminal / folder memo" dari chat & suara | [kelola-laptop.md](docs/kelola-laptop.md) |
 | Sambutan | `sambutan/` — animasi piksel layar penuh saat login, Log Out, Restart, Power Off, Suspend | [sambutan.md](docs/sambutan.md) |
-| Memo hidup | `extension/hidup/` — Memo keluar dari island, hidup di desktop ala NPC (lompat, ngintip, sifat) | [memo-hidup.md](docs/memo-hidup.md) |
+| Memo hidup | `extension/hidup/` — Memo keluar dari island, hidup di desktop ala NPC (lompat, ngintip, sifat; atraksi: ayunan, gelantungan, terjun payung, naik mobil) | [memo-hidup.md](docs/memo-hidup.md) |
 | Island & panel CRT | `extension/crt.js`, `widgetCrt.js` — island & panel gaya layar mini CRT: beranda, riwayat, chat, atur, pintasan | [island-crt.md](docs/island-crt.md) |
 | Layar login & kunci | `login/` — pemandangan piksel menurut jam (pagi/siang/sore/malam) + kartu sandi CRT; tema GDM + extension `memo-kunci@local` | [layar-login.md](docs/layar-login.md) |
 

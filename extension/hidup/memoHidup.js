@@ -20,7 +20,8 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { RobotFace } from '../robotFace.js';
 import { Gerak } from '../gerak.js';
 import { FPS_PIKSEL } from '../gerakPola.js';
-import { bolehDi, petaDari } from './dunia.js';
+import { P, bingkai, rencanakan } from './atraksi.js';
+import { LINGKAR_KURSOR, bolehDi, petaDari } from './dunia.js';
 import { angkat, badanBaru, langkah, langkahJalan, lempar, mulaiLompat, ngintip, rute, titikDi } from './fisika.js';
 import { dariJson, keJson, pikir } from './pikiran.js';
 
@@ -72,6 +73,10 @@ export class MemoHidup {
         this._sinyalPijakan = null;
         this._rectPijakan = null;
         this._dihancurkan = false;
+        this._sisa = null;          // properti atraksi yang masih beranimasi sesudah badan dilepas
+        this._tertunda = undefined; // tujuan yang datang selagi atraksi berjalan
+        this._pikselProp = [];
+        this._bolehMain = true;     // uji mematikannya supaya kegiatan bisa diramal
 
         this._face = new RobotFace();
         // Sentuhan ditangani badan; RobotFace sendiri menelan klik.
@@ -96,6 +101,11 @@ export class MemoHidup {
         // Gerak menggerakkan seluruh badan, bertumpu di kaki (pivot bawah).
         this._gerak = new Gerak(this.actor, { skalaDasar: 1, amplitudo: 1, pivotY: 1, arahPartikel: -1, blokPartikel: 3 });
         Main.uiGroup.add_child(this.actor);
+        // Properti atraksi (tali ayunan, lengan, parasut, mobil): satu kanvas
+        // tepat di atas badan, digambar ulang tiap langkah.
+        this._properti = new St.DrawingArea({ reactive: false, visible: false });
+        this._properti.connect('repaint', () => this._gambarProperti());
+        Main.uiGroup.add_child(this._properti);
 
         this.actor.connect('button-press-event', (_a, ev) => this._aman(() => this._tekan(ev)) ?? Clutter.EVENT_STOP);
         this.actor.connect('motion-event', (_a, ev) => this._aman(() => this._seretKe(ev)) ?? Clutter.EVENT_STOP);
@@ -189,6 +199,7 @@ export class MemoHidup {
     _perbaruiSembunyi() {
         this._sembunyi = Main.overview.visible || Main.sessionMode.isLocked || !!this._peta?.sembunyi;
         this.actor.visible = this._diLuar && !this._sembunyi;
+        this._properti.visible = this.actor.visible && this._pikselProp.length > 0;
     }
 
     _aktorJendela(id) {
@@ -217,6 +228,11 @@ export class MemoHidup {
             induk.set_child_below_sibling(this.actor, acuan);
         else
             induk.set_child_above_sibling(this.actor, acuan);
+        if (this._properti.get_parent() !== induk) {
+            this._properti.get_parent()?.remove_child(this._properti);
+            induk.add_child(this._properti);
+        }
+        induk.set_child_above_sibling(this._properti, this.actor);
     }
 
     // Jendela pijakan digeser pengguna -> catat geserannya untuk fisika.
@@ -284,6 +300,13 @@ export class MemoHidup {
         if (!this._peta)
             this._bangunPeta();
         const a = this._antrean[0];
+        if (a?.jenis === 'atraksi')
+            return this._langkahAtraksi(a);
+        // Atraksi diputus (diseret, pulang, sembunyi): rapikan badan & properti.
+        if (this._badan.keadaan === 'atraksi' || (this._pikselProp.length && !this._sisa))
+            this._akhiriAtraksi();
+        if (this._sisa)
+            this._langkahSisa();
         if (a?.jenis === 'selinap' || a?.jenis === 'pulang')
             return this._langkahKhusus(a);
         const gerakJendela = this._gerakJendela;
@@ -308,10 +331,115 @@ export class MemoHidup {
             this._ikatPijakan();
         }
         this._gambar();
+        // Tujuan yang ditahan selama atraksi dijalankan begitu Memo mendarat.
+        if (this._tertunda !== undefined && this._badan.keadaan === 'berdiri' && !this._antrean.length) {
+            const t = this._tertunda;
+            this._tertunda = undefined;
+            this._pergiKe(t);
+        }
         const diam = (this._badan.keadaan === 'berdiri' || this._badan.keadaan === 'ngintip') && !this._antrean.length;
         if (diam && a)
             this._sampai = true;
-        return !diam;
+        return !diam || !!this._sisa;
+    }
+
+    // --- Atraksi (atraksi.js) ---------------------------------------------
+
+    _langkahAtraksi(a) {
+        // Kursor mendekat: Memo kaget dan melepas atraksinya (jatuh ke lantai).
+        if (a.f > 0 && this._badan.keadaan === 'atraksi') {
+            const [kx, ky] = global.get_pointer();
+            const { x, y } = this._badan;
+            const dx = Math.max(x - UKURAN.lebar / 2 - kx, 0, kx - (x + UKURAN.lebar / 2));
+            const dy = Math.max(y - UKURAN.tinggi - ky, 0, ky - y);
+            if (Math.hypot(dx, dy) < LINGKAR_KURSOR) {
+                this._antrean.shift();
+                this._akhiriAtraksi();
+                this._gerak.main('kaget');
+                return true;
+            }
+        }
+        const b = bingkai(a.rencana, a.f++);
+        if (a.f === 1) {
+            this._gerak.kunci();
+            this._face.setExpression('senang');
+        }
+        if (b.badan) {
+            this._badan = { ...this._badan, x: b.badan.x, y: b.badan.y, keadaan: 'atraksi', pijakan: undefined, tepi: null };
+            this.actor.rotation_angle_z = b.badan.rz;
+            this.actor.scale_y = b.badan.sy;
+            this._gambar();
+        }
+        if (b.mata)
+            this._face.setGaze(b.mata[0], b.mata[1]);
+        this._pasangProperti(b.piksel);
+        if (b.lepas || b.selesai || a.f > 2000) {
+            this._antrean.shift();
+            this._sisa = b.selesai ? null : a;
+            this._lepasBadan(b.lepas ?? { vx: 0, vy: 0 });
+            if (b.selesai)
+                this._pasangProperti([]);
+        }
+        return true;
+    }
+
+    // Properti yang masih beranimasi sesudah badan dilepas (tali naik,
+    // parasut kempis, mobil jadi asap) — berjalan bersama fisika.
+    _langkahSisa() {
+        const b = bingkai(this._sisa.rencana, this._sisa.f++);
+        this._pasangProperti(b.selesai ? [] : b.piksel);
+        if (b.selesai || this._sisa.f > 2000)
+            this._sisa = null;
+    }
+
+    _lepasBadan({ vx, vy }) {
+        this.actor.rotation_angle_z = 0;
+        this.actor.scale_y = 1;
+        this._gerak.lepas();
+        this._badan = lempar({ ...this._badan, keadaan: 'jatuh' }, vx, vy);
+        this._tempatkan();
+    }
+
+    // Atraksi berhenti di tengah jalan (bukan oleh atraksi.js sendiri).
+    _akhiriAtraksi() {
+        this._sisa = null;
+        this._pasangProperti([]);
+        if (this._badan.keadaan === 'atraksi')
+            this._lepasBadan({ vx: 0, vy: 0 });
+        else {
+            this.actor.rotation_angle_z = 0;
+            this._gerak.lepas();
+        }
+    }
+
+    _pasangProperti(piksel) {
+        this._pikselProp = piksel;
+        if (!piksel.length) {
+            this._properti.visible = false;
+            return;
+        }
+        const xs = piksel.map(p => p[0]), ys = piksel.map(p => p[1]);
+        const gx = Math.min(...xs), gy = Math.min(...ys);
+        this._asalProp = [gx, gy];
+        this._properti.set_position(gx * P, gy * P);
+        this._properti.set_size((Math.max(...xs) - gx + 1) * P, (Math.max(...ys) - gy + 1) * P);
+        this._properti.visible = this.actor.visible;
+        this._tempatkan();
+        this._properti.queue_repaint();
+    }
+
+    _gambarProperti() {
+        const cr = this._properti.get_context();
+        try {
+            const [gx, gy] = this._asalProp ?? [0, 0];
+            for (const [x, y, [r, g, b]] of this._pikselProp) {
+                cr.setSourceRGB(r / 255, g / 255, b / 255);
+                cr.rectangle((x - gx) * P, (y - gy) * P, P, P);
+                cr.fill();
+            }
+        } finally {
+            cr.$dispose();
+        }
     }
 
     _jalankanAntrean(a) {
@@ -370,9 +498,23 @@ export class MemoHidup {
         // Penerbangan pulang tidak boleh dibatalkan niat baru dari pikiran.
         if (tujuan === undefined || this._antrean[0]?.jenis === 'pulang')
             return;
+        // Atraksi tidak diputus pikiran: tujuan barunya menunggu sampai
+        // Memo mendarat.
+        if (this._antrean[0]?.jenis === 'atraksi' || this._badan.keadaan === 'atraksi') {
+            this._tertunda = tujuan;
+            return;
+        }
         this._antrean = [];
         if (tujuan === null)
             return;
+        if (tujuan.jenis === 'atraksi') {
+            const b = this._badan;
+            if (b.keadaan === 'diangkat' || (tujuan.nama === 'mobil' && (b.keadaan !== 'berdiri' || b.x !== tujuan.dari || b.y !== tujuan.y)))
+                return;
+            this._antrean = [{ jenis: 'atraksi', rencana: { ...tujuan, asal: { x: b.x, y: b.y } }, f: 0 }];
+            this._pastikanLangkah();
+            return;
+        }
         if (tujuan.jenis === 'tepi') {
             this._antrean = [{ jenis: 'selinap', ke: tujuan, tepi: tujuan.tepi, fase: 0 }];
         } else {
@@ -420,7 +562,7 @@ export class MemoHidup {
         const b = this._badan;
         const r = pikir(this._pikiran, {
             persepsi, peta: this._peta, ukuran: UKURAN, posisi: { x: b.x, y: b.y },
-            tepi: b.keadaan === 'ngintip' ? b.tepi : null, dtMs, acak: Math.random,
+            tepi: b.keadaan === 'ngintip' ? b.tepi : null, dtMs, acak: Math.random, berdiri: b.keadaan === 'berdiri', main: this._bolehMain,
             pergi, kembali: this._pergiLalu && !pergi, dielus: this._dielus, sampai: this._sampai,
         });
         this._pergiLalu = pergi;
@@ -434,6 +576,10 @@ export class MemoHidup {
     _jalankanNiat(n) {
         if (n.kegiatan === 'sembunyi') {
             this._antrean = [];
+            return;
+        }
+        if (this._antrean[0]?.jenis === 'atraksi') {
+            this._pergiKe(n.tujuan);
             return;
         }
         if (n.ekspresi)
@@ -450,7 +596,7 @@ export class MemoHidup {
     }
 
     _tatap() {
-        if (!this.actor.visible)
+        if (!this.actor.visible || this._antrean[0]?.jenis === 'atraksi')
             return;
         const [px, py] = global.get_pointer();
         const b = this._badan;
@@ -488,6 +634,9 @@ export class MemoHidup {
             this._masukIsland();
             return;
         }
+        if (this._antrean[0]?.jenis === 'atraksi' || this._badan.keadaan === 'atraksi')
+            this._akhiriAtraksi();
+        this._tertunda = undefined;
         const [px, py] = this._island.posisiIsland();
         this._antrean = [{ jenis: 'pulang', dari: { x: this._badan.x, y: this._badan.y }, ke: { x: px, y: py }, fase: 0 }];
         this._badan = { ...this._badan, keadaan: 'diangkat', pijakan: undefined, tepi: null };
@@ -497,6 +646,10 @@ export class MemoHidup {
     }
 
     _masukIsland() {
+        if (this._badan.keadaan === 'atraksi' || this._pikselProp.length)
+            this._akhiriAtraksi();
+        this._antrean = this._antrean.filter(a => a.jenis !== 'atraksi');
+        this._tertunda = undefined;
         this._diLuar = false;
         this.actor.hide();
         if (this._gerak.tidur)
@@ -529,6 +682,8 @@ export class MemoHidup {
             if (this._antrean[0]?.jenis === 'pulang')
                 this._pulangTertunda = true;
             this._antrean = [];
+            this._tertunda = undefined;
+            this._akhiriAtraksi();
             this.actor.scale_y = 1;
             this._gerak.main('kaget');
         }
@@ -649,6 +804,38 @@ export class MemoHidup {
         this._pergiKe({ jenis: 'titik', x: terbaik.x, y: terbaik.y, jendelaId: terbaik.jendelaId });
     }
 
+    // Mainkan satu atraksi sekarang (panel Atur & uji). false bila tidak
+    // muat di layar saat ini (jendela aktif, kursor, tidak berdiri).
+    // Memo yang masih di island / sedang melayang dikeluarkan dulu, lalu
+    // dicoba sekali lagi sesudah mendarat.
+    mainAtraksi(nama, coba = true) {
+        if (!this._aktif)
+            this.setAktif(true);
+        if (!this._diLuar)
+            this._keluar();
+        if (coba && (this._badan.keadaan !== 'berdiri' || this._antrean.length)) {
+            if (this._atraksiId)
+                GLib.source_remove(this._atraksiId);
+            this._atraksiId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1500, () => {
+                this._atraksiId = 0;
+                this._aman(() => this.mainAtraksi(nama, false));
+                return GLib.SOURCE_REMOVE;
+            });
+            return true;
+        }
+        if (!this._peta)
+            this._bangunPeta();
+        const b = this._badan;
+        const r = rencanakan(nama, { peta: this._peta, ukuran: UKURAN, posisi: { x: b.x, y: b.y }, acak: Math.random,
+            berdiri: b.keadaan === 'berdiri' });
+        if (!r || this._antrean[0]?.jenis === 'atraksi' || this._antrean[0]?.jenis === 'pulang')
+            return false;
+        this._antrean = [];
+        this._pikiran = { ...this._pikiran, kegiatan: 'main', sisaMs: 20000 };
+        this._pergiKe(r);
+        return this._antrean[0]?.jenis === 'atraksi';
+    }
+
     // Emote dari island (agen selesai, pembayaran, dll.) ikut dimainkan.
     gerak(nama, opsi = {}) {
         if (!this.actor.visible)
@@ -673,11 +860,11 @@ export class MemoHidup {
     }
 
     _hentikanTimer() {
-        for (const id of [this._detikId, this._tatapId, this._klikId, this._simpanId]) {
+        for (const id of [this._detikId, this._tatapId, this._klikId, this._simpanId, this._atraksiId]) {
             if (id)
                 GLib.source_remove(id);
         }
-        this._detikId = this._tatapId = this._klikId = this._simpanId = 0;
+        this._detikId = this._tatapId = this._klikId = this._simpanId = this._atraksiId = 0;
         this._berhentiLangkah();
     }
 
@@ -692,6 +879,7 @@ export class MemoHidup {
         this._sinyalPijakan = null;
         this._grab?.dismiss();
         this._gerak.destroy();
+        this._properti.destroy();
         this._dihancurkan = true;
         this._face.destroy();
         this.actor.destroy();

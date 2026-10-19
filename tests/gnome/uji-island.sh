@@ -53,7 +53,7 @@ env -u DISPLAY -u WAYLAND_DISPLAY XDG_CONFIG_HOME="$T/config" XDG_DATA_HOME="$T/
     MEMO_SHM="$T/shm" MEMO_UJI_DIR="$T" MEMO_SAMBUTAN_UJI=1 dbus-run-session -- "$T/mulai.sh" > "$T/shell.log" 2>&1 &
 SHELL_PID=$!
 
-MEMO_UJI_DIR="$T" MEMO_UJI_RUN="$RUN" timeout 180 python3 "$DI/skenario.py"
+MEMO_UJI_DIR="$T" MEMO_UJI_RUN="$RUN" timeout 360 python3 "$DI/skenario.py"
 HASIL=$?
 
 for pid in $(pgrep -x gnome-shell); do

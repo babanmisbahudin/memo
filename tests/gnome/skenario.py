@@ -270,6 +270,8 @@ def tunggu_hidup(syarat, batas=8):
         except Exception: pass
         time.sleep(0.25)
     return k
+# Atraksi otomatis dimatikan supaya kegiatan Memo bisa diramal; diuji sendiri di bawah.
+ev(H + "h._bolehMain = false; return true;")
 ev("const p = memoUji.island()._panel; p.pilihTab('atur'); p._tombolHidup.emit('clicked', 1); "
    "p._sliderSifat[0].value = 0.9; memoUji.island().menu.close(); memoUji.island()._kabarTerakhir = 0; return true;")
 cek("tombol Pengaturan menyalakan jalan-jalan", ev(H + "return h.aktif;") is True)
@@ -296,6 +298,38 @@ ev("memoUji.island().menu.open(); return true;"); time.sleep(0.5)
 ev(RW % "semua"); time.sleep(0.3)
 potret("12b-riwayat", (300, 0, 1000, 480))
 ev("const i = memoUji.island(); i._panel.pilihTab('beranda'); i.menu.close(); return true;")
+# Atraksi: tiap jenis dimainkan lewat mainAtraksi(), properti tampak, badan
+# diputar per 10 derajat, lalu selesai dengan Memo kembali berdiri.
+ev("memoUji.geserKursor(1590, 470); return true;")
+for p in subprocess.run(["pgrep", "-f", os.path.join(R, "tests", "gnome", "jendela-uji.js")], capture_output=True, text=True).stdout.split():
+    subprocess.run(["kill", p])
+time.sleep(1.5)
+tunggu_hidup(lambda k: k["keadaan"] == "berdiri", 8)
+for nama in ["ayunan", "gelantungan", "terjun", "mobil"]:
+    tunggu_hidup(lambda k: k["keadaan"] == "berdiri", 8)
+    mulai = ev(H + f"return h.mainAtraksi('{nama}', false);")
+    s_ = []
+    for _ in range(14):
+        time.sleep(0.25)
+        s_.append(ev(H + "return [h._badan.keadaan, h._pikselProp.length, h._properti.visible, h.actor.rotation_angle_z, h._gerak.dikunci];"))
+    cek(f"atraksi {nama}: mulai, properti tampak, emote dikunci", mulai is True and any(x[0] == "atraksi" and x[1] > 20 and x[2] and x[4] for x in s_), (mulai, s_[-3:]))
+    cek(f"atraksi {nama}: putaran badan per 10 derajat", all(x[3] % 10 == 0 for x in s_), s_)
+    potret(f"32-atraksi-{nama}", (0, 0, 1600, 900))
+    AKHIR = H + "return [h._badan.keadaan, h._pikselProp.length, h._antrean.length, h._properti.visible, h.actor.rotation_angle_z, h._gerak.dikunci, !!h._sisa];"
+    akhir, a_ = time.time() + 25, None
+    while time.time() < akhir:
+        a_ = ev(AKHIR)
+        if a_ == ["berdiri", 0, 0, False, 0, False, False]:
+            break
+        time.sleep(0.25)
+    cek(f"atraksi {nama}: selesai, Memo berdiri lagi tanpa sisa properti", a_ == ["berdiri", 0, 0, False, 0, False, False], a_)
+ev(H + "h.mainAtraksi('ayunan', false); return true;")
+time.sleep(2)
+ev(H + "memoUji.geserKursor(h._badan.x, h._badan.y - 30); return true;")
+k = tunggu_hidup(lambda k: k["keadaan"] in ("berdiri", "dilempar", "jatuh"), 4)
+cek("atraksi: kursor mendekat -> Memo melepas atraksinya", k.get("keadaan") != "atraksi" and ev(H + "return h._antrean[0]?.jenis ?? null;") != "atraksi", k)
+ev("memoUji.geserKursor(1590, 470); return true;")
+
 ev(H + "h.setAktif(false); return true;")
 potret("7-joget", (300, 0, 1300, 900))
 time.sleep(2)
