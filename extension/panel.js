@@ -447,18 +447,25 @@ export class PanelMemo {
             this._island.hidup?.beriMakan(MAKANAN_URUT[makanKe++ % MAKANAN_URUT.length]);
             this.segarkanMemo();
         }));
-        rawat.add_child(tombol('mandi', 'memo-btn-gelap', () => {
-            this._island.hidup?.mandikan();
-            this.segarkanMemo();
-        }));
-        rawat.add_child(tombol('obat', 'memo-btn-gelap', () => {
+        // Animasi tidur, mandi, cebok dimainkan di desktop: panel ditutup dulu.
+        const diDesktop = aksi => () => {
+            this._island.menu.close();
+            aksi(this._island.hidup);
+        };
+        rawat.add_child(tombol('tidur', 'memo-btn-gelap', diDesktop(h => h?.suruhTidur())));
+        rawat.add_child(tombol('mandi', 'memo-btn-gelap', diDesktop(h => h?.mandikan())));
+        kotak.add_child(rawat);
+        const rawat2 = new St.BoxLayout({ style_class: 'memo-baris-tombol' });
+        rawat2.add_child(tombol('cebok', 'memo-btn-gelap', diDesktop(h => h?.cebok())));
+        rawat2.add_child(tombol('obat', 'memo-btn-gelap', () => {
             this._island.hidup?.obati();
             this.segarkanMemo();
         }));
-        kotak.add_child(rawat);
+        kotak.add_child(rawat2);
         // Wizard Memo baru (pemasangan baru / sesudah Memo meninggal).
         const wizard = new St.BoxLayout({ vertical: true, style_class: 'memo-wizard', visible: false });
-        wizard.add_child(label('Memo baru! beri nama & pilih rupanya', 'memo-langkah'));
+        const judulWizard = label('Memo baru! beri nama & pilih rupanya', 'memo-langkah');
+        wizard.add_child(judulWizard);
         const identitas = this._bangunIdentitas('tetaskan', ident => {
             this._island.hidup?.lahirkan(ident);
             this._island.menu.close();
@@ -466,7 +473,7 @@ export class PanelMemo {
         wizard.add_child(identitas.aktor);
         kotak.add_child(wizard);
         const normal = kotak.get_children().filter(c => c !== wizard);
-        return { kotak, wadahWajah, status, batang, jalan, rawat, wizard, identitas, normal };
+        return { kotak, wadahWajah, status, batang, jalan, rawat, wizard, judulWizard, identitas, normal };
     }
 
     // Nama, jenis kelamin, warna badan, bentuk mata: wizard lahir & Atur.
@@ -534,7 +541,7 @@ export class PanelMemo {
             tandai(tWarna, pilih.warna);
             tandai(tMata, pilih.mata);
         };
-        return { aktor: kotak, isi, entri };
+        return { aktor: kotak, isi, entri, tombolAksi: kotak.get_children().at(-1) };
     }
 
     // Dipanggil saat tab Beranda dibuka dan tiap detik selama panel terbuka.
@@ -547,8 +554,13 @@ export class PanelMemo {
         for (const c of m.normal)
             c.visible = !baru;
         m.wizard.visible = baru;
-        if (baru)
+        if (baru) {
             m.identitas.isi(hy);
+            // Memo lama tidak menetas lagi, cukup berkenalan.
+            const telur = hy.tahap === 'telur';
+            m.judulWizard.text = telur ? 'Memo baru! beri nama & pilih rupanya' : 'Kenalan dulu: nama, jenis kelamin, rupa Memo';
+            m.identitas.tombolAksi.get_child().get_children().at(-1).text = telur ? 'tetaskan' : 'simpan';
+        }
         m.status.text = !h ? 'memo: -' : hy?.tahap === 'telur' ? `${nama}: telur, klik untuk menetas`
             : hy?.sakit ? `${nama}: sakit!` : !h.aktif ? `${nama}: jalan-jalan mati`
             : `${nama} · ${hy?.tahap ?? ''} · ${!h.diLuar ? 'di island' : KATA_KEGIATAN[h.kegiatan] ?? h.kegiatan}`;
@@ -1097,11 +1109,17 @@ export class PanelMemo {
         this._namaBaju = label('', 'memo-langkah');
         barisBaju.add_child(this._namaBaju);
         bagian('Wardrobe', barisBaju);
-        this._identitasAtur = this._bangunIdentitas('simpan', ident => {
-            this._island.hidup?.ubahIdentitas(ident);
+        // Jenis kelamin & rupa dipilih sekali saat Memo lahir (wizard);
+        // di sini hanya nama.
+        const barisNama = new St.BoxLayout({ style_class: 'memo-segmen' });
+        this._entriNama = new St.Entry({ style_class: 'memo-chat-entri memo-entri-nama', can_focus: true, hint_text: 'Memo' });
+        this._entriNama.clutter_text.max_length = 16;
+        barisNama.add_child(this._entriNama);
+        barisNama.add_child(tombol('simpan', 'memo-btn-gelap', () => {
+            this._island.hidup?.ubahIdentitas({ nama: this._entriNama.get_text() || 'Memo' });
             this.segarkanMemo();
-        });
-        bagian('Memo kamu', this._identitasAtur.aktor);
+        }));
+        bagian('Nama Memo', barisNama);
         // Memo hidup di desktop: sakelar, panggil, pulang, dan sifat.
         const barisHidup = new St.BoxLayout({ style_class: 'memo-segmen' });
         this._tombolHidup = tombol('Jalan-jalan: mati', 'memo-btn-gelap', () => {
@@ -1163,7 +1181,8 @@ export class PanelMemo {
         }
         this._namaBaju.text = OUTFITS.find(o => o[0] === baju)?.[1] ?? '';
         const h = this._island.hidup;
-        this._identitasAtur.isi(h?.hayat);
+        if (h && !this._entriNama.clutter_text.has_key_focus())
+            this._entriNama.set_text(h.hayat.nama);
         this._tombolHidup.get_child().get_children().at(-1).text = h?.aktif ? 'Jalan-jalan: nyala' : 'Jalan-jalan: mati';
         const sifat = h?.sifat ?? {};
         for (const s of this._sliderSifat) {

@@ -34,6 +34,10 @@ const W = {
     mobil: [229, 72, 77], mobilTerang: [255, 138, 142], mobilGelap: [160, 40, 45], garis: [250, 250, 250],
     kaca: [154, 215, 255], bingkai: [70, 76, 88], ban: [26, 28, 34], velg: [170, 178, 190],
     lampu: [255, 230, 128], lampuBelakang: [255, 120, 60], asap: [200, 204, 212],
+    air: [120, 200, 255], airTerang: [190, 235, 255], busa: [245, 248, 255], pancuran: [170, 178, 190],
+    tisu: [250, 250, 245], tisuBayang: [210, 212, 205], kilau: [255, 220, 90],
+    kasur: [90, 120, 200], kasurTerang: [130, 160, 230], bantal: [245, 240, 230], selimut: [255, 150, 120],
+    selimutPola: [255, 205, 150], zz: [200, 220, 255],
 };
 
 export const snap10 = d => Math.round(d / 10) * 10 || 0;
@@ -391,9 +395,132 @@ function mobil(r, f) {
     };
 }
 
+// --- Perawatan dari menu (bukan atraksi pilihan sendiri) -----------------
+// Memo berdiri di tempat; properti di sekitar badan, poros = kaki Memo.
+
+const BUSA = [[-15, -20], [-6, -23], [5, -22], [14, -19], [-18, -10], [17, -9], [-9, -16], [10, -14]];
+
+function mandi(r, f) {
+    const SIRAM = 28, KIBAS = 6;
+    if (f > SIRAM + KIBAS)
+        return { badan: null, lepas: null, piksel: [], mata: null, selesai: true };
+    if (f === SIRAM + KIBAS)
+        return { badan: null, lepas: { vx: 0, vy: 0 }, piksel: [], mata: null, selesai: false };
+    const g = new Map();
+    if (f < SIRAM) {
+        // Pancuran di atas kepala + tetesan yang turun.
+        kotak(g, -1, -46, 0, -39, W.pancuran);
+        kotak(g, -6, -38, 5, -37, W.pancuran);
+        for (let i = 0; i < 11; i++) {
+            const x = -10 + i * 2;
+            const y = -35 + ((f * 3 + i * 7) % 34);
+            titik(g, x, y, i % 2 ? W.air : W.airTerang);
+            titik(g, x, y + 1, W.air);
+        }
+        // Busa makin banyak di badan.
+        for (const [x, y] of BUSA.slice(0, Math.min(BUSA.length, Math.floor(f / 3))))
+            kotak(g, x, y, x + 2, y + 1, W.busa);
+    } else {
+        // Mengibaskan badan: cipratan air ke kiri & kanan.
+        const k = f - SIRAM;
+        for (const s of [-1, 1]) {
+            for (let i = 0; i < 3; i++)
+                titik(g, s * (22 + k * 2 + i * 2), -14 - i * 3 + k, W.air);
+        }
+    }
+    const rz = f >= SIRAM ? (f % 2 ? 10 : -10) : 0;
+    return { badan: { x: r.asal.x, y: r.asal.y, rz, sy: 1 }, lepas: null,
+        piksel: keDaftar(Math.round(r.asal.x / P), Math.round(r.asal.y / P), g), mata: f < SIRAM ? [0, -0.6] : null,
+        ekspresi: f === 0 ? 'senang' : null, selesai: false };
+}
+
+function cebok(r, f) {
+    const LAMA = 28;
+    if (f > LAMA)
+        return { badan: null, lepas: null, piksel: [], mata: null, selesai: true };
+    if (f === LAMA)
+        return { badan: null, lepas: { vx: 0, vy: -3 }, piksel: [], mata: null, selesai: false };
+    const g = new Map();
+    // Gulungan tisu di samping.
+    kotak(g, 24, -7, 29, -1, W.tisu);
+    kotak(g, 26, -5, 27, -3, W.tisuBayang);
+    if (f >= 5 && f < 21) {
+        // Selembar tisu mengusap bolak-balik di bawah badan.
+        const x = Math.round(12 * Math.sin((f - 5) * Math.PI / 4));
+        kotak(g, x - 3, -2, x + 3, 0, W.tisu);
+        kotak(g, x + 4, -1, 23, -1, W.tisuBayang);
+    } else if (f >= 21) {
+        // Kilau bersih.
+        for (const [x, y] of [[-16, -6], [14, -10], [0, -4]]) {
+            const k = (f + x) % 2;
+            titik(g, x, y, W.kilau);
+            if (k) {
+                for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]])
+                    titik(g, x + dx, y + dy, W.kilau);
+            }
+        }
+    }
+    const angkat = f >= 4 && f < 21 ? 2 * P : 0;
+    return { badan: { x: r.asal.x, y: r.asal.y - angkat, rz: 0, sy: 1 }, lepas: null,
+        piksel: keDaftar(Math.round(r.asal.x / P), Math.round(r.asal.y / P), g), mata: f < 21 ? [0, 0.8] : null,
+        ekspresi: f === 0 ? 'bingung' : f === 21 ? 'senang' : null, selesai: false };
+}
+
+// Disuruh tidur: kasur & bantal muncul, Memo naik, berselimut, bernapas,
+// Z melayang; `r.lamaTidur` bingkai lalu bangun.
+function tidur(r, f) {
+    const SIAP = 6, n = r.lamaTidur ?? 720, BANGUN = 6;
+    const f1 = SIAP + n, f2 = f1 + BANGUN;
+    if (f > f2)
+        return { badan: null, lepas: null, piksel: [], mata: null, selesai: true };
+    if (f === f2)
+        return { badan: null, lepas: { vx: 0, vy: -4 }, piksel: [], mata: null, selesai: false };
+    const g = new Map();
+    const KASUR = 3;
+    kotak(g, -27, -KASUR, 26, -1, W.kasur);
+    kotak(g, -27, -KASUR, 26, -KASUR, W.kasurTerang);
+    kotak(g, -26, -KASUR - 5, -17, -KASUR - 1, W.bantal);
+    let y = r.asal.y - KASUR * P;
+    let ekspresi = null;
+    if (f < SIAP) {
+        y = r.asal.y - [0, 6, 10, 10, 8, KASUR * 3][f] * P / 3 - (f >= 5 ? 0 : 0);
+        if (f === 0)
+            ekspresi = 'mendengar';
+    } else if (f < f1) {
+        const k = f - SIAP;
+        if (k === 0)
+            ekspresi = 'tidur';
+        // Selimut menutup separuh bawah badan, tepinya naik-turun (napas).
+        const napas = Math.floor(k / 24) % 2;
+        kotak(g, -22, -KASUR - 12 - napas, 21, -KASUR - 1, W.selimut);
+        for (let x = -22; x <= 21; x += 4)
+            kotak(g, x, -KASUR - 8 - napas, x + 1, -KASUR - 7 - napas, W.selimutPola);
+        // Z melayang naik dari sisi kanan kepala.
+        for (let i = 0; i < 2; i++) {
+            const t = (k + i * 18) % 36;
+            const zx = 16 + Math.floor(t / 6), zy = -KASUR - 26 - Math.floor(t / 2);
+            for (const [dx, dy] of [[0, 0], [1, 0], [2, 0], [1, 1], [0, 2], [1, 2], [2, 2]])
+                titik(g, zx + dx, zy + dy, W.zz);
+        }
+    } else if (f === f1) {
+        ekspresi = 'senang';
+    }
+    return { badan: { x: r.asal.x, y: Math.round(y), rz: 0, sy: f >= SIAP && f < f1 && Math.floor((f - SIAP) / 24) % 2 ? 0.96 : 1 },
+        lepas: null, piksel: keDaftar(Math.round(r.asal.x / P), Math.round(r.asal.y / P), g), mata: null, ekspresi, selesai: false };
+}
+
+export const PERAWATAN = ['mandi', 'cebok', 'tidur'];
+
+// Rencana perawatan di tempat Memo berdiri sekarang.
+export function rencanaPerawatan(nama, posisi, opsi = {}) {
+    if (!PERAWATAN.includes(nama))
+        return null;
+    return { jenis: 'atraksi', nama, asal: { x: posisi.x, y: posisi.y }, x: posisi.x, y: posisi.y, jendelaId: null, ...opsi };
+}
+
 // --- Rencana & bingkai ----------------------------------------------------
 
-const PENGGAMBAR = { ayunan, gelantungan, terjun, mobil };
+const PENGGAMBAR = { ayunan, gelantungan, terjun, mobil, mandi, cebok, tidur };
 
 export function bingkai(r, f) {
     return PENGGAMBAR[r.nama](r, f);
@@ -408,6 +535,12 @@ export function lamaAtraksi(r) {
         return 6 + GANTUNG + 1;
     case 'terjun':
         return 7 + terjunTurun(r) + 6;
+    case 'mandi':
+        return 35;
+    case 'cebok':
+        return 29;
+    case 'tidur':
+        return 6 + (r.lamaTidur ?? 720) + 7;
     default:
         return 6 + mobilJalan(r) + 6;
     }

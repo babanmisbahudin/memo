@@ -20,12 +20,12 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { RobotFace } from '../robotFace.js';
 import { Gerak } from '../gerak.js';
 import { FPS_PIKSEL } from '../gerakPola.js';
-import { P, bingkai, rencanakan } from './atraksi.js';
+import { P, bingkai, rencanaPerawatan, rencanakan } from './atraksi.js';
 import { LINGKAR_KURSOR, bolehDi, petaDari } from './dunia.js';
 import { angkat, badanBaru, langkah, langkahJalan, lempar, mulaiLompat, ngintip, rute, titikDi } from './fisika.js';
 import { dariJson, keJson, pikir } from './pikiran.js';
 import {
-    WARNA_BADAN, beriMakan, bersihkan, dariJson as hayatDariJson, hayatBaru, keJson as hayatKeJson, majukanHayat,
+    WARNA_BADAN, beriMakan, bersihkan, cebok, dariJson as hayatDariJson, hayatBaru, keJson as hayatKeJson, majukanHayat,
     mandikan, obati, tahapPada, telurBaru, tetaskan, ubahIdentitas,
 } from './hayat.js';
 
@@ -85,7 +85,9 @@ export class MemoHidup {
         // nama; config lama tanpa hayat = Memo dewasa.
         const baru = Object.keys(cfg).length === 0;
         this._hayat = baru ? hayatBaru({}, Date.now()) : hayatDariJson(cfg, Date.now());
-        this._perluNama = baru || cfg.perluNama === true;
+        // Memo lama (sebelum ada hayat) juga sekali diminta kenalan: nama,
+        // jenis kelamin, rupa — tanpa jadi telur.
+        this._perluNama = baru || cfg.perluNama === true || !cfg.hayat;
         this._monoLalu = GLib.get_monotonic_time();
         this._kotoranAktor = [];
         this._tanda = { lapar: false, kotor: false };
@@ -111,6 +113,10 @@ export class MemoHidup {
             x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.END });
         this._telur.connect('repaint', () => this._gambarTelur());
         this.actor.add_child(this._telur);
+        // Noda & lalat saat Memo kotor (belum dimandikan).
+        this._noda = new St.DrawingArea({ width: UKURAN.lebar, height: UKURAN.tinggi, reactive: false, visible: false });
+        this._noda.connect('repaint', () => this._gambarNoda());
+        this.actor.add_child(this._noda);
         // Saat GNOME Shell dimatikan, aktor bisa dihancurkan tanpa disable():
         // hentikan semua timer supaya tidak menyentuh aktor yang sudah hilang.
         this.actor.connect('destroy', () => {
@@ -395,6 +401,8 @@ export class MemoHidup {
         }
         if (b.mata)
             this._face.setGaze(b.mata[0], b.mata[1]);
+        if (b.ekspresi)
+            this._face.setExpression(b.ekspresi);
         this._pasangProperti(b.piksel);
         if (b.lepas || b.selesai || a.f > 2000) {
             this._antrean.shift();
@@ -628,6 +636,8 @@ export class MemoHidup {
     }
 
     _tatap() {
+        if (this._noda.visible && this._hayat.kotor >= 0.85)
+            this._noda.queue_repaint();
         if (!this.actor.visible || this._antrean[0]?.jenis === 'atraksi')
             return;
         const [px, py] = global.get_pointer();
@@ -811,10 +821,13 @@ export class MemoHidup {
         this._hayat = ubahIdentitas(this._hayat, identitas);
         this._perluNama = false;
         this._terapkanAvatar();
-        if (!this._aktif)
-            this.setAktif(true);
-        if (!this._diLuar)
-            this._keluar();
+        // Telur baru langsung muncul di desktop; Memo lama cukup disimpan.
+        if (this._hayat.lahirMs === null) {
+            if (!this._aktif)
+                this.setAktif(true);
+            if (!this._diLuar)
+                this._keluar();
+        }
         this.simpan();
     }
 
@@ -844,9 +857,48 @@ export class MemoHidup {
             return false;
         this._hayat = mandikan(this._hayat);
         this._tanda.kotor = false;
-        this._gerak.partikel('gelembung', 6);
-        this._gerak.main('getar', { kali: 2 });
+        this._segarkanNoda();
+        if (!this._rawat('mandi')) {
+            this._gerak.partikel('gelembung', 6);
+            this._gerak.main('getar', { kali: 2 });
+        }
         this.simpan();
+        return true;
+    }
+
+    cebok() {
+        if (this._hayat.lahirMs === null || this._hayat.mati)
+            return false;
+        this._hayat = cebok(this._hayat);
+        if (!this._rawat('cebok'))
+            this._gerak.main('tepuk');
+        this.simpan();
+        return true;
+    }
+
+    // Disuruh tidur: kasur, bantal, selimut ±1 menit, energi pulih.
+    suruhTidur() {
+        if (this._hayat.lahirMs === null || this._hayat.mati)
+            return false;
+        this._pikiran = { ...this._pikiran, kegiatan: 'tidur', sisaMs: 65000 };
+        if (!this._rawat('tidur', { lamaTidur: 720 })) {
+            this._face.setExpression('tidur');
+            this._gerak.tidurkan();
+        }
+        return true;
+    }
+
+    // Animasi perawatan di tempat Memo berdiri; false bila Memo tidak tampak
+    // berdiri (di island, melayang, sembunyi) -> pemanggil memakai cadangan.
+    _rawat(nama, opsi = {}) {
+        const b = this._badan;
+        if (!this.actor.visible || b.keadaan !== 'berdiri' || this._antrean[0]?.jenis === 'pulang')
+            return false;
+        if (this._antrean[0]?.jenis === 'atraksi' || this._badan.keadaan === 'atraksi')
+            this._akhiriAtraksi();
+        this._tertunda = undefined;
+        this._antrean = [{ jenis: 'atraksi', rencana: rencanaPerawatan(nama, b, opsi), f: 0 }];
+        this._pastikanLangkah();
         return true;
     }
 
@@ -875,7 +927,10 @@ export class MemoHidup {
                 this._gerak.partikel('bintang', 3);
                 this._kabar(`${nama} sekarang ${e.tahap}!`, 'starred-symbolic');
             } else if (e.jenis === 'pup') {
-                this._tambahKotoran();
+                // Gumpal pertama di samping Memo, sisanya berserakan di lantai bawah.
+                for (let i = 0; i < (e.jumlah ?? 1); i++)
+                    this._tambahKotoran(i > 0);
+                this._kabar(`${nama} pup! bersihkan & cebok dulu`, 'user-trash-symbolic');
             } else if (e.jenis === 'sakit') {
                 this._face.setExpression('sakit');
                 this._kabar(`${nama} sakit! beri obat di panel`, 'dialog-warning-symbolic');
@@ -898,12 +953,11 @@ export class MemoHidup {
                 this._tanda.kotor = true;
                 this._kabar(`${nama} bau, waktunya mandi`, 'face-sad-symbolic');
             }
-            if (this._detik % 20 === 0 && this.actor.visible) {
-                if (h.lapar >= 0.7)
-                    this._gerak.partikel('lapar', 1);
-                else if (h.kotor >= 0.6)
-                    this._gerak.partikel('bau', 2);
-            }
+            if (this.actor.visible && this._detik % 20 === 0 && h.lapar >= 0.7)
+                this._gerak.partikel('lapar', 1);
+            else if (this.actor.visible && this._detik % 6 === 0 && h.kotor >= 0.6)
+                this._gerak.partikel('bau', 2);
+            this._segarkanNoda();
         }
         if (r.kejadian.length)
             this.simpan();
@@ -923,12 +977,58 @@ export class MemoHidup {
         this._face.actor.visible = !telur && !h.mati;
         this._telur.visible = telur;
         this._telur.queue_repaint();
+        this._segarkanNoda();
         this._face.setAvatar({ mata: h.avatar.mata, warnaMata: w.mata });
         this._island._face?.setAvatar?.({ mata: h.avatar.mata });
         this._u = telur ? 1 : tahapPada(h, Date.now()).ukuran;
         this._gerak.setSkala(this._u);
         if (!this._gerak.emoteAktif)
             this.actor.scale_y = this._u;
+    }
+
+    // Noda tampak mulai kotor 0,3, makin banyak; lalat mulai 0,85.
+    _segarkanNoda() {
+        const h = this._hayat;
+        const tampak = h.lahirMs !== null && !h.mati && h.kotor >= 0.3;
+        const tingkat = tampak ? Math.floor(h.kotor * 10) + (h.kotor >= 0.85 ? 100 : 0) : 0;
+        this._noda.visible = tampak;
+        if (tingkat !== this._tingkatNoda) {
+            this._tingkatNoda = tingkat;
+            this._noda.queue_repaint();
+        }
+    }
+
+    _gambarNoda() {
+        const cr = this._noda.get_context();
+        try {
+            const h = this._hayat;
+            const P = 3;
+            // Tepi badan saja: mata di tengah tetap terlihat.
+            const tempat = [[8, 52], [22, 60], [96, 56], [108, 44], [14, 34], [102, 26], [40, 62], [80, 62], [6, 18], [112, 14]];
+            const n = Math.min(tempat.length, Math.max(1, Math.round((h.kotor - 0.2) * 12)));
+            cr.setSourceRGBA(0.45, 0.3, 0.16, 0.9);
+            for (const [x, y] of tempat.slice(0, n)) {
+                cr.rectangle(x, y, 3 * P, 2 * P);
+                cr.rectangle(x + P, y + 2 * P, P, P);
+                cr.fill();
+            }
+            if (h.kotor >= 0.85) {
+                const t = GLib.get_monotonic_time() / 1e6;
+                for (let i = 0; i < 2; i++) {
+                    const x = Math.round((60 + 46 * Math.cos(t * 2.3 + i * 3)) / P) * P;
+                    const y = Math.round((12 + 8 * Math.sin(t * 3.1 + i)) / P) * P;
+                    // Lalat abu-abu terang supaya tampak di badan gelap.
+                    cr.setSourceRGB(0.62, 0.64, 0.6);
+                    cr.rectangle(x, y, 2 * P, P);
+                    cr.fill();
+                    cr.setSourceRGBA(0.92, 0.95, 1, 0.95);
+                    cr.rectangle(x + (Math.floor(t * 12) % 2 ? -P : P), y - P, P, P);
+                    cr.fill();
+                }
+            }
+        } finally {
+            cr.$dispose();
+        }
     }
 
     // Telur piksel 18 x 22 petak (3 px), retak sesuai _fraseTelur 0..3.
@@ -1039,24 +1139,24 @@ export class MemoHidup {
         return a;
     }
 
-    _tambahKotoran() {
+    _tambahKotoran(berserakan = false) {
         const b = this._badan;
         const A = this._peta?.areaKerja;
-        const diLantai = this._diLuar && b.keadaan === 'berdiri';
+        const diLantai = !berserakan && this._diLuar && b.keadaan === 'berdiri';
         let x = diLantai ? b.x + (Math.random() < 0.5 ? -1 : 1) * (UKURAN.lebar / 2 + 14)
-            : (A ? A.x + A.lebar * (0.3 + Math.random() * 0.4) : 400);
+            : (A ? A.x + A.lebar * (0.05 + Math.random() * 0.9) : 400);
         // Di dekat tepi layar: kotoran pindah ke sisi Memo yang lain.
         if (A && (x < A.x + 20 || x > A.x + A.lebar - 20))
             x = Math.min(A.x + A.lebar - 20, Math.max(A.x + 20, 2 * b.x - x));
         const y = diLantai ? b.y : (A ? A.y + A.tinggi : 800);
-        if (this._kotoranAktor.length < 6)
+        if (this._kotoranAktor.length < 9)
             this._aktorKotoran(x, y);
     }
 
     // Kotoran yang tersimpan (sesudah login ulang) digambar lagi di lantai bawah.
     _pastikanKotoran() {
-        while (this._kotoranAktor.length < Math.min(6, this._hayat.kotoran))
-            this._tambahKotoran();
+        while (this._kotoranAktor.length < Math.min(9, this._hayat.kotoran))
+            this._tambahKotoran(this._kotoranAktor.length > 0);
     }
 
     _buangKotoran(a) {

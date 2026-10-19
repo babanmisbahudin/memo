@@ -34,10 +34,14 @@ dan Memo tua tidak main atraksi.
 
 | Kebutuhan | Tanda | Rawat (panel → Beranda) |
 |---|---|---|
-| Lapar (penuh ±6 jam; bayi & balita 1,5× lebih cepat) | ikon mangkuk, kabar "lapar" di island | **makan** (bergantian nasi, kue, buah — makanan jatuh di samping Memo) |
-| Pup (40–90 menit sesudah makan) | kotoran piksel di lantai | **klik kotorannya** |
-| Kotor / bau (lebih cepat bila kotoran dibiarkan) | garis bau, kabar "bau" | **mandi** (gelembung) |
+| Lapar (penuh ±6 jam; bayi & balita 1,5× lebih cepat) | ikon mangkuk, kabar "lapar" di island | **makan** (bergantian nasi, kue, buah — makanan jatuh di samping Memo, Memo mengunyah) |
+| Pup (40–90 menit sesudah makan) | 1–3 gumpal kotoran **berserakan** di lantai, kabar "pup!" | **klik tiap kotoran**, lalu **cebok** (gulungan tisu, tisu mengusap, kilau bersih) |
+| Kotor / bau (lebih cepat bila kotoran dibiarkan atau belum dicebok) | noda di badan makin banyak, garis bau, **lalat** berdengung bila parah | **mandi** (pancuran, tetesan air, busa, lalu Memo mengibaskan badan) |
+| Capek | — | **tidur** (kasur, bantal, selimut, napas, Z melayang ±1 menit) |
 | Sakit (lapar atau kotor penuh 3 jam) | wajah lesu, kabar di island | **obat**, lalu penuhi yang menyebabkannya |
+
+Tidur, mandi, dan cebok dimainkan di desktop (panel menutup sendiri); bila
+Memo sedang di island, cukup efeknya saja.
 
 Sakit yang dibiarkan **24 jam** membuat Memo meninggal (peringatan saat 12
 dan 2 jam tersisa); di akhir masa tua Memo meninggal dengan tenang. Memo
@@ -50,10 +54,12 @@ berhenti lapar. Umur tetap berjalan menurut kalender.
 **Memo baru** (pemasangan baru / sesudah meninggal): Beranda menampilkan
 wizard — nama (bawaan "Memo"), jenis kelamin, warna badan (6), bentuk mata
 (kotak, bulat, sipit) → **tetaskan** → telur muncul di desktop → klik untuk
-menetas. Semua bisa diganti di **atur → Memo kamu**. Suara ikut jenis
-kelamin (laki-laki Ardi, perempuan Gadis, efek tiny robot sama); Memo lama
-yang belum dipilih jenis kelaminnya tetap bersuara Gadis. Memo yang sudah
-ada sebelum fitur ini dianggap baru menjadi dewasa hari ini.
+menetas. Jenis kelamin & rupa **hanya dipilih di awal ini**, bukan di
+pengaturan; **atur → Nama Memo** hanya untuk mengganti nama. Suara ikut
+jenis kelamin (laki-laki Ardi, perempuan Gadis, efek tiny robot sama).
+Memo yang sudah ada sebelum fitur ini dianggap baru menjadi dewasa hari
+ini, dan sekali menampilkan wizard "kenalan" (tanpa jadi telur) supaya
+jenis kelamin & rupanya bisa dipilih.
 
 ## Atraksi
 

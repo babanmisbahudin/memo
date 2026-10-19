@@ -1,5 +1,5 @@
 // Jalankan: gjs -m extension/tests/test-atraksi.js
-import { ATRAKSI, P, bingkai, kotakBebas, lamaAtraksi, putarGambar, rencanaAtraksi, rencanakan } from '../hidup/atraksi.js';
+import { ATRAKSI, PERAWATAN, rencanaPerawatan, P, bingkai, kotakBebas, lamaAtraksi, putarGambar, rencanaAtraksi, rencanakan } from '../hidup/atraksi.js';
 import { petaDari } from '../hidup/dunia.js';
 
 let gagal = 0;
@@ -76,6 +76,25 @@ cek('mobil: menyetir ke ujung lantai yang jauh', Math.abs(mb.ke - mb.dari) >= 20
 const roda = [bingkai(mb, 10), bingkai(mb, 11)].map(b => JSON.stringify(b.piksel.filter(p => p[2][0] === 170)));
 cek('mobil: velg berputar', roda[0] !== roda[1]);
 cek('mobil: perlu berdiri di lantai', rencanakan('mobil', c({ berdiri: false })) === null && rencanakan('mobil', c({ posisi: { x: 700, y: 500 } })) === null);
+
+// --- Perawatan dari menu: mandi, cebok, tidur ---
+for (const nama of PERAWATAN) {
+    const r = rencanaPerawatan(nama, { x: 700, y: bawah }, { lamaTidur: 48 });
+    const n = lamaAtraksi(r);
+    const semua = Array.from({ length: n + 1 }, (_, f) => bingkai(r, f));
+    const iLepas = semua.findIndex(b => b.lepas);
+    cek(`${nama}: berjalan, dilepas sekali, lalu selesai`, semua.filter(b => b.lepas).length === 1 &&
+        semua.slice(0, iLepas).every(b => b.badan) && !semua[n - 1].selesai && semua[n].selesai);
+    cek(`${nama}: Memo tetap di tempat`, semua.slice(0, iLepas).every(b => b.badan.x === 700 && b.badan.y <= bawah && b.badan.y >= bawah - 30));
+    cek(`${nama}: ada properti`, semua.some(b => b.piksel.length > 10));
+    cek(`${nama}: putaran per 10 derajat`, semua.every(b => !b.badan || b.badan.rz % 10 === 0));
+}
+cek('perawatan asing ditolak', rencanaPerawatan('terbang', { x: 0, y: 0 }) === null);
+cek('perawatan tidak ikut dipilih sendiri', !ATRAKSI.some(n => PERAWATAN.includes(n)));
+const td = rencanaPerawatan('tidur', { x: 700, y: bawah }, { lamaTidur: 48 });
+cek('tidur: ekspresi tidur lalu senang saat bangun', Array.from({ length: 60 }, (_, f) => bingkai(td, f).ekspresi).filter(Boolean).join(',') === 'mendengar,tidur,senang');
+const md = rencanaPerawatan('mandi', { x: 700, y: bawah });
+cek('mandi: busa bertambah, lalu mengibas', bingkai(md, 20).piksel.length > bingkai(md, 4).piksel.length && bingkai(md, 29).badan.rz !== 0);
 
 // Jendela aktif memenuhi layar / kursor di atas -> tidak ada atraksi di sana.
 const penuh = petaDari(persepsi({ jendela: [{ id: 1, x: 0, y: 32, lebar: 1536, tinggi: 832, aktif: true, maksimal: true, layarPenuh: false, aplikasi: 'x', judul: 'y' }] }), UKURAN);

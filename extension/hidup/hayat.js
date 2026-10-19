@@ -9,7 +9,7 @@
 //
 // Kejadian yang dikembalikan majukanHayat(), untuk badan & island:
 //   { jenis: 'tumbuh', tahap }   pindah tahap
-//   { jenis: 'pup' }             kotoran baru di lantai
+//   { jenis: 'pup', jumlah }     1-3 gumpal kotoran berserakan; Memo perlu dicebok
 //   { jenis: 'sakit' }           lapar/kotor penuh 3 jam login
 //   { jenis: 'peringatan', sisaJam }   12 dan 2 jam sebelum meninggal
 //   { jenis: 'mati', sebab }     'ditelantarkan' | 'tua'
@@ -68,7 +68,7 @@ export function hayatBaru({ nama, kelamin, avatar } = {}, sekarangMs) {
         dibuatMs: sekarangMs,
         lahirMs: null,       // null = masih telur
         tahap: 'telur',
-        lapar: 0, kotor: 0, kotoran: 0, pupDalamMs: 0,
+        lapar: 0, kotor: 0, kotoran: 0, pupDalamMs: 0, perluCebok: false,
         penuhMs: 0, sakit: false, sakitMs: 0, peringatan: [],
         mati: false, sebab: null,
         album: [],
@@ -123,12 +123,15 @@ export function majukanHayat(h, { dtMs, sekarangMs, acak = Math.random }) {
     if (k.pupDalamMs > 0) {
         k.pupDalamMs -= dtMs;
         if (k.pupDalamMs <= 0) {
+            const jumlah = 1 + Math.floor(acak() * 3);
             k.pupDalamMs = 0;
-            k.kotoran += 1;
-            kejadian.push({ jenis: 'pup' });
+            k.kotoran += jumlah;
+            k.perluCebok = true;
+            kejadian.push({ jenis: 'pup', jumlah });
         }
     }
-    k.kotor = batas(k.kotor + dtMs / KOTOR_DASAR_MS + k.kotoran * dtMs / KOTOR_KOTORAN_MS);
+    // Kotoran di lantai dan Memo yang belum dicebok sama-sama membuat cepat bau.
+    k.kotor = batas(k.kotor + dtMs / KOTOR_DASAR_MS + (k.kotoran + (k.perluCebok ? 2 : 0)) * dtMs / KOTOR_KOTORAN_MS);
 
     if (!k.sakit) {
         k.penuhMs = k.lapar >= 1 || k.kotor >= 1 ? k.penuhMs + dtMs : 0;
@@ -182,6 +185,11 @@ export function telurBaru(h, sekarangMs) {
     return { ...hayatBaru({}, sekarangMs), album: [...h.album] };
 }
 
+// Cebok sesudah pup.
+export function cebok(h) {
+    return h.perluCebok ? { ...h, perluCebok: false } : h;
+}
+
 export function mandikan(h) {
     return h.mati ? h : { ...h, kotor: 0, penuhMs: 0 };
 }
@@ -192,7 +200,7 @@ export function obati(h) {
 
 // --- Simpan / muat (bagian `hayat` di ~/.config/memo/hidup.json) -----------
 
-const DISIMPAN = ['nama', 'kelamin', 'avatar', 'dibuatMs', 'lahirMs', 'tahap', 'lapar', 'kotor', 'kotoran',
+const DISIMPAN = ['nama', 'kelamin', 'avatar', 'dibuatMs', 'lahirMs', 'tahap', 'lapar', 'kotor', 'kotoran', 'perluCebok',
     'pupDalamMs', 'penuhMs', 'sakit', 'sakitMs', 'peringatan', 'mati', 'sebab', 'album'];
 
 export function keJson(h) {
@@ -217,6 +225,7 @@ export function dariJson(data, sekarangMs) {
         kotor: batas(angka(d?.kotor, 0)),
         kotoran: Math.max(0, Math.floor(angka(d?.kotoran, 0))),
         pupDalamMs: Math.max(0, angka(d?.pupDalamMs, 0)),
+        perluCebok: d?.perluCebok === true,
         penuhMs: Math.max(0, angka(d?.penuhMs, 0)),
         sakit: d?.sakit === true,
         sakitMs: Math.max(0, angka(d?.sakitMs, 0)),

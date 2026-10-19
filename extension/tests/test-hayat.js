@@ -1,6 +1,6 @@
 // Jalankan: gjs -m extension/tests/test-hayat.js
 import {
-    WARNA_BADAN, bersihkan as bersihkanN, telurBaru, ubahIdentitas,
+    cebok, WARNA_BADAN, bersihkan as bersihkanN, telurBaru, ubahIdentitas,
     HARI_MS, JAM_MS, LAMA_HIDUP_HARI, TAHAP, beriMakan, bersihkan, dariJson, hayatBaru, keJson, majukanHayat,
     mandikan, obati, tahapPada, tetaskan,
 } from '../hidup/hayat.js';
@@ -60,7 +60,12 @@ h = beriMakan(h, 'nasi', h._t, acak);
 cek('makan mengurangi lapar & menjadwalkan pup', h.lapar < 0.5 && h.pupDalamMs > 0);
 r = jalan(h, 2);
 const pup = r.kejadian.filter(e => e.jenis === 'pup');
-cek('pup sekali, 40-90 menit sesudah makan', pup.length === 1 && r.h.kotoran === 1);
+cek('pup sekali, 40-90 menit sesudah makan, 1-3 gumpal', pup.length === 1 && r.h.kotoran === pup[0].jumlah &&
+    pup[0].jumlah >= 1 && pup[0].jumlah <= 3);
+cek('sesudah pup perlu dicebok', r.h.perluCebok === true && cebok(r.h).perluCebok === false);
+const tanpaCebok = jalan({ ...cebok(bersihkan(r.h)), kotor: 0 }, 1).h.kotor;
+const belumCebok = jalan({ ...bersihkan(r.h), kotor: 0 }, 1).h.kotor;
+cek('belum dicebok -> lebih cepat bau', belumCebok > tanpaCebok * 2);
 cek('kotoran yang dibiarkan membuat cepat kotor', r.h.kotor > jalan({ ...h, pupDalamMs: 0 }, 2).h.kotor);
 h = bersihkan(r.h);
 cek('bersihkan kotoran', h.kotoran === 0);
@@ -94,7 +99,8 @@ cek('laptop mati 2 hari: lapar & kotor Memo sehat tidak berubah', tidur.lapar ==
 const obat = obati(d);
 cek('obat menyembuhkan', !obat.sakit && obat.sakitMs === 0);
 cek('obat saja tanpa makan: sakit lagi sesudah 3 jam', jalan(obat, 3.5).h.sakit);
-cek('obat + makan: sehat terus', !jalan(beriMakan(obat, 'kue', obat._t, acak), 3.5).h.sakit);
+const rawat = mandikan(cebok(bersihkan(beriMakan(obat, 'kue', obat._t, acak))));
+cek('obat + makan + bersihkan + cebok + mandi: sehat terus', !jalan({ ...rawat, _t: obat._t }, 3.5).h.sakit);
 
 // --- tumbuh & tua ---
 r = jalan({ ...h, lapar: 0, _t: T0 + 1.99 * HARI_MS }, 0.5);
