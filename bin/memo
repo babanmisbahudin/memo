@@ -14,19 +14,22 @@ PYTHON="$AKAR/.venv/bin/python"
 ROBOT_DEST="org.himisbah.Robot"
 ROBOT_PATH="/org/himisbah/Robot"
 
-SUARA="${MEMO_VOICE:-id-ID-ArdiNeural}"
+SUARA="${MEMO_VOICE:-id-ID-GadisNeural}"
 KECEPATAN="${MEMO_RATE:-+0%}"
 SUARA_CADANGAN="${MEMO_FALLBACK_VOICE:-Indonesian+Andy}"
 
-# Efek robot: nada diturunkan, diberi getaran khas robot, gema metalik tipis,
-# lalu dipangkas seperti keluar dari speaker kecil. Sengaja ditumpuk di atas
-# suara neural yang natural — hasilnya terdengar sebagai robot yang disengaja,
-# bukan sebagai TTS murahan.
+# Efek "tiny robot": imut, bukan robot kaku. Nada dinaikkan ~1,2x beserta
+# formannya (badan suara ikut mengecil, seperti robot mainan), chorus lembut
+# supaya agak berdenting, sedikit kresek digital 9-bit, lalu dipangkas
+# seperti keluar dari speaker mungil dan diratakan kerasnya.
 #
 # Efeknya dipasang SEBELUM masuk cache, jadi tidak menambah jeda saat dipakai.
-EFEK_ROBOT="${MEMO_EFEK:-asetrate=24000*0.88,aresample=24000,atempo=1.136,tremolo=f=22:d=0.45,aecho=0.8:0.8:16:0.3,highpass=f=220,lowpass=f=4200}"
+# Efek ikut jadi bagian kunci cache: mengganti efek otomatis membuat ulang.
+EFEK_ROBOT="${MEMO_EFEK:-rubberband=pitch=1.2:formant=shifted,chorus=0.6:0.8:22:0.25:0.3:2,acrusher=bits=9:mode=log:aa=1:mix=0.22,highpass=f=300,lowpass=f=7000,loudnorm=I=-16:TP=-1.5,aresample=24000}"
 
 CACHE="${MEMO_CACHE:-$HOME/.cache/memo-tts}"
+# Uji memakai edge-tts palsu (tanpa internet, teks tidak dikirim ke mana pun).
+EDGE_TTS="${MEMO_EDGE_TTS:-$AKAR/.venv/bin/edge-tts}"
 
 berkas_sementara=""
 
@@ -52,7 +55,7 @@ if [ -z "$teks" ]; then
     cat >&2 <<'EOF'
 pemakaian: memo "kalimat yang mau diucapkan"
 
-  MEMO_VOICE=id-ID-GadisNeural memo "halo"   # suara perempuan
+  MEMO_VOICE=id-ID-ArdiNeural memo "halo"    # suara laki-laki
   MEMO_RATE=-10% memo "halo"                 # bicara lebih pelan
   memo --hanya-cache "halo"                  # siapkan suaranya, jangan bunyikan
   daftar suara: .venv/bin/edge-tts --list-voices | grep id-ID
@@ -69,14 +72,14 @@ trap bereskan EXIT INT TERM
 # puluhan kilobyte — hambatannya latensi, bukan lebar pita. Kalimat yang sama
 # (sapaan isyarat tangan, misalnya) tidak perlu disintesis ulang tiap kali,
 # jadi hasilnya disimpan dan pemutaran berikutnya jadi seketika.
-if [ -x "$AKAR/.venv/bin/edge-tts" ] && command -v ffplay >/dev/null 2>&1; then
+if [ -x "$EDGE_TTS" ] && command -v ffplay >/dev/null 2>&1; then
     mkdir -p "$CACHE"
-    kunci="$(printf '%s|%s|%s' "$SUARA" "$KECEPATAN" "$teks" | md5sum | cut -d' ' -f1)"
+    kunci="$(printf '%s|%s|%s|%s' "$SUARA" "$KECEPATAN" "$EFEK_ROBOT" "$teks" | md5sum | cut -d' ' -f1)"
     berkas_cache="$CACHE/$kunci.mp3"
 
     if [ ! -s "$berkas_cache" ]; then
         berkas_sementara="$(mktemp --suffix=.mp3)"
-        if "$AKAR/.venv/bin/edge-tts" --voice "$SUARA" --rate "$KECEPATAN" \
+        if "$EDGE_TTS" --voice "$SUARA" --rate "$KECEPATAN" \
                 --text "$teks" --write-media "$berkas_sementara" >/dev/null 2>&1 \
                 && [ -s "$berkas_sementara" ]; then
             berkas_efek="$(mktemp --suffix=.mp3)"
@@ -103,9 +106,9 @@ if [ -x "$AKAR/.venv/bin/edge-tts" ] && command -v ffplay >/dev/null 2>&1; then
     fi
 fi
 
-# --- Cadangan: espeak-ng, offline ---
+# --- Cadangan: espeak-ng, offline (nada dinaikkan, senada robot mungil) ---
 [ "$hanya_cache" -eq 1 ] && exit 1
-galat=$(spd-say -w -l id -y "$SUARA_CADANGAN" -r -10 -p -20 "$teks" 2>&1 >/dev/null)
+galat=$(spd-say -w -l id -y "$SUARA_CADANGAN" -r -10 -p 60 "$teks" 2>&1 >/dev/null)
 if [ -n "$galat" ]; then
     echo "gagal bersuara: $galat" >&2
     exit 1

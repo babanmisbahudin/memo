@@ -14,6 +14,7 @@ LebihTeratur ke laptop.
 | Sesi agen & izin | hook Claude Code/OpenCode → `memo-agen` → island | [coucou-ala-memo.md](docs/coucou-ala-memo.md) |
 | Kabar LebihTeratur | vendor daftar, chat, pembayaran → notifikasi laptop | [coucou-ala-memo.md](docs/coucou-ala-memo.md#kabar-lebihteratur) |
 | Ngobrol | `memo-suara` (whisper + otak.py: opencode/claude/gemini/ollama, suara lewat `bin/memo`) | [arsitektur.md](docs/arsitektur.md) |
+| Suara | `bin/memo` — edge-tts Gadis + efek "tiny robot" (imut, speaker mungil), cache, cadangan espeak | [suara-memo.md](docs/suara-memo.md) |
 | Kelola laptop | "buka youtube / terminal / folder memo" dari chat & suara | [kelola-laptop.md](docs/kelola-laptop.md) |
 | Sambutan | `sambutan/` — animasi piksel layar penuh saat login, Log Out, Restart, Power Off, Suspend | [sambutan.md](docs/sambutan.md) |
 | Memo hidup | `extension/hidup/` — Memo keluar dari island, hidup di desktop ala NPC (lompat, ngintip, sifat) | [memo-hidup.md](docs/memo-hidup.md) |
