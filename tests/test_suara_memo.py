@@ -49,7 +49,7 @@ def nada(berkas):
 
 
 EFEK = bawaan("EFEK_ROBOT")
-cek("suara bawaan Gadis", bawaan("SUARA") == "id-ID-GadisNeural")
+cek("suara bawaan Gadis (tanpa hidup.json)", bawaan("SUARA_BAWAAN") == "id-ID-GadisNeural")
 cek("efek tiny robot: nada naik 1,2x beserta formannya", "rubberband=pitch=1.2:formant=shifted" in EFEK)
 
 with tempfile.TemporaryDirectory() as d:
@@ -76,10 +76,22 @@ exec ffmpeg -y -v error -f lavfi -i sine=frequency=200:duration=1:sample_rate=24
     cache = d / "cache"
 
     def siapkan(teks, **env_lain):
-        env = dict(os.environ, MEMO_EDGE_TTS=str(palsu), MEMO_CACHE=str(cache),
-                   DBUS_SESSION_BUS_ADDRESS="unix:path=/nonexistent", **env_lain)
+        # Konfig kosong bawaan: hidup.json asli pengguna tidak ikut menentukan suara.
+        env = dict(os.environ, MEMO_EDGE_TTS=str(palsu), MEMO_CACHE=str(cache), XDG_CONFIG_HOME=str(d / "kosong"),
+                   DBUS_SESSION_BUS_ADDRESS="unix:path=/nonexistent")
+        env.update(env_lain)
         return subprocess.run([str(MEMO), "--hanya-cache", teks], capture_output=True, text=True, env=env, timeout=60)
 
+    # Jenis kelamin dari hidup.json: laki-laki -> Ardi, perempuan -> Gadis.
+    konfig = d / "konfig" / "memo"
+    konfig.mkdir(parents=True)
+    for kelamin, harap in [("laki-laki", "ArdiNeural"), ("perempuan", "GadisNeural")]:
+        (konfig / "hidup.json").write_text('{"aktif":true,"hayat":{"nama":"Memo","kelamin":"%s"}}' % kelamin)
+        siapkan("tes kelamin", XDG_CONFIG_HOME=str(d / "konfig"))
+        cek(f"suara ikut jenis kelamin {kelamin}", log.read_text().splitlines()[-1].startswith(f"--voice id-ID-{harap}"))
+    log.write_text("")
+    for f in cache.glob("*.mp3"):
+        f.unlink()
     r = siapkan("halo")
     berkas = sorted(cache.glob("*.mp3"))
     cek(f"--hanya-cache membuat satu berkas ({r.stderr.strip()[:100]})", r.returncode == 0 and len(berkas) == 1)

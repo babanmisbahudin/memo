@@ -25,6 +25,36 @@ ke isi jendela yang sedang kamu pakai, menjauh dari kursor, menempel di tepi
 layar saat jendela aktif dimaksimalkan, dan menghilang saat ada aplikasi
 layar penuh, Activities, atau layar terkunci.
 
+## Siklus hidup & perawatan
+
+Memo tumbuh: **telur → bayi → balita → anak → remaja → dewasa → tua**
+(±5 bulan kalender; desain: [spec](superpowers/specs/2026-10-19-siklus-hidup-design.md)).
+Bayi 60% ukuran, balita 70%, anak 85%. Bayi lebih sering tidur; bayi, balita,
+dan Memo tua tidak main atraksi.
+
+| Kebutuhan | Tanda | Rawat (panel → Beranda) |
+|---|---|---|
+| Lapar (penuh ±6 jam; bayi & balita 1,5× lebih cepat) | ikon mangkuk, kabar "lapar" di island | **makan** (bergantian nasi, kue, buah — makanan jatuh di samping Memo) |
+| Pup (40–90 menit sesudah makan) | kotoran piksel di lantai | **klik kotorannya** |
+| Kotor / bau (lebih cepat bila kotoran dibiarkan) | garis bau, kabar "bau" | **mandi** (gelembung) |
+| Sakit (lapar atau kotor penuh 3 jam) | wajah lesu, kabar di island | **obat**, lalu penuhi yang menyebabkannya |
+
+Sakit yang dibiarkan **24 jam** membuat Memo meninggal (peringatan saat 12
+dan 2 jam tersisa); di akhir masa tua Memo meninggal dengan tenang. Memo
+"kembali ke bintang", tercatat di album kenangan, lalu **telur baru** muncul.
+
+**Adil:** kebutuhan & sakit hanya berjalan selama kamu login **dan**
+jalan-jalan nyala. Laptop mati, tidur, atau jalan-jalan dimatikan = Memo
+berhenti lapar. Umur tetap berjalan menurut kalender.
+
+**Memo baru** (pemasangan baru / sesudah meninggal): Beranda menampilkan
+wizard — nama (bawaan "Memo"), jenis kelamin, warna badan (6), bentuk mata
+(kotak, bulat, sipit) → **tetaskan** → telur muncul di desktop → klik untuk
+menetas. Semua bisa diganti di **atur → Memo kamu**. Suara ikut jenis
+kelamin (laki-laki Ardi, perempuan Gadis, efek tiny robot sama); Memo lama
+yang belum dipilih jenis kelaminnya tetap bersuara Gadis. Memo yang sudah
+ada sebelum fitur ini dianggap baru menjadi dewasa hari ini.
+
 ## Atraksi
 
 Saat bosan (makin sering bila slider iseng & aktif tinggi), Memo memilih
@@ -45,8 +75,9 @@ kotak 3 px (`extension/hidup/atraksi.js`, murni & diuji `test-atraksi.js`).
 
 ## Berkas & privasi
 
-- `~/.config/memo/hidup.json`: sakelar, sifat, kebutuhan terakhir (supaya
-  Memo berlanjut sesudah login ulang). `companion.json` lama tidak dipakai lagi.
+- `~/.config/memo/hidup.json`: sakelar, sifat, kebutuhan terakhir, dan hayat
+  (nama, jenis kelamin, avatar, tanggal lahir, lapar/kotor/sakit, album) supaya
+  Memo berlanjut sesudah login ulang. `companion.json` lama tidak dipakai lagi.
 - Judul jendela hanya dipakai di dalam extension untuk menebak jenis jendela;
   tidak disimpan dan tidak dikirim ke mana pun. Tidak ada AI di bagian ini.
 
@@ -59,6 +90,7 @@ kotak 3 px (`extension/hidup/atraksi.js`, murni & diuji `test-atraksi.js`).
 | `extension/hidup/fisika.js` | lompat, jatuh, lempar, rute antar lantai |
 | `extension/hidup/pikiran.js` | kebutuhan, sifat, pemilihan kegiatan |
 | `extension/hidup/atraksi.js` | ayunan, gelantungan, terjun payung, naik mobil |
+| `extension/hidup/hayat.js` | siklus hidup, lapar, pup, kotor, sakit, meninggal, identitas (murni, `test-hayat.js`) |
 | `extension/hidup/memoHidup.js` | badan di GNOME Shell |
 
 ## Uji & bila bermasalah

@@ -556,6 +556,22 @@
     border-radius: 0;
 }
 
+.memo-identitas {
+    spacing: 6px;
+}
+
+.memo-entri-nama {
+    width: 180px;
+}
+
+.memo-pilihan:checked {
+    border: 1px solid #ffffff;
+}
+
+.memo-wizard {
+    spacing: 6px;
+}
+
 .memo-label-kecil {
     font-size: 11px;
     color: rgba(255, 255, 255, 0.78);

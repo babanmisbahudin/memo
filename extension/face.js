@@ -15,6 +15,8 @@ export const NEUTRAL = {
     cross: 0,     // kadar bentuk silang
     iconAlpha: 0, // 0 = wajah normal, 1 = tampilkan ikon sistem
     iconKind: 'none', // 'none' | 'shutdown' | 'restart' | 'logout'
+    mata: 'kotak',    // avatar: 'kotak' (blok LED) | 'bulat' (tanpa sudut) | 'sipit' (satu baris)
+    warnaMata: null,  // avatar: [r, g, b] 0..1, null = putih
 };
 
 export const EXPRESSIONS = {
@@ -26,6 +28,7 @@ export const EXPRESSIONS = {
     bingung: { open: 1.1, width: 1.15, tilt: 0.8 },
     error: { open: 1, glow: 1, hue: 0, cross: 1 },
     tidur: { open: 0.06, curve: 0, glow: 0.2 },
+    sakit: { open: 0.45, glow: 0.25, tilt: 0.35, gazeY: 0.6 },
     shutdown: { iconAlpha: 1, iconKind: 'shutdown', hue: 0, glow: 0.9 },
     restart: { iconAlpha: 1, iconKind: 'restart', hue: 45, glow: 0.9 },
     logout: { iconAlpha: 1, iconKind: 'logout', hue: 210, glow: 0.9 },
@@ -109,7 +112,7 @@ export function drawFace(cr, width, height, params) {
 
     const cell = 2.1;
     const alpha = 0.72 + 0.28 * params.glow;
-    const color = [0.95, 0.97, 1, alpha]; // mata putih
+    const color = [...(params.warnaMata ?? [0.95, 0.97, 1]), alpha]; // mata putih, atau warna avatar
     const iconColor = pixColor(params.hue, alpha);
     const iconWeight = Math.max(0, Math.min(1, params.iconAlpha));
 
@@ -145,12 +148,16 @@ export function drawFace(cr, width, height, params) {
 
         if (plainWeight > 0.01) {
             // Mata blok 3 kolom; tinggi menyusut saat berkedip.
-            const lit = Math.max(1, Math.round(params.open * 3));
+            // Avatar: 'sipit' paling tinggi satu baris, 'bulat' tanpa sudut.
+            const lit = Math.max(1, Math.round(params.open * (params.mata === 'sipit' ? 1 : 3)));
             const dy0 = ey - ((lit - 1) * cell) / 2;
             for (let dc = -1; dc <= 1; dc++)
-                for (let dr = 0; dr < lit; dr++)
+                for (let dr = 0; dr < lit; dr++) {
+                    if (params.mata === 'bulat' && lit === 3 && dc !== 0 && dr !== 1)
+                        continue;
                     led(ex + dc * cell, dy0 + dr * cell,
                         [color[0], color[1], color[2], color[3] * plainWeight]);
+                }
         }
 
         if (arcWeight > 0.01) {

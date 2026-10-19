@@ -1,5 +1,6 @@
 // Jalankan: gjs -m extension/tests/test-hayat.js
 import {
+    WARNA_BADAN, bersihkan as bersihkanN, telurBaru, ubahIdentitas,
     HARI_MS, JAM_MS, LAMA_HIDUP_HARI, TAHAP, beriMakan, bersihkan, dariJson, hayatBaru, keJson, majukanHayat,
     mandikan, obati, tahapPada, tetaskan,
 } from '../hidup/hayat.js';
@@ -34,8 +35,10 @@ function jalan(h, jamLogin, { mulai = h._t ?? T0, kalenderPerLogin = 1 } = {}) {
 // --- lahir & tahap ---
 let h = hayatBaru({ nama: '  Mochi ', kelamin: 'perempuan', avatar: { warna: 'pink', mata: 'bulat' } }, T0);
 cek('lahir sebagai telur', tahapPada(h, T0).tahap === 'telur' && h.nama === 'Mochi' && h.kelamin === 'perempuan');
-cek('nama kosong -> Memo, kelamin asing -> laki-laki', hayatBaru({ nama: ' ', kelamin: 'x' }, T0).nama === 'Memo' &&
-    hayatBaru({ kelamin: 'x' }, T0).kelamin === 'laki-laki');
+cek('nama kosong -> Memo, kelamin asing -> belum dipilih', hayatBaru({ nama: ' ', kelamin: 'x' }, T0).nama === 'Memo' &&
+    hayatBaru({ kelamin: 'x' }, T0).kelamin === null);
+cek('avatar dirapikan', JSON.stringify(h.avatar) === '{"warna":"pink","mata":"bulat"}' &&
+    JSON.stringify(hayatBaru({ avatar: { warna: 'ungu', mata: 'x' } }, T0).avatar) === '{"warna":"hitam","mata":"kotak"}');
 cek('nama dipangkas 16 huruf', hayatBaru({ nama: 'a'.repeat(40) }, T0).nama.length === 16);
 cek('telur tidak lapar & tidak menua', majukanHayat(h, { dtMs: 10 * JAM_MS, sekarangMs: T0 + 10 * JAM_MS, acak }).hayat.lapar === 0);
 h = tetaskan(h, T0);
@@ -98,6 +101,15 @@ r = jalan({ ...h, lapar: 0, _t: T0 + 1.99 * HARI_MS }, 0.5);
 cek('pergantian tahap jadi kejadian tumbuh', r.kejadian.some(e => e.jenis === 'tumbuh' && e.tahap === 'balita'));
 const tua = majukanHayat({ ...h, lapar: 0 }, { dtMs: 60000, sekarangMs: T0 + (LAMA_HIDUP_HARI + 1) * HARI_MS, acak });
 cek('melewati lama hidup -> meninggal karena tua', tua.hayat.mati && tua.kejadian.some(e => e.jenis === 'mati' && e.sebab === 'tua'));
+
+// --- identitas, kotoran satu per satu, telur baru ---
+const ganti = ubahIdentitas(h, { nama: 'Kiki', kelamin: 'laki-laki', avatar: { warna: 'biru', mata: 'sipit' } });
+cek('ubah identitas', ganti.nama === 'Kiki' && ganti.kelamin === 'laki-laki' && ganti.avatar.warna === 'biru' && ganti.lahirMs === h.lahirMs);
+cek('ubah identitas: nilai asing diabaikan', ubahIdentitas(h, { kelamin: 'x' }).kelamin === h.kelamin);
+cek('bersihkan satu kotoran', bersihkanN({ ...h, kotoran: 3 }, 1).kotoran === 2 && bersihkanN({ ...h, kotoran: 3 }).kotoran === 0);
+cek('setiap warna badan punya warna mata', Object.values(WARNA_BADAN).every(w => /^#[0-9a-f]{6}$/.test(w.badan) && w.mata.length === 3));
+const baru = telurBaru({ ...h, album: [{ nama: 'Lama' }], mati: true }, T0);
+cek('telur baru: album tetap, belum menetas', baru.album.length === 1 && baru.lahirMs === null && !baru.mati);
 
 // --- simpan & muat ---
 const j = keJson(h);

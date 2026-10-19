@@ -14,7 +14,11 @@ PYTHON="$AKAR/.venv/bin/python"
 ROBOT_DEST="org.himisbah.Robot"
 ROBOT_PATH="/org/himisbah/Robot"
 
-SUARA="${MEMO_VOICE:-id-ID-GadisNeural}"
+# Suara ikut jenis kelamin Memo (hidup.json, diatur di panel): laki-laki =
+# Ardi, selain itu (perempuan / belum dipilih) Gadis. Efek tiny robot sama.
+SUARA_BAWAAN=id-ID-GadisNeural
+grep -q '"kelamin":"laki-laki"' "${XDG_CONFIG_HOME:-$HOME/.config}/memo/hidup.json" 2>/dev/null && SUARA_BAWAAN=id-ID-ArdiNeural
+SUARA="${MEMO_VOICE:-$SUARA_BAWAAN}"
 KECEPATAN="${MEMO_RATE:-+0%}"
 SUARA_CADANGAN="${MEMO_FALLBACK_VOICE:-Indonesian+Andy}"
 

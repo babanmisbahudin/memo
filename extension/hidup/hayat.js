@@ -24,6 +24,24 @@ const UKURAN = { telur: 0.5, bayi: 0.6, balita: 0.7, anak: 0.85 };
 const KECIL = new Set(['bayi', 'balita']);
 
 export const KELAMIN = ['laki-laki', 'perempuan'];
+
+// Avatar: warna badan + warna mata yang tetap terbaca di atasnya, bentuk mata.
+export const WARNA_BADAN = {
+    hitam: { badan: '#000000', mata: [0.95, 0.97, 1] },
+    putih: { badan: '#e9edf2', mata: [0.12, 0.13, 0.17] },
+    pink: { badan: '#ff8fb8', mata: [0.2, 0.08, 0.14] },
+    biru: { badan: '#3d7bd9', mata: [0.95, 0.97, 1] },
+    kuning: { badan: '#f2c94c', mata: [0.18, 0.14, 0.05] },
+    hijau: { badan: '#3fae6a', mata: [0.95, 0.97, 1] },
+};
+export const BENTUK_MATA = ['kotak', 'bulat', 'sipit'];
+
+export function rapikanAvatar(a) {
+    return {
+        warna: a?.warna in WARNA_BADAN ? a.warna : 'hitam',
+        mata: BENTUK_MATA.includes(a?.mata) ? a.mata : 'kotak',
+    };
+}
 export const MAKANAN = { nasi: 0.5, kue: 0.4, buah: 0.3 };
 
 const LAPAR_PENUH_MS = 6 * JAM_MS;
@@ -44,8 +62,9 @@ function rapikanNama(nama) {
 export function hayatBaru({ nama, kelamin, avatar } = {}, sekarangMs) {
     return {
         nama: rapikanNama(nama),
-        kelamin: KELAMIN.includes(kelamin) ? kelamin : 'laki-laki',
-        avatar: avatar && typeof avatar === 'object' ? { ...avatar } : {},
+        // null = belum dipilih (Memo lama dari sebelum ada hayat).
+        kelamin: KELAMIN.includes(kelamin) ? kelamin : null,
+        avatar: rapikanAvatar(avatar),
         dibuatMs: sekarangMs,
         lahirMs: null,       // null = masih telur
         tahap: 'telur',
@@ -143,8 +162,24 @@ export function beriMakan(h, jenis, sekarangMs, acak = Math.random) {
     return { ...h, lapar: batas(h.lapar - MAKANAN[jenis]), pupDalamMs, penuhMs: 0 };
 }
 
-export function bersihkan(h) {
-    return h.kotoran ? { ...h, kotoran: 0 } : h;
+// Bersihkan `n` kotoran (bawaan semua).
+export function bersihkan(h, n = Infinity) {
+    return h.kotoran ? { ...h, kotoran: Math.max(0, h.kotoran - n) } : h;
+}
+
+// Ganti nama / jenis kelamin / avatar (wizard lahir & pengaturan).
+export function ubahIdentitas(h, { nama, kelamin, avatar } = {}) {
+    return {
+        ...h,
+        nama: nama === undefined ? h.nama : rapikanNama(nama),
+        kelamin: KELAMIN.includes(kelamin) ? kelamin : h.kelamin,
+        avatar: avatar === undefined ? h.avatar : rapikanAvatar(avatar),
+    };
+}
+
+// Sesudah meninggal: telur baru, album kenangan tetap.
+export function telurBaru(h, sekarangMs) {
+    return { ...hayatBaru({}, sekarangMs), album: [...h.album] };
 }
 
 export function mandikan(h) {

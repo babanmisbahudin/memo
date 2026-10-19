@@ -165,6 +165,11 @@ export const SPRITE = {
     pesan: { warna: '#96d2ff', baris: ['#####', '##.##', '#.#.#', '#...#', '#####'] },
     hati: { warna: '#ff7eb6', baris: ['.#.#.', '#####', '#####', '.###.', '..#..'] },
     koin: { warna: '#ffd54a', baris: ['.###.', '#.#.#', '#.#.#', '#.#.#', '.###.'] },
+    // Hayat (hidup/hayat.js): lapar, bau, mandi, obat.
+    lapar: { warna: '#ffb347', baris: ['.#.#.', '#...#', '#####', '.###.'] },
+    bau: { warna: '#9bc53d', baris: ['.#..#', '#..#.', '.#..#', '#..#.'] },
+    gelembung: { warna: '#a8e6ff', baris: ['.##.', '#..#', '#..#', '.##.'] },
+    obat: { warna: '#ff7b72', baris: ['.##.', '####', '####', '.##.'] },
 };
 
 export const LANGKAH_PARTIKEL = 10;

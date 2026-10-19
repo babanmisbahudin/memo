@@ -188,6 +188,14 @@ export class RobotFace {
         this.actor.queue_repaint();
     }
 
+    // Avatar Memo (hayat.js): bentuk mata 'kotak' | 'bulat' | 'sipit', warna
+    // mata [r, g, b] 0..1 atau null (putih).
+    setAvatar({ mata = 'kotak', warnaMata = null } = {}) {
+        this._mata = mata;
+        this._warnaMata = warnaMata;
+        this.actor.queue_repaint();
+    }
+
     setGaze(x, y) {
         const clampedX = Math.max(-1, Math.min(1, x));
         const clampedY = Math.max(-1, Math.min(1, y));
@@ -237,6 +245,10 @@ export class RobotFace {
             params.hue = this._tintHue;
         if (this._tintGlow > 0)
             params.glow = Math.min(1, params.glow + this._tintGlow);
+        if (this._mata)
+            params.mata = this._mata;
+        if (this._warnaMata)
+            params.warnaMata = this._warnaMata;
         params.gazeX += this._gazeX;
         params.gazeY += this._gazeY;
         params.open *= 1 - this._blinkAmount;

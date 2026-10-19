@@ -190,6 +190,19 @@ export class Gerak {
         this._terapkan(this._poseDiam());
     }
 
+    // Ukuran badan (tahap umur Memo hidup): skala dasar semua pose.
+    setSkala(skala) {
+        if (skala === this._skala)
+            return;
+        this._skala = skala;
+        if (!this._emote && !this._dikunci)
+            this._terapkan(this._poseDiam());
+    }
+
+    get skala() {
+        return this._skala;
+    }
+
     get dikunci() {
         return this._dikunci;
     }
