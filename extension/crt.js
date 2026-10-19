@@ -8,6 +8,18 @@ import { HURUF, lebarTeks, tulisTeks } from './hurufPiksel.js';
 // Hitam fosfor, sedikit kebiruan seperti tabung yang mati.
 export const LATAR = [5, 6, 8];
 
+// Warna latar island & panel (Atur → Warna island). Semua gelap supaya teks
+// putih dan pendar fosfor tetap terbaca.
+export const WARNA_LATAR = {
+    hitam: LATAR,
+    biruMalam: [8, 14, 34],
+    unguTua: [22, 10, 34],
+    hijauTua: [6, 24, 14],
+    marun: [34, 8, 12],
+    coklat: [30, 20, 12],
+    abu: [26, 28, 32],
+};
+
 export const WARNA_KEADAAN = {
     diam: [126, 231, 135],
     kerja: [88, 166, 255],
@@ -43,11 +55,11 @@ export function jalurTangga(cr, l, t, { s = 2, atas = 0, bawah = 4 } = {}) {
 // Latar CRT selebar l×t. `sapuan` (0..1 atau null): posisi garis terang yang
 // menyapu turun saat agen bekerja. `denyut` (0..1) menebalkan pendar (izin).
 export function gambarCrt(cr, l, t, { warna = WARNA_KEADAAN.diam, s = 2, atas = 0, bawah = 4,
-    pendar = 0.22, sapuan = null, denyut = 0 } = {}) {
+    pendar = 0.22, sapuan = null, denyut = 0, latar = LATAR } = {}) {
     cr.save();
     jalurTangga(cr, l, t, { s, atas, bawah });
     cr.clip();
-    cr.setSourceRGB(...LATAR.map(v => v / 255));
+    cr.setSourceRGB(...latar.map(v => v / 255));
     cr.paint();
 
     // Pendar dalam: bingkai-bingkai berundak ke dalam, makin ke tengah makin tipis.

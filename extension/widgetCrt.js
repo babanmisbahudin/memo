@@ -23,6 +23,7 @@ export class LatarCrt {
     constructor({ atas = 0, bawah = 4, s = 2, pendar = 0.22 } = {}) {
         this._opsi = { atas, bawah, s, pendar };
         this._warna = WARNA_KEADAAN.diam;
+        this._latar = undefined;
         this._gerak = null;
         this._langkah = 0;
         this._id = 0;
@@ -40,6 +41,18 @@ export class LatarCrt {
             return;
         this._warna = warna;
         this.actor.queue_repaint();
+    }
+
+    // Warna latar (crt.js WARNA_LATAR); undefined = hitam bawaan.
+    setLatar(latar) {
+        if (sama(latar, this._latar))
+            return;
+        this._latar = latar;
+        this.actor.queue_repaint();
+    }
+
+    get latar() {
+        return this._latar;
     }
 
     setGerak(gerak) {
@@ -63,7 +76,7 @@ export class LatarCrt {
             const [l, t] = this.actor.get_surface_size();
             const f = this._langkah;
             gambarCrt(cr, l, t, {
-                ...this._opsi, warna: this._warna,
+                ...this._opsi, warna: this._warna, ...(this._latar ? { latar: this._latar } : {}),
                 sapuan: this._gerak === 'sapuan' ? (f % 24) / 24 : null,
                 denyut: this._gerak === 'denyut' && f % 6 < 3 ? 1 : 0,
             });

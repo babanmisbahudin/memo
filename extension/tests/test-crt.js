@@ -2,7 +2,7 @@
 import Cairo from 'cairo';
 import Gdk from 'gi://Gdk?version=4.0';
 
-import { LATAR, WARNA_KEADAAN, gambarCrt, jalurTangga, muatkan, normalkan, tulisBercahaya, warnaHue } from '../crt.js';
+import { LATAR, WARNA_KEADAAN, WARNA_LATAR, gambarCrt, jalurTangga, muatkan, normalkan, tulisBercahaya, warnaHue } from '../crt.js';
 import { lebarTeks } from '../hurufPiksel.js';
 
 let gagal = 0;
@@ -53,6 +53,9 @@ cek('tangga: sudut atas bisa bertangga juga', p(0, 0)[3] === 0 && p(4, 0)[3] ===
 p = gambar(200, 40, cr => gambarCrt(cr, 200, 40, { warna: WARNA_KEADAAN.diam }));
 cek('latar: tengah hitam fosfor', terang(p(100, 21)) < 40 && Math.abs(p(100, 21)[0] - LATAR[0]) < 12);
 cek('latar: pojok tangga tetap transparan', p(0, 39)[3] === 0);
+const pm = gambar(200, 40, cr => gambarCrt(cr, 200, 40, { warna: WARNA_KEADAAN.diam, latar: WARNA_LATAR.marun }));
+cek('warna island: latar marun dipakai', pm(100, 21)[0] > pm(100, 21)[2] + 10 && pm(100, 21)[0] >= 25);
+cek('warna island: semua latar gelap (teks putih terbaca)', Object.values(WARNA_LATAR).every(c => c[0] + c[1] + c[2] < 120));
 cek('latar: pendar tepi berwarna keadaan (hijau)', p(1, 21)[1] > p(1, 21)[0] + 10 && terang(p(1, 21)) > terang(p(100, 21)));
 cek('latar: scanline tiap 4 px', terang(p(100, 4)) > terang(p(100, 6)));
 const biru = gambar(200, 40, cr => gambarCrt(cr, 200, 40, { warna: WARNA_KEADAAN.kerja }));

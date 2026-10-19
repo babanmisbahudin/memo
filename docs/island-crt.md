@@ -16,6 +16,12 @@ piksel yang menyala. Desain: [spec](superpowers/specs/2026-10-18-island-crt-desi
 Teks berjalan memakai huruf piksel Memo; teks yang memuat emoji/aksara di luar
 huruf piksel tampil dengan huruf biasa.
 
+**Warna island** (panel → atur): latar island & panel bisa diganti —
+hitam (bawaan), biru malam, ungu tua, hijau tua, marun, coklat, abu. Semua
+gelap supaya teks putih tetap terbaca. Disimpan di
+`~/.config/memo/island.json`. Warna cahaya/pendar diam tetap dari
+**Wardrobe**.
+
 ## Panel (Super+M)
 
 | Tab | Isi |
@@ -23,7 +29,7 @@ huruf piksel tampil dengan huruf biasa.
 | **beranda** | panggung Memo (badan utuh + animasi rawat), nama · tahap · kegiatan, batang lapar/kotor/energi/bosan, panggil · pulang · jalan, makan · tidur · mandi · cebok · obat; status agen + kartu izin/sesi/selesai/layanan + pill (hanya layanan yang aktif), pintasan cepat |
 | **riwayat** | semua kabar & agen hari ini, terbaru di atas; saring semua/agen/kabar/notifikasi; tombol folder untuk sesi agen |
 | **chat** | obrolan bergulir (50 terakhir), status & otak AI, tindakan cepat, lampiran, mikrofon, kirim |
-| **atur** | otak AI, wardrobe, jalan-jalan, sifat Memo, demo, folder suara |
+| **atur** | otak AI, wardrobe, warna island, nama Memo, jalan-jalan, sifat Memo, demo, folder suara |
 
 Jam (klik = kalender & notifikasi bawaan) dan ikon sistem (klik = Pengaturan
 Cepat) ada di kanan baris atas.

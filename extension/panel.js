@@ -19,6 +19,7 @@ import { Gerak } from './gerak.js';
 import { tickerSesi } from './agenStore.js';
 import { buka as bukaLaptop } from './bukaLaptop.js';
 import { BatangPiksel, LabelPiksel, LatarCrt } from './widgetCrt.js';
+import { WARNA_LATAR } from './crt.js';
 import { tahapPada } from './hidup/hayat.js';
 import { P as P_ATRAKSI, bingkai as bingkaiAtraksi, lamaAtraksi, rencanaPerawatan } from './hidup/atraksi.js';
 import { gambarKotoran, gambarMakanan, gambarMemo, gambarPiksel, gambarTelur } from './hidup/gambarMemo.js';
@@ -648,6 +649,10 @@ export class PanelMemo {
         this._latar.setWarna(warna);
     }
 
+    setLatar(latar) {
+        this._latar.setLatar(latar);
+    }
+
     // --- Ekspresi/gerak cermin island ------------------------------------
     sync(ekspresi) {
         this._wajah.wajah.setExpression(ekspresi);
@@ -1136,6 +1141,20 @@ export class PanelMemo {
         this._namaBaju = label('', 'memo-langkah');
         barisBaju.add_child(this._namaBaju);
         bagian('Wardrobe', barisBaju);
+        // Warna latar island & panel (wardrobe = warna cahayanya).
+        const barisLatar = new St.BoxLayout({ style_class: 'memo-segmen' });
+        this._tombolLatar = Object.entries(WARNA_LATAR).map(([id, rgb]) => {
+            const b = new St.Button({ style_class: 'memo-baju memo-baju-latar', can_focus: true, accessible_name: id,
+                style: `background-color: rgb(${rgb.join(',')});` });
+            b._memoId = id;
+            b.connect('clicked', () => {
+                this._island.pilihLatar(id);
+                this.segarkanAtur();
+            });
+            barisLatar.add_child(b);
+            return b;
+        });
+        bagian('Warna island', barisLatar);
         // Jenis kelamin & rupa dipilih sekali saat Memo lahir (wizard);
         // di sini hanya nama.
         const barisNama = new St.BoxLayout({ style_class: 'memo-segmen' });
@@ -1207,6 +1226,12 @@ export class PanelMemo {
                 b.remove_style_pseudo_class('checked');
         }
         this._namaBaju.text = OUTFITS.find(o => o[0] === baju)?.[1] ?? '';
+        for (const b of this._tombolLatar) {
+            if (b._memoId === this._island.latarAktif())
+                b.add_style_pseudo_class('checked');
+            else
+                b.remove_style_pseudo_class('checked');
+        }
         const h = this._island.hidup;
         if (h && !this._entriNama.clutter_text.has_key_focus())
             this._entriNama.set_text(h.hayat.nama);

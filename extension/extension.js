@@ -18,7 +18,7 @@ import { OUTFITS, PanelMemo, avatarPiksel } from './panel.js';
 import { Gerak } from './gerak.js';
 import { jalurRepo } from './jalur.js';
 import { LabelPiksel, LatarCrt } from './widgetCrt.js';
-import { WARNA_KEADAAN, warnaHue } from './crt.js';
+import { WARNA_KEADAAN, WARNA_LATAR, warnaHue } from './crt.js';
 import { Riwayat } from './riwayatPola.js';
 import { SambutanSistem } from './sambutanSistem.js';
 import { DETIK_TIDUR, ISENG, ISENG_MAKS_S, ISENG_MIN_S, JARAK_BANGUN, bolehTidur } from './gerakPola.js';
@@ -192,6 +192,7 @@ class Island {
         });
 
         this.pilihWardrobe(this.wardrobeAktif(), false);
+        this.pilihLatar(this.latarAktif(), false);
         // Memo hidup di desktop (extension/hidup/): keluar dari island untuk
         // jalan-jalan bila dinyalakan di Pengaturan.
         try {
@@ -398,6 +399,35 @@ class Island {
             `${kata}: ${izin.aksi}`, 2000);
         if (this._agen.izin.length <= 1)
             this.menu.close();
+    }
+
+    // Warna latar island & panel (Atur → Warna island), ~/.config/memo/island.json.
+    latarAktif() {
+        try {
+            const [ok, c] = GLib.file_get_contents(GLib.get_user_config_dir() + '/memo/island.json');
+            if (ok) {
+                const d = JSON.parse(new TextDecoder().decode(c));
+                if (d?.latar in WARNA_LATAR)
+                    return d.latar;
+            }
+        } catch (e) { /* bawaan */ }
+        return 'hitam';
+    }
+
+    pilihLatar(id, simpan = true) {
+        if (!(id in WARNA_LATAR))
+            return;
+        if (simpan) {
+            try {
+                GLib.mkdir_with_parents(GLib.get_user_config_dir() + '/memo', 0o700);
+                tulisBerkas(GLib.get_user_config_dir() + '/memo/island.json', JSON.stringify({ latar: id }));
+            } catch (e) {
+                console.error(`[dynamic-island] simpan warna island: ${e}`);
+            }
+        }
+        this._latarId = id;
+        this._latar.setLatar(WARNA_LATAR[id]);
+        this._panel?.setLatar(WARNA_LATAR[id]);
     }
 
     wardrobeAktif() {
