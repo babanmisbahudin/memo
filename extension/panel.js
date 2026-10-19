@@ -1,6 +1,7 @@
-// Panel Memo bergaya Coucou: island yang membesar jadi panel hitam berisi
-// tab (Beranda, Chat, +), kartu sesi/izin/selesai dengan Memo piksel besar,
-// dan kisi pill berwarna. Wajah tetap digambar face.js lewat RobotFace.
+// Panel Memo gaya layar mini CRT: island yang membesar jadi layar retro
+// (latar LatarCrt) berisi tab huruf piksel. Beranda: Memo hidup (sedang
+// apa, kebutuhan, tombol), kartu yang butuh perhatian (izin/sesi/selesai/
+// layanan + kisi pill), dan pintasan cepat. Wajah tetap face.js/RobotFace.
 
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
@@ -14,6 +15,9 @@ import { Slider } from 'resource:///org/gnome/shell/ui/slider.js';
 import { RobotFace } from './robotFace.js';
 import { Gerak } from './gerak.js';
 import { tickerSesi } from './agenStore.js';
+import { buka as bukaLaptop } from './bukaLaptop.js';
+import { BatangPiksel, LabelPiksel, LatarCrt } from './widgetCrt.js';
+import { PINTASAN_BAWAAN, bacaPintasan, jalurPenuh } from './pintasanPola.js';
 
 const SHM = GLib.getenv('MEMO_SHM') || '/dev/shm';
 const KONFIG = () => `${GLib.get_user_config_dir()}/memo`;
@@ -50,6 +54,17 @@ export const OUTFITS = [
 ];
 const MUSIMAN = { 1: 'emas', 2: 'sakura', 3: 'klasik', 4: 'klasik', 5: 'klasik', 6: 'laut', 7: 'laut',
     8: 'laut', 9: 'senja', 10: 'senja', 11: 'senja', 12: 'natal' };
+
+// Kegiatan Memo hidup (hidup/pikiran.js) dalam kata yang tampil di Beranda.
+const KATA_KEGIATAN = {
+    jelajah: 'jalan-jalan', ngintip: 'mengintip', nonton: 'nonton', temani: 'menemanimu', joget: 'joget',
+    iseng: 'iseng', tidur: 'tidur', sambut: 'menyambutmu', melamun: 'melamun', sembunyi: 'sembunyi',
+};
+const BATANG = [['energi', [126, 231, 135]], ['bosan', [210, 153, 34]], ['penasaran', [88, 166, 255]],
+    ['rindu', [255, 126, 182]]];
+const WARNA_PINTAS = { url: '#ff6b6b', aplikasi: '#d2a8ff', folder: '#58a6ff', terminal: '#cfd6dd' };
+const TAB_REDUP = [111, 138, 116];
+const TAB_TERANG = [184, 245, 192];
 
 const TINDAKAN = [
     ['Deploy ke Vercel', 'Tolong deploy proyek ini ke vercel'],
@@ -208,16 +223,25 @@ export class PanelMemo {
         this.kartuIzin = null;
         this.tombolIzin = {};
 
-        this.actor = new St.BoxLayout({ vertical: true, style_class: 'memo-panel', x_expand: true });
-        this.actor.add_child(this._bangunAtas());
+        // Latar seluruh panel = layar CRT yang sama dengan island.
+        this.actor = new St.Widget({ layout_manager: new Clutter.BinLayout(), x_expand: true });
+        this._latar = new LatarCrt({ bawah: 6, s: 2, pendar: 0.16 });
+        this.actor.add_child(this._latar.actor);
+        this._panelIsi = new St.BoxLayout({ vertical: true, style_class: 'memo-panel', x_expand: true });
+        this.actor.add_child(this._panelIsi);
+        this._panelIsi.add_child(this._bangunAtas());
 
         this._isi = new St.Widget({ layout_manager: new Clutter.BinLayout(), x_expand: true });
-        this.actor.add_child(this._isi);
+        this._panelIsi.add_child(this._isi);
 
-        this._beranda = new St.BoxLayout({ style_class: 'memo-baris-kartu', x_expand: true });
-        this._kartuUtama = new St.BoxLayout({ style_class: 'memo-kartu', x_expand: true });
+        // Beranda: kiri Memo hidup, kanan yang butuh perhatian, bawah pintasan.
+        this._beranda = new St.BoxLayout({ vertical: true, style_class: 'memo-beranda', x_expand: true });
+        const atasBeranda = new St.BoxLayout({ style_class: 'memo-baris-kartu', x_expand: true });
         this._wajah = this._bangunAvatar();
-        this._kartuUtama.add_child(this._wajah.bingkai);
+        this._memo = this._bangunKotakMemo();
+        atasBeranda.add_child(this._memo.kotak);
+        const kanan = new St.BoxLayout({ vertical: true, x_expand: true, style_class: 'memo-kolom-kanan' });
+        this._kartuUtama = new St.BoxLayout({ style_class: 'memo-kartu', x_expand: true });
         this._info = new St.BoxLayout({ vertical: true, style_class: 'memo-info', x_expand: true,
             y_align: Clutter.ActorAlign.CENTER });
         this._kartuUtama.add_child(this._info);
@@ -227,8 +251,13 @@ export class PanelMemo {
             y_align: Clutter.ActorAlign.CENTER, x_align: Clutter.ActorAlign.CENTER,
         });
         this._kartuPill.add_child(this._kisi);
-        this._beranda.add_child(this._kartuUtama);
-        this._beranda.add_child(this._kartuPill);
+        kanan.add_child(this._kartuUtama);
+        kanan.add_child(this._kartuPill);
+        atasBeranda.add_child(kanan);
+        this._beranda.add_child(atasBeranda);
+        this._pintasan = new St.BoxLayout({ style_class: 'memo-pintasan', x_expand: true });
+        this._beranda.add_child(this._pintasan);
+        this.segarkanPintasan();
 
         this._chat = this._bangunChat();
         this._tambah = this._bangunTambah();
@@ -250,7 +279,7 @@ export class PanelMemo {
         isi.add_child(this._jam);
         isi.add_child(this._titikNotif);
         this._tombolJam = new St.Button({ style_class: 'memo-jam', can_focus: true, child: isi,
-            x_expand: true, y_expand: true, x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER });
+            y_align: Clutter.ActorAlign.CENTER });
         this._tombolJam.connect('clicked', () => this._island.bukaKalender());
         this._ikatan = [];
         const dm = Main.panel.statusArea.dateMenu;
@@ -283,37 +312,32 @@ export class PanelMemo {
         return this._tombolSistem;
     }
 
+    // Tab huruf piksel di kiri; jam, ikon sistem, dan suara di kanan (tab
+    // berupa tulisan terlalu lebar untuk jam yang ditumpuk di tengah).
     _bangunAtas() {
-        const tumpuk = new St.Widget({ layout_manager: new Clutter.BinLayout(), x_expand: true });
         const atas = new St.BoxLayout({ style_class: 'memo-panel-atas', x_expand: true });
-        tumpuk.add_child(atas);
-        tumpuk.add_child(this._bangunJam());
         this._tombolTab = {};
-        for (const [id, ikon] of [['beranda', 'go-home-symbolic'], ['chat', 'chat-bubble-text-symbolic'],
-            ['tambah', 'list-add-symbolic']]) {
-            const b = new St.Button({ style_class: 'memo-tab', can_focus: true,
-                child: new St.Icon({ icon_name: ikon, icon_size: 16 }) });
+        for (const [id, nama] of [['beranda', 'beranda'], ['chat', 'chat'], ['tambah', '+'], ['atur', 'atur']]) {
+            const teks = new LabelPiksel({ u: 2, warna: TAB_REDUP, cahaya: 0.2 });
+            teks.text = nama;
+            const b = new St.Button({ style_class: 'memo-tab-crt', can_focus: true, child: teks.actor,
+                y_align: Clutter.ActorAlign.CENTER });
+            b._teks = teks;
             b.connect('clicked', () => this.pilihTab(id));
             this._tombolTab[id] = b;
             atas.add_child(b);
         }
-        // Status di kiri (setelah +) supaya sisi kanan cukup untuk ikon sistem
-        // tanpa menabrak jam di tengah.
         this._statusAtas = label('', 'memo-panel-status');
         atas.add_child(this._statusAtas);
         atas.add_child(new St.Widget({ x_expand: true }));
+        atas.add_child(this._bangunJam());
         atas.add_child(this._bangunIkonSistem());
         this._ikonSuara = new St.Icon({ icon_size: 16 });
         const suara = new St.Button({ style_class: 'memo-tab', can_focus: true, child: this._ikonSuara });
         suara.connect('clicked', () => this._togelSuara());
         atas.add_child(suara);
-        const atur = new St.Button({ style_class: 'memo-tab', can_focus: true,
-            child: new St.Icon({ icon_name: 'emblem-system-symbolic', icon_size: 16 }) });
-        atur.connect('clicked', () => this.pilihTab('atur'));
-        this._tombolTab.atur = atur;
-        atas.add_child(atur);
         this._segarkanSuara();
-        return tumpuk;
+        return atas;
     }
 
     _bangunAvatar() {
@@ -349,16 +373,20 @@ export class PanelMemo {
                 b.add_style_pseudo_class('checked');
             else
                 b.remove_style_pseudo_class('checked');
+            b._teks.setWarna(k === id ? TAB_TERANG : TAB_REDUP);
         }
         // Wajah besar ikut pindah ke kartu yang sedang tampil.
         this._wajah.bingkai.get_parent()?.remove_child(this._wajah.bingkai);
-        const rumah = { beranda: this._kartuUtama, chat: this._chat.kartu, tambah: this._tambah.kartu, atur: null }[id];
+        const rumah = { beranda: this._memo.wadahWajah, chat: this._chat.kartu, tambah: this._tambah.kartu, atur: null }[id];
         if (rumah)
             rumah.insert_child_at_index(this._wajah.bingkai, 0);
-        if (id !== 'beranda')
+        if (id !== 'beranda') {
             this._wajah.lencana.visible = false;
-        else
+        } else {
             this._tanda = '';
+            this.segarkanMemo();
+            this.segarkanPintasan();
+        }
         if (id === 'chat') {
             this.segarkanChat();
             global.stage.set_key_focus(this._chat.entri.clutter_text);
@@ -367,6 +395,108 @@ export class PanelMemo {
         } else if (id === 'atur') {
             this.segarkanAtur();
         }
+    }
+
+    // --- Beranda: Memo hidup ----------------------------------------------
+    _bangunKotakMemo() {
+        const kotak = new St.BoxLayout({ vertical: true, style_class: 'memo-kartu memo-kotak-memo' });
+        const wadahWajah = new St.BoxLayout({ style_class: 'memo-wadah-wajah', x_expand: true });
+        kotak.add_child(wadahWajah);
+        const status = new LabelPiksel({ u: 2, lebarMaks: 210, kelasBiasa: 'memo-langkah' });
+        kotak.add_child(status.actor);
+        const batang = {};
+        for (const [nama, warna] of BATANG) {
+            const baris = new St.BoxLayout({ style_class: 'memo-baris-batang' });
+            const teks = new LabelPiksel({ u: 1, warna: [143, 181, 150], cahaya: 0 });
+            teks.text = nama;
+            const kolom = new St.Bin({ child: teks.actor, width: 58, x_align: Clutter.ActorAlign.START });
+            baris.add_child(kolom);
+            batang[nama] = new BatangPiksel({ warna, kotak: 18, s: 6, celah: 2, tinggi: 8 });
+            baris.add_child(batang[nama].actor);
+            kotak.add_child(baris);
+        }
+        const tombolBaris = new St.BoxLayout({ style_class: 'memo-baris-tombol' });
+        tombolBaris.add_child(tombol('panggil', 'memo-btn-gelap', () => {
+            this._island.menu.close();
+            this._island.hidup?.panggilKeSini();
+        }));
+        tombolBaris.add_child(tombol('pulang', 'memo-btn-gelap', () => {
+            this._island.hidup?.pulang();
+            this.segarkanMemo();
+        }));
+        const jalan = tombol('jalan: off', 'memo-btn-gelap', () => {
+            const h = this._island.hidup;
+            h?.setAktif(!h.aktif);
+            this.segarkanMemo();
+        });
+        tombolBaris.add_child(jalan);
+        kotak.add_child(tombolBaris);
+        return { kotak, wadahWajah, status, batang, jalan };
+    }
+
+    // Dipanggil saat tab Beranda dibuka dan tiap detik selama panel terbuka.
+    segarkanMemo() {
+        const h = this._island.hidup;
+        const m = this._memo;
+        m.status.text = !h ? 'memo: -' : !h.aktif ? 'jalan-jalan mati' : !h.diLuar ? 'memo: di island'
+            : `memo: ${KATA_KEGIATAN[h.kegiatan] ?? h.kegiatan}`;
+        const k = h?.kebutuhan ?? {};
+        for (const [nama, b] of Object.entries(m.batang))
+            b.nilai = k[nama] ?? 0;
+        m.jalan.get_child().get_children().at(-1).text = h?.aktif ? 'jalan: on' : 'jalan: off';
+    }
+
+    // --- Beranda: pintasan cepat --------------------------------------------
+    segarkanPintasan() {
+        this._pintasan.destroy_all_children();
+        const daftar = bacaPintasan(bacaTeks(`${KONFIG()}/pintasan.json`));
+        for (const p of daftar)
+            this._pintasan.add_child(this._tombolPintas(p.nama, WARNA_PINTAS[p.jenis], () => this._bukaPintasan(p)));
+        this._pintasan.add_child(this._tombolPintas('+ tambah', '#44624a', () => this._suntingPintasan()));
+    }
+
+    _tombolPintas(nama, warna, aksi) {
+        const isi = new St.BoxLayout({ vertical: true, style_class: 'memo-pintas-isi', x_align: Clutter.ActorAlign.CENTER });
+        const ikon = avatarPiksel(warna, null, 2);
+        ikon.x_align = Clutter.ActorAlign.CENTER;
+        isi.add_child(ikon);
+        isi.add_child(label(nama, 'memo-pintas-nama', { x_align: Clutter.ActorAlign.CENTER }));
+        const b = new St.Button({ child: isi, style_class: 'memo-pintas', can_focus: true, x_expand: true });
+        b.connect('clicked', aksi);
+        b._memoNama = nama;
+        return b;
+    }
+
+    _bukaPintasan(p) {
+        const target = p.jenis === 'folder' || p.jenis === 'terminal' ? jalurPenuh(p.target, GLib.get_home_dir()) : p.target;
+        let ok = false;
+        try {
+            [ok] = bukaLaptop(p.jenis, target);
+        } catch (e) {
+            console.error(`[dynamic-island] pintasan ${p.nama}: ${e}`);
+        }
+        this._island.menu.close();
+        if (!ok)
+            this._island.trigger('dialog-warning-symbolic', `Pintasan gagal: ${p.nama}`, 2500);
+    }
+
+    // Membuka pintasan.json di penyunting bawaan (dibuat dari bawaan bila belum ada).
+    _suntingPintasan() {
+        const path = `${KONFIG()}/pintasan.json`;
+        try {
+            if (!GLib.file_test(path, GLib.FileTest.EXISTS)) {
+                GLib.mkdir_with_parents(KONFIG(), 0o700);
+                tulis(path, `${JSON.stringify(PINTASAN_BAWAAN, null, 2)}\n`);
+            }
+            Gio.AppInfo.launch_default_for_uri(Gio.File.new_for_path(path).get_uri(), null);
+        } catch (e) {
+            console.error(`[dynamic-island] sunting pintasan: ${e}`);
+        }
+        this._island.menu.close();
+    }
+
+    setWarnaLatar(warna) {
+        this._latar.setWarna(warna);
     }
 
     // --- Ekspresi/gerak cermin island ------------------------------------

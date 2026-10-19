@@ -51,6 +51,7 @@ if st != {"s": 1, "g": ""}:
                     if "CRITICAL" in b or "JS ERROR" in b or "@file://" in b)[:3000])
     sys.exit(1)
 cek("panel tertutup tidak tergambar", ev("return memoUji.island().menu.actor.visible;") is False)
+cek("island CRT: diam -> hijau fosfor tanpa timer", ev("const l = memoUji.island()._latar; return [l.warna.join(\",\"), l._gerak];")[1] is None and ev("const l = memoUji.island()._latar; return [l.warna.join(\",\"), l._gerak];")[0] != "88,166,255", ev("const l = memoUji.island()._latar; return [l.warna.join(\",\"), l._gerak];"))
 for _ in range(40):
     k = keadaan()
     if "__galat" not in k:
@@ -68,6 +69,7 @@ base = {"session_id": "ses-uji-1", "cwd": "/home/himisbah/Projects/toko"}
 hook({**base, "hook_event_name": "UserPromptSubmit", "prompt": "rapikan checkout"})
 k = tunggu(lambda k: "berpikir" in k["label"])
 cek("prompt -> island 'berpikir…'", "berpikir" in k["label"] and k["kotak"] == "event", k)
+cek("island CRT: agen bekerja -> biru, garis menyapu", ev("const l = memoUji.island()._latar; return [l.warna.join(\",\"), l._gerak];") == ["88,166,255", "sapuan"], ev("const l = memoUji.island()._latar; return [l.warna.join(\",\"), l._gerak];"))
 cek("ekspresi berpikir", k["eks"] == "berpikir", k["eks"])
 hook({**base, "hook_event_name": "PreToolUse", "tool_name": "Edit", "tool_input": {"file_path": "/x/checkout.js"}})
 hook({**base, "hook_event_name": "PostToolUse", "tool_name": "Edit", "tool_input": {"file_path": "/x/checkout.js", "old_string": "a\nb", "new_string": "a\nc\nd"}})
@@ -84,6 +86,8 @@ cek("kartu izin muncul", k["kartu"], k)
 cek("perintah persis di kartu", k["perintah"] == "npm run migrate -- --env production", k["perintah"])
 cek("island menempel izin", k["label"].startswith("claude: izin? Bash: npm run migrate"), k["label"])
 cek("ekspresi bingung saat izin", k["eks"] == "bingung", k["eks"])
+cek("island CRT: izin menunggu -> kuning berdenyut", ev("const l = memoUji.island()._latar; return [l.warna.join(\",\"), l._gerak];") == ["240,180,41", "denyut"], ev("const l = memoUji.island()._latar; return [l.warna.join(\",\"), l._gerak];"))
+potret("2-island-izin", (500, 0, 600, 60))
 ev("const i = memoUji.island(); i.menu.open(); return true;"); time.sleep(0.6)
 potret("2-kartu-izin", (300, 0, 1000, 420))
 u = ev("const i = memoUji.island(); const [, y] = i.menu.box.get_transformed_position(); const [, py] = i._pill.get_transformed_position(); return {lebar: Math.round(i.menu.box.width), atas: Math.round(y), pillAtas: Math.round(py), tab: i._panel._tab};")
@@ -140,6 +144,9 @@ potret("9-atur", (300, 0, 1000, 420))
 ev("const p = memoUji.island()._panel; p._ikonSuara.get_parent().emit('clicked', 1); return true;"); time.sleep(0.2)
 cek("tombol suara lagi: suara kembali", not os.path.exists(f"{T}/config/memo/bisu"))
 ev("const i = memoUji.island(); i._panel.pilihTab('beranda'); i.menu.close(); return true;")
+k = ev("const p = memoUji.island()._panel; p.pilihTab('beranda'); return {s: p._memo.status.text, b: Object.keys(p._memo.batang).length, pin: p._pintasan.get_children().map(b => b._memoNama)};")
+cek("Beranda: status Memo hidup + 4 batang kebutuhan", k.get("s") == "jalan-jalan mati" and k.get("b") == 4, k)
+cek("Beranda: pintasan bawaan + tambah", k.get("pin") == ["YouTube", "Obsidian", "Proyek Memo", "Terminal", "Unduhan", "+ tambah"], k)
 ev("memoUji.island().menu.open(); return true;"); time.sleep(0.6)
 j = ev("""const i = memoUji.island(); const p = i._panel; const dm = memoUji.Main.panel.statusArea.dateMenu;
           const [bx] = i.menu.box.get_transformed_position(); const [jx] = p._tombolJam.get_transformed_position();
@@ -233,7 +240,7 @@ s = sampel(POSE, 1.8)
 cek("izin baru -> Memo kaget", any(x.get("e") == "kaget" for x in s), [x.get("e") for x in s][:8])
 ev("memoUji.island().jawabIzin('deny'); return true;")
 s = sampel(POSE, 0.8)
-cek("ditolak -> Memo menggeleng (geser kiri-kanan)", any(x.get("e") == "geleng" for x in s) and min(x.get("tx", 0) for x in s) < -0.5 < 0.5 < max(x.get("tx", 0) for x in s))
+cek("ditolak -> Memo menggeleng (geser kiri-kanan)", any(x.get("e") == "geleng" for x in s) and min(x.get("tx", 0) for x in s) < -0.5 < 0.5 < max(x.get("tx", 0) for x in s), [(x.get("e"), x.get("tx")) for x in s][:16])
 pr.stdout.read(); pr.wait(5)
 
 # --- Memo hidup di desktop (extension/hidup/) --------------------------------
@@ -324,6 +331,10 @@ hasil_tolak = [buka("url", "file:///etc/passwd"), buka("url", "javascript:alert(
                buka("folder", "relatif"), buka("terminal", "/tidak/ada"), buka("aplikasi", "?zzzz-tidak-ada"), buka("hapus", "/")]
 cek("Buka menolak url non-http, folder tak ada, jenis asing", all(x == "(false, '')" for x in hasil_tolak) and dibuka() == sebelum,
     (hasil_tolak, dibuka()[-3:]))
+ev("const i = memoUji.island(); i.menu.open(); i._panel.pilihTab('beranda'); "
+   "i._panel._pintasan.get_children().find(b => b._memoNama === 'YouTube').emit('clicked', 1); return true;")
+cek("pintasan YouTube dibuka lewat aplikasi bawaan", "buka:https://www.youtube.com" in dibuka(), dibuka()[-3:])
+cek("pintasan menutup panel", ev("return memoUji.island().menu.isOpen;") is False)
 
 # --- Layar sambutan (login/logout/restart/shutdown/suspend), mode uji ---------
 # Klien GTK diarahkan ke soket Wayland shell uji (bukan sesi yang sedang dipakai).
@@ -377,11 +388,17 @@ jw = subprocess.Popen(["gjs", "-m", JENDELA, "Jendela Uji Memo"], env=envG, stdo
 for _ in range(40):
     if ev(WJ + "return !!w;") is True: break
     time.sleep(0.25)
-ev(WJ + "w.move_resize_frame(true, 300, 420, 700, 380); return true;")
+# Jendela baru bisa masih ditempatkan Mutter: ulangi sampai posisinya benar.
+for _ in range(10):
+    ev(WJ + "w.move_resize_frame(true, 300, 420, 700, 380); return true;")
+    time.sleep(0.3)
+    if ev(WJ + "const r = w.get_frame_rect(); return [r.x, r.y];") == [300, 420]: break
 ev("memoUji.geserKursor(1500, 100); const i = memoUji.island(); i.menu.close(); i._kabarTerakhir = 0; return true;")
 ev(H + "h.setAktif(true); return true;")
 k = tunggu_hidup(lambda k: k["luar"] and k["keadaan"] in ("berdiri", "ngintip"), 10)
 cek("Memo keluar lagi sesudah dinyalakan", k.get("luar") is True, k)
+st = ev("const p = memoUji.island()._panel; p.segarkanMemo(); return p._memo.status.text;")
+cek("Beranda: status menyebut kegiatan Memo", isinstance(st, str) and st.startswith("memo: ") and st != "memo: di island", st)
 time.sleep(2)   # pikiran mengenal jendela uji dulu, supaya tidak "menoleh" di tengah uji
 wid = ev(WJ + "return w.get_id();")
 ev(H + "h._pikiran = {...h._pikiran, kegiatan: 'melamun', sisaMs: 1e9}; "

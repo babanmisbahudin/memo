@@ -28,6 +28,15 @@ export class RobotFace {
             reactive: true,
         });
         this.actor.connect('repaint', () => this._onRepaint());
+        // Shell dimatikan tanpa destroy() dari kita: timer kedip berhenti
+        // sebelum menyentuh aktor yang sudah hilang.
+        this.actor.connect('destroy', () => {
+            this._blinkEnabled = false;
+            if (this._blinkId) {
+                GLib.source_remove(this._blinkId);
+                this._blinkId = null;
+            }
+        });
 
         // Ekspresi reaktif: kursor hover membuat mata melebar, klik kiri
         // memicu senyum spontan, klik kanan memicu miring bingung.

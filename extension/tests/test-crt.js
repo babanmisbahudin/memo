@@ -2,7 +2,7 @@
 import Cairo from 'cairo';
 import Gdk from 'gi://Gdk?version=4.0';
 
-import { LATAR, WARNA_KEADAAN, gambarCrt, jalurTangga, muatkan, normalkan, tulisBercahaya } from '../crt.js';
+import { LATAR, WARNA_KEADAAN, gambarCrt, jalurTangga, muatkan, normalkan, tulisBercahaya, warnaHue } from '../crt.js';
 import { lebarTeks } from '../hurufPiksel.js';
 
 let gagal = 0;
@@ -81,6 +81,11 @@ const panjang = 'claude · toko — checkout.js +2 -1 dan masih banyak lagi';
 const m = muatkan(panjang, 2, 200);
 cek('muatkan: muat di lebar & diakhiri ...', lebarTeks(m, 2) <= 200 && m.endsWith('...'));
 cek('muatkan: teks pendek tidak diubah', muatkan('halo', 2, 200) === 'halo');
+
+const hijau = warnaHue(120), merahMuda = warnaHue(330);
+cek('warnaHue 120 = hijau fosfor', hijau[1] > 220 && hijau[0] < 140 && hijau[2] < 140);
+cek('warnaHue 330 = merah muda', merahMuda[0] > 220 && merahMuda[2] > merahMuda[1]);
+cek('warnaHue selalu 0..255', [0, 45, 205, 280, 359].every(h => warnaHue(h).every(v => v >= 0 && v <= 255)));
 
 console.log(`\n${lolos} lolos, ${gagal} gagal`);
 if (gagal)

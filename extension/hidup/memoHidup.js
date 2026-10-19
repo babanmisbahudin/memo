@@ -595,6 +595,14 @@ export class MemoHidup {
         return { ...this._pikiran.sifat };
     }
 
+    get kegiatan() {
+        return this._pikiran.kegiatan;
+    }
+
+    get kebutuhan() {
+        return { ...this._pikiran.kebutuhan };
+    }
+
     setAktif(aktif) {
         this._aktif = !!aktif;
         if (!this._aktif)

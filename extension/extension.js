@@ -7,7 +7,6 @@ import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import Meta from 'gi://Meta';
 import Gvc from 'gi://Gvc';
-import Pango from 'gi://Pango';
 
 import { RobotFace } from './robotFace.js';
 import { RobotService } from './robotService.js';
@@ -17,6 +16,8 @@ import { MemoHidup } from './hidup/memoHidup.js';
 import { OUTFITS, PanelMemo, avatarPiksel } from './panel.js';
 import { Gerak } from './gerak.js';
 import { jalurRepo } from './jalur.js';
+import { LabelPiksel, LatarCrt } from './widgetCrt.js';
+import { WARNA_KEADAAN, warnaHue } from './crt.js';
 import { SambutanSistem } from './sambutanSistem.js';
 import { DETIK_TIDUR, ISENG, ISENG_MAKS_S, ISENG_MIN_S, JARAK_BANGUN, bolehTidur } from './gerakPola.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
@@ -95,13 +96,23 @@ class Island {
         this._detik = 0;
         this._isengBerikut = this._acakIseng();
 
-        // Hitam pekat dan mengisi tinggi top bar, supaya menempel di tepi
-        // atas layar seperti island Coucou.
-        this._pill = new St.BoxLayout({
+        // Layar mini CRT yang menempel di tepi atas layar: latarnya digambar
+        // LatarCrt (sudut bawah bertangga, scanline, pendar keadaan), isinya
+        // (mata, teks berjalan, avatar) di atasnya.
+        this._pill = new St.Widget({
             style_class: 'dynamic-island-pill',
+            layout_manager: new Clutter.BinLayout(),
             y_align: Clutter.ActorAlign.FILL,
             x_align: Clutter.ActorAlign.CENTER,
             reactive: true,
+        });
+        this._latar = new LatarCrt({ bawah: 4, s: 2 });
+        this._pill.add_child(this._latar.actor);
+        this._isiPill = new St.BoxLayout({ style_class: 'dynamic-island-isi', y_align: Clutter.ActorAlign.FILL });
+        this._pill.add_child(this._isiPill);
+        // Shell dimatikan tanpa disable(): timer island berhenti menyentuh aktor.
+        this._pill.connect('destroy', () => {
+            this._hancur = true;
         });
         this._pill.set_pivot_point(0.5, 0.5);
         // Mata robot adalah anak tetap pill: selalu terlihat, tidak pernah
@@ -156,6 +167,8 @@ class Island {
                 this._chatId = GLib.timeout_add(GLib.PRIORITY_LOW, 1000, () => {
                     if (this._panel._tab === 'chat')
                         this._panel.segarkanChat();
+                    else if (this._panel._tab === 'beranda')
+                        this._panel.segarkanMemo();
                     return GLib.SOURCE_CONTINUE;
                 });
             } else {
@@ -217,13 +230,9 @@ class Island {
             icon_size: 16,
             y_align: Clutter.ActorAlign.CENTER,
         });
-        this._label = new St.Label({
-            style_class: 'dynamic-island-label',
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        this._label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+        this._label = new LabelPiksel({ u: 2, lebarMaks: 440, kelasBiasa: 'dynamic-island-label' });
         this._event.add_child(this._icon);
-        this._event.add_child(this._label);
+        this._event.add_child(this._label.actor);
         this._event.reactive = true;
         this._event.connect('button-release-event', () => {
             this.menu.toggle();
@@ -232,11 +241,11 @@ class Island {
 
         this._mini = new St.BoxLayout({ style_class: 'dynamic-island-mini', y_align: Clutter.ActorAlign.CENTER });
 
-        this._pill.add_child(this._face.actor);
-        this._pill.add_child(this._dot);
-        this._pill.add_child(this._normal);
-        this._pill.add_child(this._event);
-        this._pill.add_child(this._mini);
+        this._isiPill.add_child(this._face.actor);
+        this._isiPill.add_child(this._dot);
+        this._isiPill.add_child(this._normal);
+        this._isiPill.add_child(this._event);
+        this._isiPill.add_child(this._mini);
 
         this._face.setBlinkingEnabled(true);
 
@@ -532,6 +541,7 @@ class Island {
             return;
 
         this._panel?.sync(name);
+        this._segarkanLatar();
 
         if (this._expressionHoldId) {
             GLib.source_remove(this._expressionHoldId);
@@ -646,6 +656,32 @@ class Island {
         this._face.setTint(h, glowBoost);
         this._hidup?.setTint(h, glowBoost);
         this._panel?.setTint(h, glowBoost);
+        this._segarkanLatar();
+    }
+
+    // Warna & gerak layar CRT island menurut keadaan: izin menunggu (kuning,
+    // berdenyut) > galat (merah) > agen bekerja (biru, garis menyapu) > diam
+    // (rona wardrobe, statis — tanpa timer).
+    _segarkanLatar() {
+        if (!this._latar || !this._label || this._hancur)
+            return;
+        let warna, gerak = null;
+        if (this._izinTampil) {
+            warna = WARNA_KEADAAN.izin;
+            gerak = 'denyut';
+        } else if (this.expression === 'error') {
+            warna = WARNA_KEADAAN.galat;
+        } else if (this._aktivitas) {
+            warna = WARNA_KEADAAN.kerja;
+            gerak = 'sapuan';
+        } else {
+            warna = this._tintHue === null || this._tintHue === undefined ? WARNA_KEADAAN.diam : warnaHue(this._tintHue);
+        }
+        this._latar.setWarna(warna);
+        this._latar.setGerak(gerak);
+        this._panel?.setWarnaLatar(warna);
+        this._label.setWarna(warna);
+        this._icon.style = `color: rgb(${warna.join(',')});`;
     }
 
     get expression() {
@@ -716,8 +752,11 @@ class Island {
     }
 
     _update() {
+        if (this._hancur)
+            return;
         this._show(this._resolveTarget());
         this._syncPolling();
+        this._segarkanLatar();
     }
 
     // Clutter does not tween size changes caused by swapping children, so both
@@ -793,6 +832,8 @@ class Island {
     }
 
     _pollTick() {
+        if (this._hancur)
+            return;
         const [pointerX, pointerY] = global.get_pointer();
         const [pillX, pillY] = this._pill.get_transformed_position();
         const near =

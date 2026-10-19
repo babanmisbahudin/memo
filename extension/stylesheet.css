@@ -1,5 +1,5 @@
-/* Island Memo ala Coucou: hitam pekat, menempel di tepi atas layar,
-   sudut bawah membulat; membesar jadi panel 640 px saat dibuka. */
+/* Island Memo gaya layar mini CRT: menempel di tepi atas layar, sudut bawah
+   bertangga piksel (digambar crt.js); membesar jadi panel 640 px saat dibuka. */
 
 #panel.dynamic-island-panel {
     background-color: transparent;
@@ -7,13 +7,18 @@
     box-shadow: none;
 }
 
+/* Latar island digambar LatarCrt (widgetCrt.js); pill-nya sendiri transparan. */
 .dynamic-island-pill {
-    background-color: #000000;
+    background-color: transparent;
     border: none;
-    border-radius: 0 0 14px 14px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
-    padding: 0 14px;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
     margin: 0;
+}
+
+.dynamic-island-isi {
+    padding: 0 16px 2px 16px;
     spacing: 4px;
 }
 
@@ -503,4 +508,146 @@
 
 .memo-slider {
     min-width: 220px;
+}
+
+/* === Gaya layar mini CRT (docs/superpowers/specs/2026-10-18-island-crt-design.md)
+   Latar panel digambar LatarCrt (widgetCrt.js); kartu, tab, dan tombol jadi
+   kotak retro bersudut siku dengan garis tepi fosfor tipis. Aturan di sini
+   sengaja menimpa aturan lama di atas. */
+
+.popup-menu-boxpointer.memo-menu .popup-menu-content {
+    background-color: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+    min-width: 640px;
+    max-width: 640px;
+}
+
+.memo-panel {
+    padding: 6px 14px 20px 14px;
+}
+
+.memo-kartu,
+.memo-kartu-izin,
+.memo-kartu-selesai,
+.memo-kartu-chat {
+    background-gradient-direction: none;
+    background-color: rgba(10, 18, 12, 0.85);
+    border: 1px solid rgba(126, 231, 135, 0.16);
+    border-radius: 0;
+    min-height: 0;
+}
+
+.memo-kartu-izin {
+    background-color: rgba(26, 20, 6, 0.85);
+    border-color: rgba(240, 180, 41, 0.45);
+}
+
+.memo-kartu-selesai {
+    border-color: rgba(63, 185, 80, 0.45);
+}
+
+.memo-tab,
+.memo-jam,
+.memo-sistem,
+.memo-pill,
+.memo-baris-tautan {
+    border-radius: 0;
+}
+
+.memo-tab-crt {
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 0;
+    border: 1px solid transparent;
+}
+
+.memo-tab-crt:hover,
+.memo-tab-crt:focus {
+    background-color: rgba(126, 231, 135, 0.06);
+}
+
+.memo-tab-crt:checked {
+    background-color: rgba(126, 231, 135, 0.08);
+    border-color: rgba(126, 231, 135, 0.35);
+}
+
+.memo-btn {
+    border-radius: 0;
+    border: 1px solid rgba(207, 233, 211, 0.22);
+    font-family: monospace;
+    font-size: 12px;
+    padding: 5px 10px;
+}
+
+.memo-btn-gelap {
+    background-color: rgba(12, 26, 15, 0.9);
+    color: #cfe9d3;
+}
+
+.memo-btn-gelap:hover,
+.memo-btn-gelap:focus {
+    background-color: rgba(30, 60, 36, 0.9);
+}
+
+.memo-btn-terang {
+    background-color: #b8f5c0;
+    color: #050608;
+}
+
+.memo-perintah {
+    border-radius: 0;
+    background-color: #000000;
+    border: 1px solid rgba(240, 180, 41, 0.3);
+    color: #ffe3a3;
+}
+
+.memo-beranda,
+.memo-kolom-kanan {
+    spacing: 10px;
+}
+
+.memo-kotak-memo {
+    min-width: 230px;
+    max-width: 230px;
+    padding: 10px;
+    spacing: 6px;
+}
+
+.memo-wadah-wajah {
+    background-color: #000000;
+    border: 1px solid rgba(126, 231, 135, 0.16);
+    padding: 2px 0;
+}
+
+.memo-baris-batang {
+    spacing: 6px;
+}
+
+.memo-pintasan {
+    spacing: 6px;
+}
+
+.memo-pintas {
+    border: 1px solid rgba(126, 231, 135, 0.16);
+    background-color: rgba(10, 18, 12, 0.85);
+    border-radius: 0;
+    padding: 8px 4px;
+}
+
+.memo-pintas:hover,
+.memo-pintas:focus {
+    background-color: rgba(30, 60, 36, 0.9);
+    border-color: rgba(126, 231, 135, 0.4);
+}
+
+.memo-pintas-isi {
+    spacing: 5px;
+}
+
+.memo-pintas-nama {
+    font-family: monospace;
+    font-size: 10px;
+    color: rgba(207, 233, 211, 0.85);
 }

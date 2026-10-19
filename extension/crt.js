@@ -15,6 +15,16 @@ export const WARNA_KEADAAN = {
     galat: [248, 81, 73],
 };
 
+// Warna fosfor dari rona wardrobe (0-360): terang & agak pucat supaya
+// menyala di atas hitam. Rona 120 (bawaan) = hijau fosfor.
+export function warnaHue(h) {
+    const s = 0.7, l = 0.7;
+    const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2;
+    const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x]
+        : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+    return [r, g, b].map(v => Math.round((v + m) * 255));
+}
+
 // Jalur persegi panjang l×t dengan sudut bertangga: `atas`/`bawah` anak
 // tangga selebar & setinggi `s` px. Disusun dari pita-pita persegi panjang,
 // jadi tetap tajam di skala layar berapa pun.
