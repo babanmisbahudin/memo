@@ -144,12 +144,34 @@ cek('pergi 10 menit: tidur sepanjang waktu itu', catat.niat.some(n => n.t === 30
     !catat.niat.some(n => n.t > 300 && n.t < 900 && n.kegiatan !== 'tidur'));
 cek('lalu menyambut saat kembali', catat.niat.some(n => n.t === 900 && n.kegiatan === 'sambut'));
 
+// Simulasi singkat dengan data tubuh dari hayat.js.
+function simulasiTubuh(tubuh) {
+    const acak = acakDari(3);
+    let k = keadaanBaru({ sifat: { iseng: 1, aktif: 1 } });
+    const catat = { niat: [], lama: {} };
+    for (let t = 0; t < 3600; t++) {
+        const persepsi = { areaKerja: AREA, jendela: [TG], kursor: { x: 400, y: 500 }, jam: 10 };
+        const r = pikir(k, { persepsi, peta: petaDari(persepsi, UKURAN), ukuran: UKURAN, posisi: { x: 1300, y: 900 }, tepi: null,
+            dtMs: 1000, acak, sampai: true, tubuh });
+        k = r.keadaan;
+        if (r.niat)
+            catat.niat.push(r.niat);
+        catat.lama[k.kegiatan] = (catat.lama[k.kegiatan] ?? 0) + 1;
+    }
+    return catat;
+}
+
 // --- atraksi (main) ---
 {
     const { catat } = simulasi({ sifat: { iseng: 1, aktif: 1 }, detik: 3600, jendela: () => [TG], benih: 3 });
     const main = catat.niat.filter(n => n.kegiatan === 'main');
     cek('Memo iseng & aktif kadang main atraksi', main.length > 0 && main.every(n => n.tujuan?.jenis === 'atraksi'));
     cek('atraksinya berganti-ganti', new Set(main.map(n => n.tujuan.nama)).size >= 2);
+    const kecil = simulasiTubuh({ tahap: 'bayi', sakit: false });
+    cek('bayi tidak main atraksi & lebih sering tidur', !kecil.niat.some(n => n.kegiatan === 'main') &&
+        (kecil.lama.tidur ?? 0) > (catat.lama.tidur ?? 0));
+    const sakit = simulasiTubuh({ tahap: 'dewasa', sakit: true });
+    cek('Memo sakit hanya melamun/tidur', sakit.niat.every(n => ['tidur', 'melamun', 'sambut'].includes(n.kegiatan)));
     const MAKS = { ...VS, x: 0, y: 32, lebar: 1600, tinggi: 868, maksimal: true };
     const penuh = simulasi({ sifat: { iseng: 1, aktif: 1 }, detik: 1800, jendela: () => [MAKS], benih: 3 });
     cek('jendela aktif memenuhi layar -> tidak pernah main', !penuh.catat.niat.some(n => n.kegiatan === 'main'));

@@ -236,6 +236,8 @@ function pilihTujuan(kegiatan, c) {
 //   pergi (bolehTidur island), kembali (baru saja pergi -> ada lagi)
 //   dielus, sampai (tiba di tujuan), berdiri (di lantai; syarat atraksi mobil)
 //   main (false = jangan pilih atraksi sendiri; dipakai uji)
+//   tubuh { tahap, sakit } dari hayat.js (opsional): bayi/balita/tua tidak
+//     main atraksi, bayi sering tidur, Memo sakit hanya melamun/tidur
 // Mengembalikan { keadaan, niat } (niat null bila tidak ada yang berubah).
 export function pikir(keadaan, ctx) {
     const { persepsi, peta, posisi, ukuran, acak } = ctx;
@@ -291,8 +293,17 @@ export function pikir(keadaan, ctx) {
     const harusPilih = k.sisaMs <= 0 || menoleh || k.kegiatan === 'sembunyi' || c.kembali ||
         (c.pergi && k.kegiatan !== 'tidur') || (k.kegiatan === 'tidur' && !c.pergi && k.kebutuhan.energi >= 0.95);
     if (harusPilih) {
-        c.atraksi = c.diTepi || ctx.main === false ? null : rencanaAtraksi({ peta, ukuran, posisi, acak, berdiri: !!ctx.berdiri }, k.atraksiTerakhir);
+        const tubuh = ctx.tubuh ?? null;
+        c.atraksi = c.diTepi || ctx.main === false || ['bayi', 'balita', 'tua'].includes(tubuh?.tahap) || tubuh?.sakit ? null : rencanaAtraksi({ peta, ukuran, posisi, acak, berdiri: !!ctx.berdiri }, k.atraksiTerakhir);
         const nilai = skor(c);
+        if (tubuh?.tahap === 'bayi')
+            nilai.tidur += 0.4;
+        if (tubuh?.sakit) {
+            for (const n of KEGIATAN) {
+                if (n !== 'tidur' && n !== 'melamun' && n !== 'sambut')
+                    nilai[n] = 0;
+            }
+        }
         let pilihan = 'melamun', terbaik = -1;
         for (const n of KEGIATAN) {
             // Makin jenuh makin kurang menarik, supaya Memo tidak menonton
