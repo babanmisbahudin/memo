@@ -18,7 +18,7 @@ LebihTeratur ke laptop.
 | Sambutan | `sambutan/` — animasi piksel layar penuh saat login, Log Out, Restart, Power Off, Suspend | [sambutan.md](docs/sambutan.md) |
 | Memo hidup | `extension/hidup/` — Memo keluar dari island, hidup di desktop ala NPC (lompat, ngintip, sifat) | [memo-hidup.md](docs/memo-hidup.md) |
 | Island & panel CRT | `extension/crt.js`, `widgetCrt.js` — island & panel gaya layar mini CRT: beranda, riwayat, chat, atur, pintasan | [island-crt.md](docs/island-crt.md) |
-| Layar login & kunci | `login/` — tema GDM + extension `memo-kunci@local` | [layar-login.md](docs/layar-login.md) |
+| Layar login & kunci | `login/` — pemandangan piksel menurut jam (pagi/siang/sore/malam) + kartu sandi CRT; tema GDM + extension `memo-kunci@local` | [layar-login.md](docs/layar-login.md) |
 
 ## Mulai cepat
 
@@ -31,7 +31,7 @@ bin/memo-pasang.py kunci       # layar kunci ala Memo (tema login GDM: docs/laya
 bin/memo-pasang.py status
 tests/semua.sh                 # semua tes, tanpa GNOME/kamera/jaringan
 tests/gnome/uji-island.sh      # extension + sambutan di GNOME Shell headless (±4 menit)
-tests/gnome/uji-login.sh       # layar login GDM + layar kunci, bus sistem palsu (±1 menit)
+tests/gnome/uji-login.sh       # layar login GDM + layar kunci, bus sistem palsu (±2 menit)
 ```
 
 Semuanya satu folder dan satu repo: extension ada di `extension/` dan
