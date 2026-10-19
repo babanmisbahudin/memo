@@ -66,8 +66,8 @@ const BATANG = [['energi', [126, 231, 135]], ['bosan', [210, 153, 34]], ['penasa
     ['rindu', [255, 126, 182]]];
 const WARNA_PINTAS = { url: '#ff6b6b', aplikasi: '#d2a8ff', folder: '#58a6ff', terminal: '#cfd6dd' };
 const WARNA_JENIS = { agen: '#58a6ff', kabar: '#3fd9b8', notifikasi: '#d2a8ff' };
-const TAB_REDUP = [111, 138, 116];
-const TAB_TERANG = [184, 245, 192];
+const TAB_REDUP = [140, 144, 156];
+const TAB_TERANG = [255, 255, 255];
 
 const TINDAKAN = [
     ['Deploy ke Vercel', 'Tolong deploy proyek ini ke vercel'],
@@ -325,7 +325,7 @@ export class PanelMemo {
         const atas = new St.BoxLayout({ style_class: 'memo-panel-atas', x_expand: true });
         this._tombolTab = {};
         for (const [id, nama] of [['beranda', 'beranda'], ['riwayat', 'riwayat'], ['chat', 'chat'], ['atur', 'atur']]) {
-            const teks = new LabelPiksel({ u: 2, warna: TAB_REDUP, cahaya: 0.2 });
+            const teks = new LabelPiksel({ warna: TAB_REDUP });
             teks.text = nama;
             const b = new St.Button({ style_class: 'memo-tab-crt', can_focus: true, child: teks.actor,
                 y_align: Clutter.ActorAlign.CENTER });
@@ -409,14 +409,14 @@ export class PanelMemo {
         const kotak = new St.BoxLayout({ vertical: true, style_class: 'memo-kartu memo-kotak-memo' });
         const wadahWajah = new St.BoxLayout({ style_class: 'memo-wadah-wajah', x_expand: true });
         kotak.add_child(wadahWajah);
-        const status = new LabelPiksel({ u: 2, lebarMaks: 210, kelasBiasa: 'memo-langkah' });
+        const status = new LabelPiksel({ lebarMaks: 210, kelasBiasa: 'memo-langkah' });
         kotak.add_child(status.actor);
         const batang = {};
         for (const [nama, warna] of BATANG) {
             const baris = new St.BoxLayout({ style_class: 'memo-baris-batang' });
-            const teks = new LabelPiksel({ u: 1, warna: [143, 181, 150], cahaya: 0 });
-            teks.text = nama;
-            const kolom = new St.Bin({ child: teks.actor, width: 58, x_align: Clutter.ActorAlign.START });
+            // Huruf biasa: huruf piksel 1 piksel fisik terlalu kecil dibaca.
+            const teks = new St.Label({ text: nama, style_class: 'memo-label-kecil', y_align: Clutter.ActorAlign.CENTER });
+            const kolom = new St.Bin({ child: teks, width: 58, x_align: Clutter.ActorAlign.START });
             baris.add_child(kolom);
             batang[nama] = new BatangPiksel({ warna, kotak: 18, s: 6, celah: 2, tinggi: 8 });
             baris.add_child(batang[nama].actor);
@@ -912,9 +912,9 @@ export class PanelMemo {
             const kamuBicara = g.peran === 'kamu';
             const gel = new St.BoxLayout({ vertical: true, style_class: `memo-gelembung memo-gelembung-${g.peran}`,
                 x_align: kamuBicara ? Clutter.ActorAlign.END : Clutter.ActorAlign.START });
-            const siapa = new LabelPiksel({ u: 1, warna: kamuBicara ? [140, 188, 255] : [126, 231, 135], cahaya: 0 });
-            siapa.text = { kamu: 'kamu', memo: 'memo', galat: 'galat', info: 'info' }[g.peran] ?? String(g.peran);
-            gel.add_child(siapa.actor);
+            const siapa = new St.Label({ text: { kamu: 'kamu', memo: 'memo', galat: 'galat', info: 'info' }[g.peran] ?? String(g.peran),
+                style_class: 'memo-label-kecil memo-label-siapa' });
+            gel.add_child(siapa);
             const teks = new St.Label({ text: g.teks ?? '', style_class: 'memo-gelembung-teks' });
             teks.clutter_text.line_wrap = true;
             teks.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;

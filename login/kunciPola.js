@@ -2,7 +2,7 @@
 // (tanpa St/Clutter): extension.js tinggal memasang titik-titiknya sebagai
 // aktor kecil.
 //
-// Koordinat dalam petak latar: gambar 3072x1728 = 192x108 petak 16 px
+// Koordinat dalam petak latar: gambar 1920x1080 = 192x108 petak 10 px
 // (petak yang sama dengan adegan sambutan), jadi titik animasi jatuh tepat di
 // kisi piksel latarnya. Semua melangkah per bingkai 12 fps (FPS_PIKSEL).
 

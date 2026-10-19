@@ -11,7 +11,7 @@ island & panel). Langitnya berganti menurut jam.
 | Topik | Keputusan |
 |---|---|
 | Bagian hari | pagi 04.00–10.59 · siang 11.00–14.59 · sore 15.00–17.59 · malam 18.00–03.59 (satu sumber: `extension/waktuPola.js`) |
-| Gambar | 4 PNG 3072×1728 dirender sekali dari `sambutan/layar.js` (adegan "masuk" beku, tanpa teks/konfeti), di-commit, dicek ulang tes. Memo di 22% tinggi (di atas jam & kartu yang mulai di 1/3); malam Memo tidur + satu z |
+| Gambar | 4 PNG 1920×1080 (layar fisik; skala 1,25) dirender sekali dari `sambutan/layar.js` (adegan "masuk" beku, tanpa teks/konfeti), di-commit, dicek ulang tes. Memo di 22% tinggi (di atas jam & kartu yang mulai di 1/3); malam Memo tidur + satu z |
 | Layar kunci | extension `memo-kunci`: latar menurut jam sekarang (dicek tiap menit), animasi 12 fps (bintang berkelip, bintang jatuh, burung) sebagai aktor kecil di kisi latar, jam & tanggal huruf piksel, warna kartu per bagian. Tidak memakai `layar.js` langsung: modul itu memuat Gdk 4, yang tidak boleh dimuat gnome-shell |
 | Layar login GDM | tema hanya CSS: `.login-dialog` memakai `file:///var/lib/memo/latar-login.png`; timer **sistem** (dipasang `pasang-gdm.sh`) mengarahkan tautan itu menurut jam saat boot dan pada 04/11/15/18 — timer sesi pengguna tidak cukup karena GDM tampil justru saat tidak ada yang login |
 | Kartu | hitam fosfor, sudut siku, bingkai 2px, pendar dalam, huruf monospace. Kotak sandi = `login-dialog-prompt-layout` bagian dalam (kolom + pesan); avatar & nama di atasnya, avatar 96px |

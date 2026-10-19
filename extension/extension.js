@@ -240,7 +240,7 @@ class Island {
             icon_size: 16,
             y_align: Clutter.ActorAlign.CENTER,
         });
-        this._label = new LabelPiksel({ u: 2, lebarMaks: 440, kelasBiasa: 'dynamic-island-label' });
+        this._label = new LabelPiksel({ lebarMaks: 440, kelasBiasa: 'dynamic-island-label' });
         this._event.add_child(this._icon);
         this._event.add_child(this._label.actor);
         this._event.reactive = true;
@@ -736,8 +736,7 @@ class Island {
         this._latar.setWarna(warna);
         this._latar.setGerak(gerak);
         this._panel?.setWarnaLatar(warna);
-        this._label.setWarna(warna);
-        this._icon.style = `color: rgb(${warna.join(',')});`;
+        // Teks & ikon tetap putih; warna keadaan cukup di pendar latar.
     }
 
     get expression() {

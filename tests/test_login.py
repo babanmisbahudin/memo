@@ -33,7 +33,7 @@ with tempfile.TemporaryDirectory() as d:
         cek(f"{nama} sama dengan keluaran gambar-memo.js", r.returncode == 0
             and baru.read_bytes() == (LOGIN / nama).read_bytes())
 
-# Latar per bagian hari = keluaran gambar-latar.js (3072x1728).
+# Latar per bagian hari = keluaran gambar-latar.js (1920x1080, layar fisik).
 BAGIAN = ["pagi", "siang", "sore", "malam"]
 with tempfile.TemporaryDirectory() as d:
     for b in BAGIAN:
@@ -41,7 +41,7 @@ with tempfile.TemporaryDirectory() as d:
         r = subprocess.run(["gjs", "-m", str(LOGIN / "gambar-latar.js"), b, str(baru)], capture_output=True, text=True)
         cek(f"latar-{b}.png sama dengan keluaran gambar-latar.js ({r.stderr.strip()[:80]})", r.returncode == 0
             and baru.read_bytes() == (LOGIN / f"latar-{b}.png").read_bytes())
-        cek(f"latar-{b}.png 3072x1728", (LOGIN / f"latar-{b}.png").read_bytes()[16:24] == (3072).to_bytes(4, "big") + (1728).to_bytes(4, "big"))
+        cek(f"latar-{b}.png 1920x1080", (LOGIN / f"latar-{b}.png").read_bytes()[16:24] == (1920).to_bytes(4, "big") + (1080).to_bytes(4, "big"))
 
 # latar-login.sh (timer GDM) memilih bagian yang sama dengan waktuPola.js
 # untuk tiap jam, dan menautkan tujuannya ke gambar bagian itu.

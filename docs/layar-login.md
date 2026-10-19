@@ -23,8 +23,8 @@ Batas jamnya satu sumber: `extension/waktuPola.js` (dipakai juga animasi
 sambutan); `login/latar-login.sh` memakai batas yang sama dan
 `tests/test_login.py` mencocokkan keduanya untuk tiap jam.
 
-Gambar `login/latar-<bagian>.png` (3072×1728, layar laptop ini pada skala 2,
-jadi tampil 1:1 tanpa kabur) dirender `login/gambar-latar.js` dari mesin
+Gambar `login/latar-<bagian>.png` (1920×1080 = layar fisik laptop ini, skala
+1,25, jadi tampil 1:1 tanpa kabur) dirender `login/gambar-latar.js` dari mesin
 adegan sambutan: adegan "masuk" dibekukan tanpa teks, Memo di seperempat atas
 layar supaya jam dan kartu sandi (mulai sepertiga tinggi) ada di bawahnya.
 

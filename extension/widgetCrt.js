@@ -83,9 +83,22 @@ export class LatarCrt {
 // Teks huruf piksel bercahaya. Teks yang memuat huruf di luar huruf piksel
 // (emoji, aksara lain) ditampilkan dengan St.Label biasa (`kelasBiasa`),
 // bukan tanda tanya. `lebarMaks` (px) memotong teks dengan '...'.
+// Satu piksel huruf = bilangan bulat piksel fisik, supaya tidak melebar &
+// kabur di skala pecahan (1,25: 2 logis = 2,5 fisik). `u` adalah ukuran yang
+// diminta dalam piksel logis; hasilnya dibulatkan ke piksel fisik terdekat.
+function uLayar(u) {
+    let s = 1;
+    try {
+        s = global.display.get_monitor_scale(global.display.get_primary_monitor()) || 1;
+    } catch (e) { /* di luar shell */ }
+    return Math.max(1, Math.round(u * s)) / s;
+}
+
+// Teks huruf piksel. Bawaan putih: warna keadaan (biru, kuning, ...) hanya
+// di latar CRT, teksnya tetap putih supaya mudah dibaca.
 export class LabelPiksel {
-    constructor({ u = 2, warna = [255, 255, 255], cahaya = 0.35, lebarMaks = 0, kelasBiasa = null } = {}) {
-        this._u = u;
+    constructor({ u = 1.6, warna = [255, 255, 255], cahaya = 0.2, lebarMaks = 0, kelasBiasa = null } = {}) {
+        this._uMinta = u;
         this._warna = warna;
         this._cahaya = cahaya;
         this._lebarMaks = lebarMaks;
@@ -109,9 +122,9 @@ export class LabelPiksel {
 
     set text(teks) {
         this._teks = teks ?? '';
+        const u = this._u = uLayar(this._uMinta);
         const n = normalkan(this._teks);
-        this._piksel = n === null ? null : this._lebarMaks ? muatkan(n, this._u, this._lebarMaks) : n;
-        const u = this._u;
+        this._piksel = n === null ? null : this._lebarMaks ? muatkan(n, u, this._lebarMaks) : n;
         if (this._piksel === null) {
             this._biasa.text = this._teks;
             this._biasa.visible = true;
@@ -120,7 +133,7 @@ export class LabelPiksel {
             this._biasa.visible = false;
             this._area.visible = true;
             // Satu satuan sisa di tiap sisi untuk pendar; 7 baris huruf + 2 ekor.
-            this._area.set_size(lebarTeks(this._piksel, u) + 2 * u, 11 * u);
+            this._area.set_size(Math.ceil(lebarTeks(this._piksel, u) + 2 * u), Math.ceil(11 * u));
             this._area.queue_repaint();
         }
     }

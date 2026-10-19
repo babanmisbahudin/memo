@@ -6,8 +6,8 @@
 // Memo) dibekukan tanpa teks dan konfeti. Memo ditaruh di seperempat atas
 // layar: jam layar kunci dan kartu sandi GDM mulai di sepertiga tinggi, tepat
 // di bawahnya. Awan ditata tangan supaya tidak menutupi mata Memo dan
-// matahari. Malam hari Memo tidur. Bawaan 3072x1728 (layar laptop ini, skala 2): ditampilkan 1:1
-// sehingga pecah pikselnya tidak kabur.
+// matahari. Malam hari Memo tidur. Bawaan 1920x1080 = layar fisik laptop ini
+// (skala 1,25): ditampilkan 1:1 sehingga pecah pikselnya tidak kabur.
 
 import Cairo from 'cairo';
 import system from 'system';
@@ -17,7 +17,7 @@ import { Layar, MS_LANGKAH } from '../sambutan/layar.js';
 // Jam wakil tiap bagian: langitnya sama dengan sambutan pada jam itu.
 const JAM = { pagi: 7, siang: 12, sore: 16, malam: 21 };
 
-const [bagian, keluaran, l = '3072', t = '1728'] = ARGV;
+const [bagian, keluaran, l = '1920', t = '1080'] = ARGV;
 if (!(bagian in JAM) || !keluaran) {
     printerr('pakai: gjs -m gambar-latar.js <pagi|siang|sore|malam> <keluaran.png> [lebar tinggi]');
     system.exit(2);
