@@ -37,8 +37,9 @@ let h = hayatBaru({ nama: '  Mochi ', kelamin: 'perempuan', avatar: { warna: 'pi
 cek('lahir sebagai telur', tahapPada(h, T0).tahap === 'telur' && h.nama === 'Mochi' && h.kelamin === 'perempuan');
 cek('nama kosong -> Memo, kelamin asing -> belum dipilih', hayatBaru({ nama: ' ', kelamin: 'x' }, T0).nama === 'Memo' &&
     hayatBaru({ kelamin: 'x' }, T0).kelamin === null);
-cek('avatar dirapikan', JSON.stringify(h.avatar) === '{"warna":"pink","mata":"bulat"}' &&
-    JSON.stringify(hayatBaru({ avatar: { warna: 'ungu', mata: 'x' } }, T0).avatar) === '{"warna":"hitam","mata":"kotak"}');
+cek('avatar dirapikan jadi rupa Studio lengkap', h.avatar.warna === 'pink' && h.avatar.mata === 'bulat' && h.avatar.bentuk === 'pil' &&
+    hayatBaru({ avatar: { warna: 'ungu-tua', mata: 'x' } }, T0).avatar.warna === 'hitam' &&
+    hayatBaru({ avatar: { warna: 'ungu-tua', mata: 'x' } }, T0).avatar.mata === 'kotak');
 cek('nama dipangkas 16 huruf', hayatBaru({ nama: 'a'.repeat(40) }, T0).nama.length === 16);
 cek('telur tidak lapar & tidak menua', majukanHayat(h, { dtMs: 10 * JAM_MS, sekarangMs: T0 + 10 * JAM_MS, acak }).hayat.lapar === 0);
 h = tetaskan(h, T0);

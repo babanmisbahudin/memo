@@ -15,6 +15,7 @@ import { P, bingkai, lamaAtraksi, rencanaPerawatan, rencanakan } from '../extens
 import { petaDari } from '../extension/hidup/dunia.js';
 import { badanBaru, lempar, langkah } from '../extension/hidup/fisika.js';
 import { WARNA_BADAN, BENTUK_MATA } from '../extension/hidup/hayat.js';
+import { KATALOG, RUPA_BAWAAN, acakRupa } from '../extension/hidup/studio.js';
 import { gambarKotoran, gambarMakanan, gambarMemo, gambarPiksel, gambarTelur } from '../extension/hidup/gambarMemo.js';
 
 const KELUAR = ARGV[0];
@@ -88,6 +89,73 @@ const telur = gambarTelur;
     memo(c.cr, 410, 120, { kotor: 0.6 });
     memo(c.cr, 570, 120, { kotor: 0.95, t: 0.3 });
     simpan(c, 'kebutuhan');
+}
+
+// Studio Memo: semua pilihan per kategori (item istimewa: gembok + koin).
+function tulis(cr, teks, x, y, { ukuran = 12, warna = [0.85, 0.88, 0.92], tebal = false } = {}) {
+    cr.selectFontFace('monospace', Cairo.FontSlant.NORMAL, tebal ? Cairo.FontWeight.BOLD : Cairo.FontWeight.NORMAL);
+    cr.setFontSize(ukuran);
+    cr.setSourceRGB(...warna);
+    cr.moveTo(x, y);
+    cr.showText(teks);
+}
+
+{
+    const JUDUL = { bentuk: 'bentuk badan', warna: 'warna badan', pola: 'pola badan', mata: 'mata', warnaMata: 'warna mata',
+        mulut: 'mulut', pipi: 'pipi', kepala: 'kepala', ekstra: 'ekstra' };
+    const SEL = 118, KOLOM = 12;
+    let baris = 0;
+    const tata = Object.keys(KATALOG).map(k => {
+        const r = baris;
+        baris += 1 + Math.ceil(KATALOG[k].length / KOLOM) * 1;
+        return [k, r];
+    });
+    const tinggi = Object.values(KATALOG).reduce((n, d) => n + 30 + Math.ceil(d.length / KOLOM) * SEL, 0) + 30 + SEL + 20;
+    const c = kanvas(KOLOM * SEL + 20, tinggi);
+    let y = 10;
+    for (const [k] of tata) {
+        tulis(c.cr, JUDUL[k], 14, y + 22, { ukuran: 15, tebal: true, warna: [0.5, 0.9, 0.55] });
+        y += 30;
+        KATALOG[k].forEach(([id, koin], i) => {
+            const x = 10 + (i % KOLOM) * SEL;
+            const yy = y + Math.floor(i / KOLOM) * SEL;
+            const rupa = { ...RUPA_BAWAAN, warna: k === 'warnaMata' ? 'hitam' : 'biru', mulut: k === 'pipi' ? 'senyum' : 'tanpa', [k]: id };
+            if (k === 'warna')
+                rupa.warna = id;
+            memo(c.cr, x + SEL / 2, yy + 84, { ...rupa, kelamin: 'perempuan', ukuran: 0.72 });
+            tulis(c.cr, id, x + 8, yy + 104, { ukuran: 11 });
+            if (koin) {
+                c.cr.setSourceRGBA(0, 0, 0, 0.18);
+                c.cr.rectangle(x + 2, yy + 2, SEL - 6, SEL - 18);
+                c.cr.fill();
+                tulis(c.cr, `[kunci] ${koin} koin`, x + 8, yy + 18, { ukuran: 10, warna: [1, 0.8, 0.3] });
+            }
+        });
+        y += Math.ceil(KATALOG[k].length / KOLOM) * SEL;
+    }
+    // Mulut ikut ekspresi.
+    tulis(c.cr, 'mulut ikut ekspresi (mulut: senyum)', 14, y + 22, { ukuran: 15, tebal: true, warna: [0.5, 0.9, 0.55] });
+    y += 30;
+    ['netral', 'senang', 'mendengar', 'bicara', 'tidur', 'sakit'].forEach((e, i) => {
+        const x = 10 + i * SEL;
+        memo(c.cr, x + SEL / 2, y + 84, { ...RUPA_BAWAAN, warna: 'kuning', mulut: 'senyum', pipi: 'merona', ekspresi: e, ukuran: 0.72 });
+        tulis(c.cr, e, x + 8, y + 104, { ukuran: 11 });
+    });
+    c.s.flush();
+    simpan(c, 'studio');
+}
+
+// Tombol "acak" di Studio: rupa berganti, Memo melompat kecil.
+{
+    let b = 21;
+    const acak = () => ((b = (b * 16807) % 2147483647) - 1) / 2147483646;
+    const rupa = Array.from({ length: 8 }, () => acakRupa(acak));
+    animasi('studio-acak', 8 * 8, 260, 170, (cr, f) => {
+        lantai(cr, 150, 10, 250);
+        const r = rupa[Math.floor(f / 8)];
+        const k = f % 8;
+        memo(cr, 130, 150 - [0, 10, 16, 18, 16, 10, 4, 0][k], { ...r, kelamin: 'laki-laki', ekspresi: k < 4 ? 'senang' : 'netral' });
+    });
 }
 
 // --- Animasi (bingkai -> GIF di buat.sh) ---------------------------------

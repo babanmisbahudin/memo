@@ -8,17 +8,103 @@
 
 import { drawFace, resolveExpression } from '../face.js';
 import { P } from './atraksi.js';
-import { WARNA_BADAN } from './hayat.js';
+import { WARNA, warnaMataDipakai } from './studio.js';
 import { pikselRupa } from './rupa.js';
 
 export const hexRgb = h => h.match(/\w\w/g).map(x => parseInt(x, 16) / 255);
 
-function pil(cr, dx, dy) {
-    const r = 30;
+// Jalur badan dalam kotak 120 x 72 (semua subjalur searah jarum jam, supaya
+// gabungannya terisi penuh dengan aturan nonzero).
+export function jalurBadan(cr, bentuk = 'pil', dx = 0, dy = 0) {
     cr.newPath();
-    cr.arc(dx + r, dy + r, r, Math.PI / 2, 3 * Math.PI / 2);
-    cr.arc(dx + 120 - r, dy + r, r, -Math.PI / 2, Math.PI / 2);
-    cr.closePath();
+    const lingkaran = (x, y, r) => {
+        cr.newSubPath();
+        cr.arc(dx + x, dy + y, r, 0, 2 * Math.PI);
+    };
+    const segi = titik => {
+        cr.newSubPath();
+        cr.moveTo(dx + titik[0][0], dy + titik[0][1]);
+        for (const [x, y] of titik.slice(1))
+            cr.lineTo(dx + x, dy + y);
+        cr.closePath();
+    };
+    const kapsul = (r, x1 = 0, y1 = 0, x2 = 120, y2 = 72) => {
+        cr.newSubPath();
+        cr.arc(dx + x1 + r, dy + y1 + r, r, Math.PI, 1.5 * Math.PI);
+        cr.arc(dx + x2 - r, dy + y1 + r, r, 1.5 * Math.PI, 2 * Math.PI);
+        cr.arc(dx + x2 - r, dy + y2 - r, r, 0, 0.5 * Math.PI);
+        cr.arc(dx + x1 + r, dy + y2 - r, r, 0.5 * Math.PI, Math.PI);
+        cr.closePath();
+    };
+    switch (bentuk) {
+    case 'bulat':
+        lingkaran(60, 36, 36);
+        break;
+    case 'kotak':
+        kapsul(14);
+        break;
+    case 'tetes':
+        lingkaran(60, 44, 28);
+        segi([[60, 0], [84, 30], [36, 30]]);
+        break;
+    case 'awan':
+        lingkaran(32, 44, 26);
+        lingkaran(60, 30, 30);
+        lingkaran(90, 44, 26);
+        kapsul(12, 8, 40, 112, 72);
+        break;
+    case 'kucing':
+        kapsul(30);
+        segi([[10, 14], [20, -16], [48, 4]]);
+        segi([[72, 4], [100, -16], [110, 14]]);
+        break;
+    default:
+        kapsul(30);
+    }
+}
+
+const gelapkan = (rgb, k) => rgb.map(v => v * (1 - k));
+const terangkan = (rgb, k) => rgb.map(v => v + (1 - v) * k);
+
+// Pola di dalam badan (dipotong jalur badan).
+function gambarPola(cr, pola, rgb, bentuk) {
+    if (!pola || pola === 'polos')
+        return;
+    cr.save();
+    jalurBadan(cr, bentuk);
+    cr.clip();
+    const lain = rgb[0] + rgb[1] + rgb[2] < 0.6 ? terangkan(rgb, 0.18) : gelapkan(rgb, 0.22);
+    cr.setSourceRGB(...lain);
+    if (pola === 'belang') {
+        for (let y = 6; y < 80; y += 14)
+            cr.rectangle(0, y, 120, 5);
+        cr.fill();
+    } else if (pola === 'totol') {
+        for (const [x, y, r] of [[18, 20, 6], [100, 16, 5], [28, 58, 5], [94, 56, 7], [62, 64, 4], [8, 42, 4], [112, 40, 4]]) {
+            cr.newSubPath();
+            cr.arc(x, y, r, 0, 2 * Math.PI);
+        }
+        cr.fill();
+    } else if (pola === 'gradasi') {
+        // Dither Bayer 2x2 makin rapat ke bawah (gaya piksel, tanpa alpha).
+        for (let y = 30; y < 74; y += P) {
+            const rapat = (y - 30) / 44;
+            for (let x = 0; x < 120; x += P) {
+                const ambang = [[0, 0.5], [0.75, 0.25]][(y / P) % 2][(x / P) % 2];
+                if (rapat > ambang)
+                    cr.rectangle(x, y, P, P);
+            }
+        }
+        cr.fill();
+    } else if (pola === 'bintang') {
+        cr.setSourceRGBA(1, 0.95, 0.7, 0.85);
+        for (const [x, y] of [[16, 18], [102, 22], [24, 56], [96, 58], [60, 8], [8, 38], [112, 44]]) {
+            cr.rectangle(x - P, y, 3 * P, P);
+            cr.rectangle(x, y - P, P, 3 * P);
+        }
+        cr.fill();
+    }
+    cr.restore();
 }
 
 export function gambarNoda(cr, kotor, t = 0) {
@@ -55,8 +141,9 @@ export function gambarRupa(cr, opsi, ox = 0, oy = 0) {
 
 // Badan Memo lengkap, kaki di (x, y).
 export function gambarMemo(cr, x, y, { warna = 'hitam', mata = 'kotak', ekspresi = 'netral', ukuran = 1, rz = 0, sy = 1,
-    gaze = [0, 0], kotor = 0, t = 0, kelamin = null, tahap = 'dewasa', opacity = 1 } = {}) {
-    const w = WARNA_BADAN[warna] ?? WARNA_BADAN.hitam;
+    gaze = [0, 0], kotor = 0, t = 0, kelamin = null, tahap = 'dewasa', opacity = 1,
+    bentuk = 'pil', pola = 'polos', warnaMata = 'otomatis', mulut = 'tanpa', pipi = 'tanpa', kepala = 'bawaan', ekstra = 'tanpa' } = {}) {
+    const w = WARNA[warna] ?? WARNA.hitam;
     if (ukuran * sy < 0.01 || opacity <= 0)
         return; // tenggelam penuh saat menyelinap
     if (opacity < 1)
@@ -67,22 +154,24 @@ export function gambarMemo(cr, x, y, { warna = 'hitam', mata = 'kotak', ekspresi
     cr.scale(ukuran, ukuran * sy);
     cr.translate(-60, -72);
     cr.setSourceRGBA(0, 0, 0, 0.3);
-    pil(cr, 0, 4);
+    jalurBadan(cr, bentuk, 0, 4);
     cr.fill();
     cr.setSourceRGB(...hexRgb(w.badan));
-    pil(cr, 0, 0);
+    jalurBadan(cr, bentuk);
     cr.fill();
+    gambarPola(cr, pola, hexRgb(w.badan), bentuk);
     cr.save();
     cr.translate(60 - 22 * 2.6, 36 - 13 * 2.6);
     cr.scale(2.6, 2.6);
-    const p = { ...(resolveExpression(ekspresi) ?? resolveExpression('netral')), mata, warnaMata: w.mata };
+    const p = { ...(resolveExpression(ekspresi) ?? resolveExpression('netral')), mata, mulut, pipi,
+        warnaMata: warnaMataDipakai({ warna, warnaMata }) };
     p.gazeX += gaze[0];
     p.gazeY += gaze[1];
     drawFace(cr, 44, 26, p);
     cr.restore();
     if (kotor >= 0.3)
         gambarNoda(cr, kotor, t);
-    gambarRupa(cr, { kelamin, tahap, warna });
+    gambarRupa(cr, { kelamin, tahap, warna, kepala, ekstra });
     cr.restore();
     if (opacity < 1) {
         cr.popGroupToSource();
@@ -135,7 +224,7 @@ export function gambarMakanan(cr, x, y, jenis) {
 export const TELUR_L = 18 * P;
 export const TELUR_T = 22 * P;
 export function gambarTelur(cr, x, y, warna, retak = 0, rz = 0) {
-    const bintik = hexRgb((WARNA_BADAN[warna] ?? WARNA_BADAN.hitam).badan);
+    const bintik = hexRgb((WARNA[warna] ?? WARNA.hitam).badan);
     cr.save();
     cr.translate(x, y);
     cr.rotate(rz * Math.PI / 180);

@@ -16,19 +16,23 @@ export const NEUTRAL = {
     iconAlpha: 0, // 0 = wajah normal, 1 = tampilkan ikon sistem
     iconKind: 'none', // 'none' | 'shutdown' | 'restart' | 'logout'
     mata: 'kotak',    // avatar: 'kotak' (blok LED) | 'bulat' (tanpa sudut) | 'sipit' (satu baris)
+                      //         | 'besar' (4x4) | 'kucing' (celah tegak) | 'hati'
     warnaMata: null,  // avatar: [r, g, b] 0..1, null = putih
+    mulut: 'tanpa',   // avatar: 'tanpa' | 'senyum' | 'w' | 'taring' | 'o'
+    pipi: 'tanpa',    // avatar: 'tanpa' | 'merona' | 'bintik'
+    mulutEkspresi: null, // ekspresi mengganti bentuk mulut (bila Memo bermulut)
 };
 
 export const EXPRESSIONS = {
     netral: {},
-    mendengar: { open: 1.2, width: 1.1, glow: 0.95 },
+    mendengar: { open: 1.2, width: 1.1, glow: 0.95, mulutEkspresi: 'o' },
     berpikir: { open: 0.55, gazeX: -0.75, gazeY: -1, glow: 0.5 },
-    bicara: { open: 0.72, width: 0.95, glow: 0.85 },
-    senang: { open: 0.4, curve: 1, glow: 0.9 },
+    bicara: { open: 0.72, width: 0.95, glow: 0.85, mulutEkspresi: 'o' },
+    senang: { open: 0.4, curve: 1, glow: 0.9, mulutEkspresi: 'lebar' },
     bingung: { open: 1.1, width: 1.15, tilt: 0.8 },
     error: { open: 1, glow: 1, hue: 0, cross: 1 },
-    tidur: { open: 0.06, curve: 0, glow: 0.2 },
-    sakit: { open: 0.45, glow: 0.25, tilt: 0.35, gazeY: 0.6 },
+    tidur: { open: 0.06, curve: 0, glow: 0.2, mulutEkspresi: 'garis' },
+    sakit: { open: 0.45, glow: 0.25, tilt: 0.35, gazeY: 0.6, mulutEkspresi: 'gelombang' },
     shutdown: { iconAlpha: 1, iconKind: 'shutdown', hue: 0, glow: 0.9 },
     restart: { iconAlpha: 1, iconKind: 'restart', hue: 45, glow: 0.9 },
     logout: { iconAlpha: 1, iconKind: 'logout', hue: 210, glow: 0.9 },
@@ -104,7 +108,20 @@ function smoothstep(edge0, edge1, value) {
     return t * t * (3 - 2 * t);
 }
 
-// Hanya dua mata LED, tanpa kepala/layar/mulut. Tiap ekspresi adalah bentuk
+// Bentuk mulut (titik dalam satuan sel, relatif pusat mulut).
+const MULUT = {
+    senyum: [[-1.5, 0], [-0.5, 0.7], [0.5, 0.7], [1.5, 0]],
+    lebar: [[-2, -0.2], [-1, 0.6], [0, 0.9], [1, 0.6], [2, -0.2]],
+    w: [[-1.5, 0], [-0.75, 0.7], [0, 0], [0.75, 0.7], [1.5, 0]],
+    taring: [[-1, 0], [0, 0], [1, 0], [-1, 0.8], [1, 0.8]],
+    o: [[0, -0.6], [-0.6, 0], [0.6, 0], [0, 0.6]],
+    garis: [[-0.6, 0], [0, 0], [0.6, 0]],
+    gelombang: [[-1.5, 0], [-0.75, -0.5], [0, 0], [0.75, -0.5], [1.5, 0]],
+};
+
+const HATI = ['.#.#.', '#####', '.###.', '..#..'];
+
+// Dua mata LED; mulut & pipi hanya bila avatar memilihnya. Tiap ekspresi adalah bentuk
 // piksel mata yang berbeda; semua diblend dengan alpha supaya transisi mulus.
 export function drawFace(cr, width, height, params) {
     const centerX = width / 2;
@@ -146,7 +163,34 @@ export function drawFace(cr, width, height, params) {
         const ex = centerX + side * 7.5 * params.width + params.gazeX * 4;
         const ey = centerY + params.gazeY * 3 + side * params.tilt * 2.5;
 
-        if (plainWeight > 0.01) {
+        const a0 = [color[0], color[1], color[2], color[3] * plainWeight];
+        if (plainWeight > 0.01 && params.mata === 'hati' && params.open > 0.5) {
+            HATI.forEach((baris, r) => [...baris].forEach((c, k) => {
+                if (c === '#')
+                    led(ex + (k - 2) * cell * 0.8, ey + (r - 1.5) * cell * 0.8, a0);
+            }));
+        } else if (plainWeight > 0.01 && params.mata === 'kucing') {
+            // Celah tegak: kolom tengah penuh, sisi hanya di tengah.
+            const lit = Math.max(1, Math.round(params.open * 4));
+            for (let dr = 0; dr < lit; dr++)
+                led(ex, ey + (dr - (lit - 1) / 2) * cell, a0);
+            if (lit >= 3) {
+                led(ex - cell * 0.8, ey, a0);
+                led(ex + cell * 0.8, ey, a0);
+            }
+        } else if (plainWeight > 0.01 && params.mata === 'besar') {
+            // 4 x 4 tanpa sudut, dengan satu titik kilau gelap.
+            const lit = Math.max(1, Math.round(params.open * 4));
+            for (let dc = 0; dc < 4; dc++) {
+                for (let dr = 0; dr < lit; dr++) {
+                    if (lit === 4 && (dc === 0 || dc === 3) && (dr === 0 || dr === 3))
+                        continue;
+                    const kilau = lit === 4 && dc === 1 && dr === 1;
+                    led(ex + (dc - 1.5) * cell, ey + (dr - (lit - 1) / 2) * cell,
+                        kilau ? [color[0] * 0.35, color[1] * 0.35, color[2] * 0.35, a0[3]] : a0);
+                }
+            }
+        } else if (plainWeight > 0.01) {
             // Mata blok 3 kolom; tinggi menyusut saat berkedip.
             // Avatar: 'sipit' paling tinggi satu baris, 'bulat' tanpa sudut.
             const lit = Math.max(1, Math.round(params.open * (params.mata === 'sipit' ? 1 : 3)));
@@ -175,5 +219,27 @@ export function drawFace(cr, width, height, params) {
             led(ex - cell, ey + cell, a);
             led(ex + cell, ey + cell, a);
         }
+    }
+
+    // Pipi: di bawah sudut luar mata.
+    if (params.pipi && params.pipi !== 'tanpa') {
+        for (const side of [-1, 1]) {
+            const px = centerX + side * (7.5 * params.width + 4.5);
+            const py = centerY + cell * 2.2;
+            if (params.pipi === 'merona') {
+                for (const dx of [-0.5, 0.5])
+                    led(px + dx * cell, py, [1, 0.45, 0.6, 0.75]);
+            } else {
+                for (const [dx, dy] of [[-0.6, 0], [0.6, 0], [0, 0.6]])
+                    led(px + dx * cell, py + dy * cell, [0.55, 0.32, 0.2, 0.85]);
+            }
+        }
+    }
+    // Mulut: bentuk pilihan, diganti ekspresi (senang melebar, kaget "o", ...).
+    if (params.mulut && params.mulut !== 'tanpa') {
+        const titik = MULUT[params.mulutEkspresi ?? params.mulut] ?? MULUT[params.mulut];
+        const mx = centerX + params.gazeX * 2, my = centerY + cell * 3.1;
+        for (const [dx, dy] of titik ?? [])
+            led(mx + dx * cell * 0.8, my + dy * cell * 0.8, color);
     }
 }

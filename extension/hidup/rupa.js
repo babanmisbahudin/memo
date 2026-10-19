@@ -19,6 +19,11 @@ const W = {
     headphone: [70, 72, 82], headphoneTerang: [130, 134, 148],
     alis: [235, 235, 230], janggut: [240, 240, 235], kacamata: [200, 170, 90],
     tongkat: [140, 95, 55], tongkatTerang: [185, 135, 85],
+    antena: [170, 178, 190], antenaBola: [255, 90, 90], emas: [255, 200, 60], emasGelap: [205, 145, 30],
+    permata: [90, 200, 255], tanduk: [245, 235, 215], tandukGelap: [200, 185, 160], daun: [90, 200, 90],
+    daunGelap: [50, 140, 60], bando: [60, 60, 70], telingaDalam: [255, 150, 180],
+    syal: [230, 70, 70], syalBelang: [250, 240, 230], dasi: [120, 80, 220], kalung: [250, 250, 250],
+    sayap: [245, 248, 255], sayapBayang: [190, 205, 225], ekor: [70, 70, 80],
 };
 
 function kotak(daftar, x1, y1, x2, y2, w) {
@@ -30,11 +35,65 @@ function kotak(daftar, x1, y1, x2, y2, w) {
 
 // Piksel aksesori untuk { kelamin, tahap, warna } (warna badan: pita di
 // badan pink jadi merah supaya tetap terlihat).
-export function pikselRupa({ kelamin = null, tahap = 'dewasa', warna = 'hitam' } = {}) {
+// `kepala` dan `ekstra` dari Studio (studio.js); kepala 'bawaan' = topi/pita
+// menurut jenis kelamin.
+export function pikselRupa({ kelamin = null, tahap = 'dewasa', warna = 'hitam', kepala = 'bawaan', ekstra = 'tanpa' } = {}) {
     const g = new Map();
     if (tahap === 'telur')
         return [];
-    if (kelamin === 'laki-laki') {
+    if (kepala === 'antena') {
+        kotak(g, 19, -4, 20, -1, W.antena);
+        kotak(g, 18, -6, 21, -5, W.antenaBola);
+    } else if (kepala === 'mahkota') {
+        kotak(g, 12, -2, 27, -1, W.emas);
+        for (const x of [12, 19, 26])
+            kotak(g, x, -5, x + 1, -3, W.emas);
+        kotak(g, 13, -1, 26, -1, W.emasGelap);
+        kotak(g, 19, -2, 20, -2, W.permata);
+    } else if (kepala === 'tanduk') {
+        for (const [x, d] of [[9, -1], [29, 1]]) {
+            kotak(g, x, -2, x + 2, -1, W.tandukGelap);
+            kotak(g, x + (d > 0 ? 1 : 0), -4, x + 1 + (d > 0 ? 1 : 0), -3, W.tanduk);
+            kotak(g, x + (d > 0 ? 2 : 0), -6, x + (d > 0 ? 2 : 0), -5, W.tanduk);
+        }
+    } else if (kepala === 'daun') {
+        kotak(g, 20, -3, 20, -1, W.daunGelap);
+        kotak(g, 15, -5, 19, -4, W.daun);
+        kotak(g, 21, -6, 25, -5, W.daun);
+        kotak(g, 16, -4, 18, -4, W.daunGelap);
+    } else if (kepala === 'bandoKucing') {
+        kotak(g, 7, -1, 32, -1, W.bando);
+        for (const x of [7, 27]) {
+            kotak(g, x, -3, x + 5, -2, W.bando);
+            kotak(g, x + 1, -5, x + 4, -4, W.bando);
+            kotak(g, x + 2, -4, x + 3, -2, W.telingaDalam);
+        }
+    }
+    if (ekstra === 'syal') {
+        kotak(g, 2, 17, 37, 19, W.syal);
+        for (let x = 4; x <= 36; x += 4)
+            kotak(g, x, 18, x + 1, 18, W.syalBelang);
+        kotak(g, 30, 20, 33, 25, W.syal);
+        kotak(g, 30, 22, 33, 22, W.syalBelang);
+    } else if (ekstra === 'dasi') {
+        kotak(g, 15, 19, 18, 22, W.dasi);
+        kotak(g, 21, 19, 24, 22, W.dasi);
+        kotak(g, 19, 20, 20, 21, W.dasi);
+    } else if (ekstra === 'kalung') {
+        for (let x = 8; x <= 31; x += 2)
+            kotak(g, x, 18 + (Math.abs(x - 19.5) < 6 ? 1 : 0), x, 18 + (Math.abs(x - 19.5) < 6 ? 1 : 0), W.kalung);
+        kotak(g, 19, 20, 20, 22, W.emas);
+    } else if (ekstra === 'sayap') {
+        for (const [x0, arah] of [[-1, -1], [40, 1]]) {
+            for (let k = 0; k < 4; k++)
+                kotak(g, x0 + arah * k, 6 + k, x0 + arah * k, 14 - k, k % 2 ? W.sayapBayang : W.sayap);
+        }
+    } else if (ekstra === 'ekor') {
+        kotak(g, -1, 19, -1, 21, W.ekor);
+        kotak(g, -3, 17, -2, 19, W.ekor);
+        kotak(g, -4, 14, -4, 17, W.ekor);
+    }
+    if (kepala === 'bawaan' && kelamin === 'laki-laki') {
         // Topi: mahkota membulat di kiri atas, lidah topi ke kanan. Merah,
         // kecuali di badan pink/kuning (biru supaya kontras).
         const [t, tt] = ['pink', 'kuning'].includes(warna) ? [W.topiBiru, W.topiBiruTerang] : [W.topi, W.topiTerang];
@@ -43,7 +102,7 @@ export function pikselRupa({ kelamin = null, tahap = 'dewasa', warna = 'hitam' }
         kotak(g, 12, -3, 20, -3, tt);
         kotak(g, 24, -1, 31, -1, t);
         kotak(g, 16, -5, 17, -5, tt);
-    } else if (kelamin === 'perempuan') {
+    } else if (kepala === 'bawaan' && kelamin === 'perempuan') {
         // Pita di kanan atas: dua sayap + simpul.
         const p = warna === 'pink' ? W.pitaGelap : W.pita;
         kotak(g, 26, -4, 29, -1, p);

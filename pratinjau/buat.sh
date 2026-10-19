@@ -25,7 +25,10 @@ PY
 cp "$DI/index.html" "$HASIL/"
 echo "galeri: $HASIL/index.html"
 if [ "${1:-}" != "--tanpa-server" ]; then
-    pkill -f "http.server 8765 --bind 127.0.0.1" 2>/dev/null || true
+    # Server lama dimatikan lewat PID (pkill -f bisa ikut mengenai perintah pemanggil).
+    for p in $(pgrep -x python3); do
+        tr '\0' ' ' < "/proc/$p/cmdline" | grep -q "http.server 8765" && kill "$p"
+    done
     (cd "$HASIL" && setsid python3 -m http.server 8765 --bind 127.0.0.1 </dev/null >/dev/null 2>&1 &)
     echo "buka: http://127.0.0.1:8765"
 fi

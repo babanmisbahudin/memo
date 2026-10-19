@@ -14,6 +14,8 @@
 //   { jenis: 'peringatan', sisaJam }   12 dan 2 jam sebelum meninggal
 //   { jenis: 'mati', sebab }     'ditelantarkan' | 'tua'
 
+import { KATALOG, WARNA, rapikanRupa } from './studio.js';
+
 export const JAM_MS = 3600 * 1000;
 export const HARI_MS = 24 * JAM_MS;
 
@@ -25,22 +27,13 @@ const KECIL = new Set(['bayi', 'balita']);
 
 export const KELAMIN = ['laki-laki', 'perempuan'];
 
-// Avatar: warna badan + warna mata yang tetap terbaca di atasnya, bentuk mata.
-export const WARNA_BADAN = {
-    hitam: { badan: '#000000', mata: [0.95, 0.97, 1] },
-    putih: { badan: '#e9edf2', mata: [0.12, 0.13, 0.17] },
-    pink: { badan: '#ff8fb8', mata: [0.2, 0.08, 0.14] },
-    biru: { badan: '#3d7bd9', mata: [0.95, 0.97, 1] },
-    kuning: { badan: '#f2c94c', mata: [0.18, 0.14, 0.05] },
-    hijau: { badan: '#3fae6a', mata: [0.95, 0.97, 1] },
-};
-export const BENTUK_MATA = ['kotak', 'bulat', 'sipit'];
+// Avatar = rupa Studio (studio.js): bentuk, warna, pola, mata, warna mata,
+// mulut, pipi, kepala, ekstra. Simpanan lama {warna, mata} ikut terbaca.
+export const WARNA_BADAN = WARNA;
+export const BENTUK_MATA = KATALOG.mata.map(([id]) => id);
 
 export function rapikanAvatar(a) {
-    return {
-        warna: a?.warna in WARNA_BADAN ? a.warna : 'hitam',
-        mata: BENTUK_MATA.includes(a?.mata) ? a.mata : 'kotak',
-    };
+    return rapikanRupa(a);
 }
 export const MAKANAN = { nasi: 0.5, kue: 0.4, buah: 0.3 };
 

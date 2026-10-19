@@ -36,6 +36,15 @@ cek('remaja ber-headphone', ada({ tahap: 'remaja' }, [70, 72, 82]));
 cek('tua: alis putih & tongkat', ada({ tahap: 'tua' }, [235, 235, 230]) && ada({ tahap: 'tua' }, [140, 95, 55]));
 cek('tua laki-laki berjanggut, perempuan berkacamata', ada({ kelamin: 'laki-laki', tahap: 'tua' }, [240, 240, 235]) &&
     ada({ kelamin: 'perempuan', tahap: 'tua' }, [200, 170, 90]) && !ada({ kelamin: 'perempuan', tahap: 'tua' }, [240, 240, 235]));
+for (const kepala of ['tanpa', 'antena', 'mahkota', 'tanduk', 'daun', 'bandoKucing']) {
+    for (const ekstra of ['tanpa', 'syal', 'dasi', 'kalung', 'sayap', 'ekor']) {
+        const d = pikselRupa({ kelamin: 'perempuan', tahap: 'dewasa', kepala, ekstra });
+        cek(`studio ${kepala}/${ekstra}: di batas`, d.every(([x, y]) => x >= RUPA_KOLOM[0] && x <= RUPA_KOLOM[1] && y >= RUPA_BARIS[0] && y <= RUPA_BARIS[1]));
+    }
+}
+cek('kepala pilihan menggantikan topi/pita bawaan', !ada({ kelamin: 'perempuan', kepala: 'mahkota' }, [255, 90, 140]) &&
+    ada({ kelamin: 'perempuan', kepala: 'mahkota' }, [255, 200, 60]) && pikselRupa({ kelamin: 'laki-laki', kepala: 'tanpa' }).length === 0);
+cek('ekstra tergambar', ['syal', 'dasi', 'kalung', 'sayap', 'ekor'].every(e => pikselRupa({ ekstra: e }).length > 4));
 // Aksesori tidak menutupi mata (kolom 11-16 & 24-29, baris 10-14), kecuali bingkai kacamata di sekelilingnya.
 const tutupMata = d => d.some(([x, y]) => y >= 10 && y <= 14 && ((x >= 11 && x <= 16) || (x >= 24 && x <= 29)));
 cek('aksesori tidak menutupi mata', tahapan.every(t => ['laki-laki', 'perempuan', null].every(k => !tutupMata(pikselRupa({ kelamin: k, tahap: t })))));
