@@ -1,8 +1,7 @@
 # Memo
 
 Asisten desktop GNOME berwujud robot bermata ekspresif yang menempel di
-Dynamic Island (`dynamic-island@local`). Meniru
-[Coucou](https://github.com/Louis-CFM/coucou): memantau agen coding, memberi
+Dynamic Island (`dynamic-island@local`). memantau agen coding, memberi
 kartu izin di island, chat ke beberapa otak AI, dan mengabarkan kejadian
 LebihTeratur ke laptop.
 
